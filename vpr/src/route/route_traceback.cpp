@@ -1,8 +1,18 @@
+//mycode ===========
+#include "route_export.h"
+//===============
 #include "route_traceback.h"
 #include "route_common.h"
 #include "vpr_types.h" //For t_trace
 
+
 t_traceback::t_traceback(const t_traceback& other) {
+    //FILE* fp1;
+    //fp1 = fopen("traceback_output.log", "w");
+    //print_route(fp1, other);
+    //std::string filename = vtr::string_fmt("traceback_output.route");
+    //print_route(nullptr, filename.c_str());
+    //printf("Copying trace %d %d \n", other.head->index, other.tail->index);
     VTR_ASSERT((other.head == nullptr && other.tail == nullptr) || (other.head && other.tail && other.tail->next == nullptr));
 
     //Deep-copy of traceback

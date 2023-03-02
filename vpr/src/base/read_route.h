@@ -10,5 +10,6 @@
 #define READ_ROUTE_H
 
 bool read_route(const char* route_file, const t_router_opts& RouterOpts, bool verify_file_digests);
+bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, const t_router_opts& RouterOpts, bool verify_file_digests);
 
 #endif /* READ_ROUTE_H */

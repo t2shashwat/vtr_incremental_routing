@@ -235,7 +235,102 @@ void try_graph(int width_fac, const t_router_opts& router_opts, t_det_routing_ar
                     directs, num_directs,
                     &warning_count);
 }
+//mycode ========================================
+bool try_route_incr_route(int width_fac,
+               const t_file_name_opts& filename_opts,
+               const t_router_opts& router_opts,
+               const t_analysis_opts& analysis_opts,
+               t_det_routing_arch* det_routing_arch,
+               std::vector<t_segment_inf>& segment_inf,
+               ClbNetPinsMatrix<float>& net_delay,
+               std::shared_ptr<SetupHoldTimingInfo> timing_info,
+               std::shared_ptr<RoutingDelayCalculator> delay_calc,
+               t_chan_width_dist chan_width_dist,
+               t_direct_inf* directs,
+               int num_directs,
+               ScreenUpdatePriority first_iteration_priority,
+               bool is_flat) {
+    /* Attempts a routing via an iterated maze router algorithm.  Width_fac *
+     * specifies the relative width of the channels, while the members of   *
+     * router_opts determine the value of the costs assigned to routing     *
+     * resource node, etc.  det_routing_arch describes the detailed routing *
+     * architecture (connection and switch boxes) of the FPGA; it is used   *
+     * only if a DETAILED routing has been selected.                        */
 
+    auto& device_ctx = g_vpr_ctx.mutable_device();
+    auto& cluster_ctx = g_vpr_ctx.clustering();
+
+    t_graph_type graph_type;
+    t_graph_type graph_directionality;
+    if (router_opts.route_type == GLOBAL) {
+        graph_type = GRAPH_GLOBAL;
+        graph_directionality = GRAPH_BIDIR;
+    } else {
+        graph_type = (det_routing_arch->directionality == BI_DIRECTIONAL ? GRAPH_BIDIR : GRAPH_UNIDIR);
+        graph_directionality = (det_routing_arch->directionality == BI_DIRECTIONAL ? GRAPH_BIDIR : GRAPH_UNIDIR);
+    }
+
+    /* Set the channel widths */
+    t_chan_width chan_width = init_chan(width_fac, chan_width_dist, graph_directionality);
+
+    /* Set up the routing resource graph defined by this FPGA architecture. */
+    int warning_count;
+
+    create_rr_graph(graph_type,
+                    device_ctx.physical_tile_types,
+                    device_ctx.grid,
+                    chan_width,
+                    device_ctx.num_arch_switches,
+                    det_routing_arch,
+                    segment_inf,
+                    router_opts,
+                    directs,
+                    num_directs,
+                    &warning_count,
+                    is_flat);
+
+    //Initialize drawing, now that we have an RR graph
+    init_draw_coords(width_fac);
+
+    bool success = true;
+
+    /* Allocate and load additional rr_graph information needed only by the router. */
+    alloc_and_load_rr_node_route_structs();
+
+    init_route_structs(router_opts.bb_factor);
+
+    if (cluster_ctx.clb_nlist.nets().empty()) {
+        VTR_LOG_WARN("No nets to route\n");
+    }
+
+    if (router_opts.router_algorithm == BREADTH_FIRST) {
+        VTR_LOG("Confirming router algorithm: BREADTH_FIRST.\n");
+        success = try_breadth_first_route(router_opts);
+    } else { /* TIMING_DRIVEN route */
+        VTR_LOG("Confirming router algorithm: TIMING_DRIVEN.\n");
+        auto& atom_ctx = g_vpr_ctx.atom();
+
+        IntraLbPbPinLookup intra_lb_pb_pin_lookup(device_ctx.logical_block_types);
+        ClusteredPinAtomPinsLookup netlist_pin_lookup(cluster_ctx.clb_nlist, atom_ctx.nlist, intra_lb_pb_pin_lookup);
+        
+        success = try_timing_driven_route_incr_route(
+            router_opts,
+            filename_opts,
+            analysis_opts,
+            segment_inf,
+            net_delay,
+            netlist_pin_lookup,
+            timing_info,
+            delay_calc,
+            first_iteration_priority,
+            is_flat);
+
+        profiling::time_on_fanout_analysis();
+    }
+
+    return (success);
+}
+//===========================
 bool try_route(int width_fac,
                const t_router_opts& router_opts,
                const t_analysis_opts& analysis_opts,
@@ -421,7 +516,7 @@ void pathfinder_update_single_node_occupancy(int inode, int add_or_sub) {
      * usage of a resource node. */
 
     auto& route_ctx = g_vpr_ctx.mutable_routing();
-
+    //printf("single node occupancy of %d: %d\n", inode, route_ctx.rr_node_route_inf[inode].occ());
     int occ = route_ctx.rr_node_route_inf[inode].occ() + add_or_sub;
     route_ctx.rr_node_route_inf[inode].set_occ(occ);
     // can't have negative occupancy
@@ -1750,3 +1845,5 @@ std::string describe_unrouteable_connection(const int source_node, const int sin
 
     return msg;
 }
+
+//===============================================

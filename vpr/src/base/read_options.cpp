@@ -2170,7 +2170,18 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             " declared unroutable at a given channel width")
         .default_value("50")
         .show_in(argparse::ShowIn::HELP_ONLY);
-
+    //mycode==================================
+    route_grp.add_argument(args.incr_route, "--incr_route")
+        .help(
+            "Sets the incremental routing mode")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.icr_iter, "--icr_iter")
+        .help(
+            "Sets the iteration of incremental routing mode")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    //========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")
         .default_value("0.0")

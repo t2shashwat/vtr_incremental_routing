@@ -377,7 +377,10 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->route_type = Options.RouteType;
 
     RouterOpts->full_stats = Options.full_stats;
-
+    //mycode==================================
+    RouterOpts->incr_route = Options.incr_route;
+    RouterOpts->icr_iter = Options.icr_iter;
+    //========================================
     //TODO document these?
     RouterOpts->congestion_analysis = Options.full_stats;
     RouterOpts->fanout_analysis = Options.full_stats;

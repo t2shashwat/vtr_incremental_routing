@@ -796,7 +796,7 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
             //Do the actual routing
             if (NO_FIXED_CHANNEL_WIDTH == chan_width) {
                 //Find minimum channel width
-                route_status = vpr_route_min_W(vpr_setup, arch, timing_info, routing_delay_calc, net_delay, is_flat);
+                //route_status = vpr_route_min_W(vpr_setup, arch, timing_info, routing_delay_calc, net_delay, is_flat);
             } else {
                 //Route at specified channel width
                 route_status = vpr_route_fixed_W(vpr_setup, arch, chan_width, timing_info, routing_delay_calc, net_delay, is_flat);
@@ -887,8 +887,13 @@ RouteStatus vpr_route_fixed_W(t_vpr_setup& vpr_setup,
     if (NO_FIXED_CHANNEL_WIDTH == fixed_channel_width || fixed_channel_width <= 0) {
         VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Fixed channel width must be specified when routing at fixed channel width (was %d)", fixed_channel_width);
     }
-
-    bool status = try_route(fixed_channel_width,
+    //mycode:
+    //============
+    printf("********* MYCODE: Entering try route *******************");
+    //===========//renamed try_route to try_route_incr_route
+    
+    bool status = try_route_incr_route(fixed_channel_width,
+                            vpr_setup.FileNameOpts,//my argument
                             vpr_setup.RouterOpts,
                             vpr_setup.AnalysisOpts,
                             &vpr_setup.RoutingArch,
@@ -897,7 +902,8 @@ RouteStatus vpr_route_fixed_W(t_vpr_setup& vpr_setup,
                             timing_info,
                             delay_calc,
                             arch.Chans,
-                            arch.Directs, arch.num_directs,
+                            arch.Directs, 
+                            arch.num_directs,
                             ScreenUpdatePriority::MAJOR,
                             is_flat);
 

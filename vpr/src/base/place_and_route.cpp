@@ -188,7 +188,8 @@ int binary_search_place_and_route(const t_placer_opts& placer_opts_ref,
                       arch->num_directs,
                       false);
         }
-        success = try_route(current,
+        success = try_route_incr_route(current,
+                            filename_opts,
                             router_opts,
                             analysis_opts,
                             det_routing_arch, segment_inf,
@@ -323,7 +324,8 @@ int binary_search_place_and_route(const t_placer_opts& placer_opts_ref,
                           arch->Directs, arch->num_directs,
                           false);
             }
-            success = try_route(current,
+            success = try_route_incr_route(current,
+                                filename_opts,
                                 router_opts,
                                 analysis_opts,
                                 det_routing_arch,

@@ -28,6 +28,21 @@ bool try_route(int width_fac,
                ScreenUpdatePriority first_iteration_priority,
                bool is_flat);
 
+bool try_route_incr_route(int width_fac,
+               const t_file_name_opts& filename_opts,
+               const t_router_opts& router_opts,
+               const t_analysis_opts& analysis_opts,
+               t_det_routing_arch* det_routing_arch,
+               std::vector<t_segment_inf>& segment_inf,
+               ClbNetPinsMatrix<float>& net_delay,
+               std::shared_ptr<SetupHoldTimingInfo> timing_info,
+               std::shared_ptr<RoutingDelayCalculator> delay_calc,
+               t_chan_width_dist chan_width_dist,
+               t_direct_inf* directs,
+               int num_directs,
+               ScreenUpdatePriority first_iteration_priority,
+               bool is_flat);
+
 bool feasible_routing();
 
 std::vector<int> collect_congested_rr_nodes();

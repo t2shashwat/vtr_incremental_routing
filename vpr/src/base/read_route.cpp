@@ -45,11 +45,18 @@
 #include "route_common.h"
 #include "read_route.h"
 #include "binary_heap.h"
-
+//bool read_route(const char* route_file, const t_router_opts& RouterOpts, bool verify_file_digests);
 /*************Functions local to this module*************/
 static void process_route(std::ifstream& fp, const char* filename, int& lineno);
 static void process_nodes(std::ifstream& fp, ClusterNetId inet, const char* filename, int& lineno);
 static void process_nets(std::ifstream& fp, ClusterNetId inet, std::string name, std::vector<std::string> input_tokens, const char* filename, int& lineno);
+//mycode ================================================
+//bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, const t_router_opts& RouterOpts, bool verify_file_digests);
+static void process_route_incr_route(ClusterNetId inet_target, std::ifstream& fp, const char* filename, int& lineno);
+static void process_nodes_incr_route(std::ifstream& fp, ClusterNetId inet, const char* filename, int& lineno);
+static void process_nets_incr_route(std::ifstream& fp, ClusterNetId inet, std::string name, std::vector<std::string> input_tokens, const char* filename, int& lineno);
+
+//========================================================
 static void process_global_blocks(std::ifstream& fp, ClusterNetId inet, const char* filename, int& lineno);
 static void format_coordinates(int& x, int& y, std::string coord, ClusterNetId net, const char* filename, const int lineno);
 static void format_pin_info(std::string& pb_name, std::string& port_name, int& pb_pin_num, std::string input);
@@ -141,6 +148,7 @@ bool read_route(const char* route_file, const t_router_opts& router_opts, bool v
     return is_feasible;
 }
 
+
 ///@brief Walks through every net and add the routing appropriately
 static void process_route(std::ifstream& fp, const char* filename, int& lineno) {
     std::string input;
@@ -230,7 +238,6 @@ static void process_nodes(std::ifstream& fp, ClusterNetId inet, const char* file
 
         tokens.clear();
         tokens = vtr::split(input);
-
         if (tokens.empty()) {
             continue; /*Skip blank lines*/
         } else if (tokens[0][0] == '#') {
@@ -527,3 +534,359 @@ static bool check_rr_graph_connectivity(RRNodeId prev_node, RRNodeId node) {
 
     return false;
 }
+
+//mycode =======================================
+bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, const t_router_opts& router_opts, bool verify_file_digests) {
+    auto& device_ctx = g_vpr_ctx.mutable_device();
+    auto& place_ctx = g_vpr_ctx.placement();
+    /* Begin parsing the file */
+    VTR_LOG("Begin loading FPGA routing file.\n");
+
+    std::string header_str;
+
+    std::ifstream fp;
+    fp.open(route_file);
+    VTR_LOG("2. Begin loading FPGA routing file.\n");
+
+    int lineno = 0;
+
+    if (!fp.is_open()) {
+        vpr_throw(VPR_ERROR_ROUTE, route_file, lineno,
+                  "Cannot open %s routing file", route_file);
+    }
+
+    std::getline(fp, header_str);
+    ++lineno;
+
+    std::vector<std::string> header = vtr::split(header_str);
+    if (header[0] == "Placement_File:" && header[2] == "Placement_ID:" && header[3] != place_ctx.placement_id) {
+        auto msg = vtr::string_fmt(
+            "Placement file %s specified in the routing file"
+            " does not match the loaded placement (ID %s != %s)",
+            header[1].c_str(), header[3].c_str(), place_ctx.placement_id.c_str());
+        if (verify_file_digests) {
+            vpr_throw(VPR_ERROR_ROUTE, route_file, lineno, msg.c_str());
+        } else {
+            VTR_LOGF_WARN(route_file, lineno, "%s\n", msg.c_str());
+        }
+    }
+    VTR_LOG("3. Begin loading FPGA routing file.\n");
+
+    /*Allocate necessary routing structures*/
+    alloc_and_load_rr_node_route_structs();// commenting because already called in route_common file try_route function
+    init_route_structs(router_opts.bb_factor);
+
+    /*Check dimensions*/
+    std::getline(fp, header_str);
+    ++lineno;
+    header.clear();
+    header = vtr::split(header_str);
+    if (header[0] == "Array" && header[1] == "size:" && (vtr::atou(header[2].c_str()) != device_ctx.grid.width() || vtr::atou(header[4].c_str()) != device_ctx.grid.height())) {
+        vpr_throw(VPR_ERROR_ROUTE, route_file, lineno,
+                  "Device dimensions %sx%s specified in the routing file does not match given %dx%d ",
+                  header[2].c_str(), header[4].c_str(), device_ctx.grid.width(), device_ctx.grid.height());
+    }
+
+    /* Read in every net */
+    //t_rt_node* rt_root;
+    VTR_LOG("4. Begin loading FPGA routing file.\n");
+    process_route_incr_route(inet_target, fp, route_file, lineno);
+
+    fp.close();
+
+    /*Correctly set up the clb opins*/
+    //BinaryHeap small_heap;
+    //small_heap.init_heap(device_ctx.grid);
+    //reserve_locally_used_opins(&small_heap, router_opts.initial_pres_fac,
+    //                           router_opts.acc_fac, false);
+    //recompute_occupancy_from_scratch();
+
+    /* Note: This pres_fac is not necessarily correct since it isn't the first routing iteration*/
+    //OveruseInfo overuse_info(device_ctx.rr_graph.num_nodes());
+    //pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
+
+    //reserve_locally_used_opins(&small_heap, router_opts.initial_pres_fac,
+    //                          router_opts.acc_fac, true);
+
+    /* Finished loading in the routing, now check it*/
+    //recompute_occupancy_from_scratch();
+    //bool is_feasible = feasible_routing();
+    //printf("feasible routing in read route file: %d\n", is_feasible);
+    //VTR_LOG("Finished loading route file for net %s\n", inet_target);
+
+    return true;
+}
+
+///@brief Walks through every net and add the routing appropriately
+static void process_route_incr_route(ClusterNetId inet_target, std::ifstream& fp, const char* filename, int& lineno) {
+    std::string input;
+    std::vector<std::string> tokens;
+    //VTR_LOG("5. Begin loading FPGA routing file.\n");
+    //printf("************* 6. In process_route_incr_route *******\n");
+    while (std::getline(fp, input)) {
+        ++lineno;
+        tokens.clear();
+        tokens = vtr::split(input);
+        if (tokens.empty()) {
+            continue; //Skip blank lines
+        } else if (tokens[0][0] == '#') {
+            continue; //Skip commented lines
+        } else if (tokens[0] == "Net") {
+            ClusterNetId inet(atoi(tokens[1].c_str()));
+            //if (inet == inet_target){
+            //printf("****** HERE FOUND THE NET ***** %d, %d", inet, inet_target);
+            process_nets_incr_route(fp, inet, tokens[2], tokens, filename, lineno);
+            //}    
+        }
+    }
+
+    tokens.clear();
+}
+
+///@brief Check if the net is global or not, and process appropriately
+static void process_nets_incr_route(std::ifstream& fp, ClusterNetId inet, std::string name, std::vector<std::string> input_tokens, const char* filename, int& lineno) {
+    auto& cluster_ctx = g_vpr_ctx.mutable_clustering();
+    //printf("************* 7. In process_nets_incr_route *******\n");
+    //t_rt_node* rt_root;    
+    if (input_tokens.size() > 3 && input_tokens[3] == "global"
+        && input_tokens[4] == "net" && input_tokens[5] == "connecting:") {
+        /* Global net.  Never routed. */
+        if (!cluster_ctx.clb_nlist.net_is_ignored(inet)) {
+            vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                      "Net %lu should be a global net", size_t(inet));
+        }
+        /*erase an extra colon for global nets*/
+        name.erase(name.end() - 1);
+        name = format_name(name);
+
+        if (0 != cluster_ctx.clb_nlist.net_name(inet).compare(name)) {
+            vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                      "Net name %s for net number %lu specified in the routing file does not match given %s",
+                      name.c_str(), size_t(inet), cluster_ctx.clb_nlist.net_name(inet).c_str());
+        }
+
+        process_global_blocks(fp, inet, filename, lineno);
+    } else {
+        /* Not a global net */
+        if (cluster_ctx.clb_nlist.net_is_ignored(inet)) {
+            VTR_LOG_WARN("Net %lu (%s) is marked as global in the netlist, but is non-global in the .route file\n", size_t(inet), cluster_ctx.clb_nlist.net_name(inet).c_str());
+        }
+
+        name = format_name(name);
+
+        if (0 != cluster_ctx.clb_nlist.net_name(inet).compare(name)) {
+            vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                      "Net name %s for net number %lu specified in the routing file does not match given %s",
+                      name.c_str(), size_t(inet), cluster_ctx.clb_nlist.net_name(inet).c_str());
+        }
+
+        process_nodes_incr_route(fp, inet, filename, lineno);
+    }
+    input_tokens.clear();
+    return;
+}
+
+
+static void process_nodes_incr_route(std::ifstream& fp, ClusterNetId inet, const char* filename, int& lineno) {
+    /* Not a global net. Goes through every node and add it into trace.head*/
+
+    auto& cluster_ctx = g_vpr_ctx.mutable_clustering();
+    auto& device_ctx = g_vpr_ctx.mutable_device();
+    const auto& rr_graph = device_ctx.rr_graph;
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
+    auto& place_ctx = g_vpr_ctx.placement();
+
+    //printf("************* 8. In process_nodes_incr_route *******\n");
+    t_trace* tptr = route_ctx.trace[inet].head;
+
+    /*remember the position of the last line in order to go back*/
+    std::streampos oldpos = fp.tellg();
+    int inode, x, y, x2, y2, ptc, switch_id, net_pin_index, offset;
+    std::string prev_type;
+    int node_count = 0;
+    std::string input;
+    std::vector<std::string> tokens;
+    RRNodeId prev_node(-1);
+
+    /*Walk through every line that begins with Node:*/
+    while (std::getline(fp, input)) {
+        ++lineno;
+
+        tokens.clear();
+        tokens = vtr::split(input);
+        int tail_flag = 0;
+        if (tokens.empty()) {
+            continue; /*Skip blank lines*/
+        } else if (tokens[0][0] == '#') {
+            continue; /*Skip commented lines*/
+        } else if (tokens[0] == "Net") {
+            /*End of the nodes list,
+             *  return by moving the position of next char of input stream to be before net*/
+            fp.seekg(oldpos);
+            return;
+        } else if (input == "\n\nUsed in local cluster only, reserved one CLB pin\n\n") {
+            if (cluster_ctx.clb_nlist.net_sinks(inet).size() != 0) {
+                vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                          "Net %d should be used in local cluster only, reserved one CLB pin");
+            }
+            return;
+        } else if (tokens[0] == "Node:") {
+            /*An actual line, go through each node and add it to the route tree*/
+            inode = atoi(tokens[1].c_str());
+
+            /*First node needs to be source. It is isolated to correctly set heap head.*/
+            if (node_count == 0 && tokens[2] != "SOURCE") {
+                vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                          "First node in routing has to be a source type");
+            }
+
+            /*Check node types if match rr graph*/
+            if (tokens[2] != rr_graph.node_type_string(RRNodeId(inode))) {
+                vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                          "Node %d has a type that does not match the RR graph", inode);
+            }
+
+            format_coordinates(x, y, tokens[3], inet, filename, lineno);
+            auto rr_node = RRNodeId(inode);
+
+            if (tokens[4] == "to") {
+                format_coordinates(x2, y2, tokens[5], inet, filename, lineno);
+                if (rr_graph.node_xlow(rr_node) != x || rr_graph.node_xhigh(rr_node) != x2 || rr_graph.node_yhigh(rr_node) != y2 || rr_graph.node_ylow(rr_node) != y) {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "The coordinates of node %d does not match the rr graph", inode);
+                }
+                offset = 2;
+
+                /* Check for connectivity, this throws an exception when a dangling net is encountered in the routing file */
+                bool legal_node = check_rr_graph_connectivity(prev_node, rr_node);
+                if (!legal_node) {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno, "Dangling branch at net %lu, nodes %d -> %d: %s", inet, prev_node, inode, input.c_str());
+                }
+                prev_node = rr_node;
+            } else {
+                if (rr_graph.node_xlow(rr_node) != x || rr_graph.node_xhigh(rr_node) != x || rr_graph.node_yhigh(rr_node) != y || rr_graph.node_ylow(rr_node) != y) {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "The coordinates of node %d does not match the rr graph", inode);
+                }
+                offset = 0;
+
+                bool legal_node = check_rr_graph_connectivity(prev_node, rr_node);
+                prev_node = rr_node;
+                if (!legal_node) {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno, "Dangling branch at net %lu, nodes %d -> %d: %s", inet, prev_node, inode, input.c_str());
+                }
+                prev_node = rr_node;
+            }
+
+            /* Verify types and ptc*/
+            if (tokens[2] == "SOURCE" || tokens[2] == "SINK" || tokens[2] == "OPIN" || tokens[2] == "IPIN") {
+                if (tokens[4 + offset] == "Pad:" && !is_io_type(device_ctx.grid[x][y].type)) {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "Node %d is of the wrong type", inode);
+                }
+            } else if (tokens[2] == "CHANX" || tokens[2] == "CHANY") {
+                if (tokens[4 + offset] != "Track:") {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "A %s node have to have track info", tokens[2].c_str());
+                }
+            }
+
+            ptc = atoi(tokens[5 + offset].c_str());
+            if (rr_graph.node_ptc_num(RRNodeId(inode)) != ptc) {
+                vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                          "The ptc num of node %d does not match the rr graph", inode);
+            }
+
+            /*Process switches and pb pin info if it is ipin or opin type*/
+            if (tokens[6 + offset] != "Switch:") {
+                /*This is an opin or ipin, process its pin nums*/
+                if (!is_io_type(device_ctx.grid[x][y].type) && (tokens[2] == "IPIN" || tokens[2] == "OPIN")) {
+                    int pin_num = rr_graph.node_pin_num(RRNodeId(inode));
+
+                    auto type = device_ctx.grid[x][y].type;
+                    int height_offset = device_ctx.grid[x][y].height_offset;
+
+                    int capacity, relative_pin;
+                    std::tie(capacity, relative_pin) = get_capacity_location_from_physical_pin(type, pin_num);
+
+                    ClusterBlockId iblock = place_ctx.grid_blocks[x][y - height_offset].blocks[capacity];
+                    t_pb_graph_pin* pb_pin;
+
+                    pb_pin = get_pb_graph_node_pin_from_block_pin(iblock, pin_num);
+                    t_pb_type* pb_type = pb_pin->parent_node->pb_type;
+
+                    std::string pb_name, port_name;
+                    int pb_pin_num;
+
+                    format_pin_info(pb_name, port_name, pb_pin_num, tokens[6 + offset]);
+
+                    if (pb_name != pb_type->name || port_name != pb_pin->port->name || pb_pin_num != pb_pin->pin_number) {
+                        vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                                  "%d node does not have correct pins", inode);
+                    }
+                } else {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "%d node does not have correct pins", inode);
+                }
+                switch_id = atoi(tokens[8 + offset].c_str());
+            } else {
+                switch_id = atoi(tokens[7 + offset].c_str());
+            }
+
+            /* Process net pin index for sinks                                   *
+             * If you have an old .route file, it may not have this information  *
+             * Please check your .route file to see if it contains Net_pin_index *
+             * information for sinks. If not, plrase re-generate the routing.    */
+            if (tokens[2] == "SINK") {
+                tail_flag = 1;
+                if (tokens[8 + offset] == "Net_pin_index:") {
+                    net_pin_index = atoi(tokens[9 + offset].c_str());
+                } else {
+                    vpr_throw(VPR_ERROR_ROUTE, filename, lineno,
+                              "%d (sink) node does not have net pin index. If you are using an old .route file without this information, please re-generate the routing.", inode);
+                }
+            } else {
+                net_pin_index = OPEN; //net pin index is invalid for non-SINKs
+            }
+
+            /* Allocate and load correct values to trace.head*/
+            if (node_count == 0) {
+                route_ctx.trace[inet].head = alloc_trace_data();
+                route_ctx.trace[inet].head->index = inode;
+                route_ctx.trace[inet].head->net_pin_index = net_pin_index;
+                route_ctx.trace[inet].head->iswitch = switch_id;
+                route_ctx.trace[inet].head->next = nullptr;
+                tptr = route_ctx.trace[inet].head;
+                node_count++;
+                //mycode====assuming initially inode occ will be zero
+                //int occ = 1;
+                //int occ = route_ctx.rr_node_route_inf[inode].occ() + 1;
+                //route_ctx.rr_node_route_inf[inode].set_occ(occ);
+                //==========
+            } else {
+                tptr->next = alloc_trace_data();
+                tptr = tptr->next;
+                tptr->index = inode;
+                tptr->net_pin_index = net_pin_index;
+                tptr->iswitch = switch_id;
+                tptr->next = nullptr;
+                node_count++;
+                if (tail_flag == 1){
+                    //printf("Are we here to set tail\n");
+                    route_ctx.trace[inet].tail = tptr;
+                }
+                //mycode====assuming initially inode occ will be zero
+                //int occ = route_ctx.rr_node_route_inf[tptr->index].occ() + 1;
+                //route_ctx.rr_node_route_inf[tptr->index].set_occ(occ);
+                //==========
+            }
+        }
+        /*stores last line so can easily go back to read*/
+        oldpos = fp.tellg();
+    }
+    //t_rt_node* rt_root = tptr[head->index]
+    return;
+}
+
+
+//==============================================
