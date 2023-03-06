@@ -2491,7 +2491,12 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         std::unordered_map<size_t, float> history_cost_map;
         std::unordered_map<size_t, size_t> node_id_map;
         if(router_opts.incr_route == 1 && router_opts.icr_iter >= 1 && itry == 1){
-            read_route_incr_route(temp_net_id, filename_opts.RouteFile.c_str(), router_opts, filename_opts.verify_file_digests);
+            std::string suffix = "_to_legalise.route";
+            std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
+            std::string route_file_to_legalise =  prefix + suffix;
+            VTR_LOG("******* route_file_to_legalise after concatenation %c\n", route_file_to_legalise);
+
+            read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
             VTR_LOG("################# LOADDDDDEDDDDDDD ROUTE FILE ####################\n");
             
             //reading hist file
