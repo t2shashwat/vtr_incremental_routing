@@ -545,13 +545,21 @@ bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, con
     std::string header_str;
 
     std::ifstream fp;
-    fp.open(route_file);
+    char* route_file_to_legalise_t;
+    for (int ii=0;ii<14;ii++){
+	    route_file_to_legalise_t[ii] = route_file[ii];
+    }	    
+    const char* route_file_to_legalise = route_file_to_legalise_t;
+   
+   
+   
+    fp.open(route_file_to_legalise);
     VTR_LOG("2. Begin loading FPGA routing file.\n");
 
     int lineno = 0;
 
     if (!fp.is_open()) {
-        vpr_throw(VPR_ERROR_ROUTE, route_file, lineno,
+        vpr_throw(VPR_ERROR_ROUTE, route_file_to_legalise, lineno,
                   "Cannot open %s routing file", route_file);
     }
 
@@ -565,9 +573,9 @@ bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, con
             " does not match the loaded placement (ID %s != %s)",
             header[1].c_str(), header[3].c_str(), place_ctx.placement_id.c_str());
         if (verify_file_digests) {
-            vpr_throw(VPR_ERROR_ROUTE, route_file, lineno, msg.c_str());
+            vpr_throw(VPR_ERROR_ROUTE, route_file_to_legalise, lineno, msg.c_str());
         } else {
-            VTR_LOGF_WARN(route_file, lineno, "%s\n", msg.c_str());
+            VTR_LOGF_WARN(route_file_to_legalise, lineno, "%s\n", msg.c_str());
         }
     }
     VTR_LOG("3. Begin loading FPGA routing file.\n");
@@ -582,7 +590,7 @@ bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, con
     header.clear();
     header = vtr::split(header_str);
     if (header[0] == "Array" && header[1] == "size:" && (vtr::atou(header[2].c_str()) != device_ctx.grid.width() || vtr::atou(header[4].c_str()) != device_ctx.grid.height())) {
-        vpr_throw(VPR_ERROR_ROUTE, route_file, lineno,
+        vpr_throw(VPR_ERROR_ROUTE, route_file_to_legalise, lineno,
                   "Device dimensions %sx%s specified in the routing file does not match given %dx%d ",
                   header[2].c_str(), header[4].c_str(), device_ctx.grid.width(), device_ctx.grid.height());
     }
@@ -590,7 +598,7 @@ bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, con
     /* Read in every net */
     //t_rt_node* rt_root;
     VTR_LOG("4. Begin loading FPGA routing file.\n");
-    process_route_incr_route(inet_target, fp, route_file, lineno);
+    process_route_incr_route(inet_target, fp, route_file_to_legalise, lineno);
 
     fp.close();
 
