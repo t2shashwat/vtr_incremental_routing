@@ -3240,11 +3240,15 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     auto& route_ctx = g_vpr_ctx.routing();
 
     t_rt_node* rt_root;
-
+    ClusterNetId debug_net = (ClusterNetId)64511;
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
     if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
+	if (net_id == debug_net){
+		VTR_LOG("NET %d is ripped up completely\n", net_id);
+		VTR_LOG("NET %d has %d sinks\n", net_id, num_sinks);
+	}
         profiling::net_rerouted();
 
         // rip up the whole net
@@ -3265,6 +3269,10 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         mark_ends(net_id);
         
     } else {
+	if (net_id == debug_net){
+		VTR_LOG("*#*#*#*#*#* NET %d is NOT ripped up completely\n", net_id);
+		VTR_LOG("*#*#*#*#*#* NET %d has %d sinks\n", net_id, num_sinks);
+	}
         auto& reached_rt_sinks = connections_inf.get_reached_rt_sinks();
         auto& remaining_targets = connections_inf.get_remaining_targets();
 
