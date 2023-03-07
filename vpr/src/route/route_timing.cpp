@@ -2614,8 +2614,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
         //Output progress
         print_route_status(itry, iter_elapsed_time, pres_fac, num_net_bounding_boxes_updated, router_iteration_stats, overuse_info, wirelength_info, timing_info, est_success_iteration);
-        VTR_LOG("NETS COMPLETELY RIPPED UP: %d", complete_rip_up_net_count);
-        VTR_LOG("NETS PARTIALLY RIPPED UP: %d", partial_rip_up_net_count);
+        VTR_LOG("NETS COMPLETELY RIPPED UP: %d\n", complete_rip_up_net_count);
+        VTR_LOG("NETS PARTIALLY RIPPED UP: %d\n", partial_rip_up_net_count);
         prev_iter_cumm_time = iter_cumm_time;
 
         //Update graphics
