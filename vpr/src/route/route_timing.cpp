@@ -2251,6 +2251,8 @@ bool try_timing_driven_route_incr_route(const t_router_opts& router_opts,
     }
 }
 
+int complete_rip_up_net_count;
+int partial_rip_up_net_count;
 template<typename ConnectionRouter>
 bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_opts,
                                   const t_router_opts& router_opts,
@@ -2453,6 +2455,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
          * Route each net
          */
         ClusterNetId temp_net_id;
+        complete_rip_up_net_count = 0;
+        partial_rip_up_net_count = 0;
         //printf("####### BEGINING iteration: %d ######################\n", itry);
         for (auto net_id : sorted_nets) {
             temp_net_id = net_id;
@@ -2610,7 +2614,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
         //Output progress
         print_route_status(itry, iter_elapsed_time, pres_fac, num_net_bounding_boxes_updated, router_iteration_stats, overuse_info, wirelength_info, timing_info, est_success_iteration);
-
+        VTR_LOG("NETS COMPLETELY RIPPED UP: %d", complete_rip_up_net_count);
+        VTR_LOG("NETS PARTIALLY RIPPED UP: %d", partial_rip_up_net_count);
         prev_iter_cumm_time = iter_cumm_time;
 
         //Update graphics
@@ -3245,15 +3250,18 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     auto& route_ctx = g_vpr_ctx.routing();
 
     t_rt_node* rt_root;
-    ClusterNetId debug_net = (ClusterNetId)64511;
+    //ClusterNetId debug_net = (ClusterNetId)64511;
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
     if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
-	if (net_id == debug_net){
-		VTR_LOG("NET %d is ripped up completely\n", net_id);
-		VTR_LOG("NET %d has %d sinks\n", net_id, num_sinks);
-	}
+        /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
+            ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
+	        if (net_id == debug_net){
+	    	    VTR_LOG("[COMPLETE RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+	        }
+        }*/    
+        complete_rip_up_net_count++;
         profiling::net_rerouted();
 
         // rip up the whole net
@@ -3274,10 +3282,13 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         mark_ends(net_id);
         
     } else {
-	if (net_id == debug_net){
-		VTR_LOG("*#*#*#*#*#* NET %d is NOT ripped up completely\n", net_id);
-		VTR_LOG("*#*#*#*#*#* NET %d has %d sinks\n", net_id, num_sinks);
-	}
+        /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
+            ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
+	        if (net_id == debug_net){
+	    	    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+	        }
+        }*/
+        partial_rip_up_net_count++;    
         auto& reached_rt_sinks = connections_inf.get_reached_rt_sinks();
         auto& remaining_targets = connections_inf.get_remaining_targets();
 
