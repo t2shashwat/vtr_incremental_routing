@@ -2430,6 +2430,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     //mycode
     float final_pres_fac;
     float pres_fac_new;
+    size_t connections_routed_first_iteration, nets_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration; 
     print_route_status_header();
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
         RouterStats router_iteration_stats;
@@ -2498,10 +2499,10 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string suffix = "_to_legalise.route";
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
             std::string route_file_to_legalise =  prefix + suffix;
-            VTR_LOG("******* route_file_to_legalise after concatenation %c\n", route_file_to_legalise);
+            VTR_LOG("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise);
 
             read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
-            VTR_LOG("################# LOADDDDDEDDDDDDD ROUTE FILE ####################\n");
+            VTR_LOG("******* Successfully loaded partial route file\n");
             
             //reading hist file
             std::ifstream hist_fp;
@@ -2629,12 +2630,19 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string filename = vtr::string_fmt("iteration_%03d.route", itry);
             print_route(nullptr, filename.c_str());
         }
+        if (itry == 1){
+            connections_routed_first_iteration = router_iteration_stats.connections_routed;
+            nets_routed_first_iteration = router_iteration_stats.nets_routed;
+            heap_pushes_first_iteration = router_iteration_stats.heap_pushes;
+            heap_pops_first_iteration = router_iteration_stats.heap_pops;
+        }
 
         //Update router stats (total)
         router_stats.connections_routed += router_iteration_stats.connections_routed;
         router_stats.nets_routed += router_iteration_stats.nets_routed;
         router_stats.heap_pushes += router_iteration_stats.heap_pushes;
         router_stats.heap_pops += router_iteration_stats.heap_pops;
+
 
         /*
          * Are we finished?
@@ -2751,7 +2759,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
             /* Avoid overflow for high iteration counts, even if acc_cost is big */
             pres_fac = update_pres_fac(std::min(pres_fac, static_cast<float>(HUGE_POSITIVE_FLOAT / 1e5)));
-            VTR_LOG("PRES_FAC: %f\n", pres_fac);
+            VTR_LOG("pres fac: %f\n", pres_fac);
             // Increase short path criticality if it's having a hard time resolving hold violations due to congestion
             if (budgeting_inf.if_set()) {
                 bool rcv_finished = false;
@@ -2940,8 +2948,29 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     VTR_LOG("Final Net Connection Criticality Histogram:\n");
     print_router_criticality_histogram(*route_timing_info, netlist_pin_lookup);
 
-    VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
-            router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops);
+    if (router_opts.incr_route == 1){
+        size_t nets_routed_wo_first_iteration = router_stats.nets_routed - nets_routed_first_iteration;
+        size_t connections_routed_wo_first_iteration = router_stats.connections_routed - connections_routed_first_iteration;
+        size_t heap_pushes_wo_first_iteration = router_stats.heap_pushes - heap_pushes_first_iteration;
+        size_t heap_pops_wo_first_iteration = router_stats.heap_pops - heap_pops_first_iteration;
+
+        VTR_LOG("Stats for incremental routing, excluding first itertion\n");
+        VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
+                nets_routed_wo_first_iteration, connections_routed_wo_first_iteration, heap_pushes_wo_first_iteration, heap_pops_wo_first_iteration);
+        
+        VTR_LOG("=============================================================\n");
+        VTR_LOG("Router Stats for first iteration: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
+                nets_routed_first_iteration, connections_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration);
+        VTR_LOG("Stats for incremental routing including all iterations\n");
+        VTR_LOG("xxxxxxxxxxxxxxxxxxx Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
+                router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops);
+        VTR_LOG("=============================================================\n");
+    }
+    else {
+        VTR_LOG("Stats for one-stage routing\n");
+        VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
+                router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops);
+    }
 
     return routing_is_successful;
 }
