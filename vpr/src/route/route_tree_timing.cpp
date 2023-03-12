@@ -61,7 +61,7 @@ static t_rt_node* update_unbuffered_ancestors_C_downstream(t_rt_node* start_of_n
 
 bool verify_route_tree_recurr(t_rt_node* node, std::set<int>& seen_nodes);
 
-static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf, bool congested, std::vector<int>* non_config_node_set_usage);
+static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf, bool congested, std::vector<int>* non_config_node_set_usage, int only_once);
 
 static t_trace* traceback_to_route_tree_branch(t_trace* trace, std::map<int, t_rt_node*>& rr_node_to_rt, std::vector<int>* non_config_node_set_usage);
 
@@ -979,7 +979,7 @@ t_trace* traceback_from_route_tree(ClusterNetId inet, const t_rt_node* root, int
 //Prunes a route tree (recursively) based on congestion and the 'force_prune' argument
 //
 //Returns true if the current node was pruned
-static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf, bool force_prune, std::vector<int>* non_config_node_set_usage) {
+static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf, bool force_prune, std::vector<int>* non_config_node_set_usage, int only_once) {
     //Recursively traverse the route tree rooted at node and remove any congested
     //sub-trees
 
@@ -1011,7 +1011,7 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
     t_linked_rt_edge* edge = node->u.child_list;
     while (edge) {
         t_rt_node* child = prune_route_tree_recurr(edge->child,
-                                                   connections_inf, force_prune, non_config_node_set_usage);
+                                                   connections_inf, force_prune, non_config_node_set_usage, only_once);
 
         if (!child) { //Child was pruned
 
@@ -1105,7 +1105,8 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
 
         if (reached_non_configurably && !force_prune) {
             return node; //Not pruned
-        } else {
+        } else if (only_once == 1){
+            only_once++;
             free_rt_node(&node);
             return nullptr; //Pruned
         }
@@ -1155,7 +1156,7 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
             //  prune_route_tree_recurr visits 2, 3 and 4, the node set usage
             //  will be 0, so everything can be pruned.
             return prune_route_tree_recurr(node, connections_inf,
-                                           /*force_prune=*/false, non_config_node_set_usage);
+                                           /*force_prune=*/false, non_config_node_set_usage, only_once);
         }
 
         //An unpruned intermediate node
@@ -1165,11 +1166,11 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
     }
 }
 
-t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf) {
-    return prune_route_tree(rt_root, connections_inf, nullptr);
+t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, int only_once) {
+    return prune_route_tree(rt_root, connections_inf, nullptr, only_once);
 }
 
-t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, std::vector<int>* non_config_node_set_usage) {
+t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, std::vector<int>* non_config_node_set_usage, int only_once) {
     /* Prune a skeleton route tree of illegal branches - when there is at least 1 congested node on the path to a sink
      * This is the top level function to be called with the SOURCE node as root.
      * Returns true if the entire tree has been pruned.
@@ -1188,7 +1189,7 @@ t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, std::vect
     VTR_ASSERT_MSG(route_ctx.rr_node_route_inf[rt_root->inode].occ() <= rr_graph.node_capacity(RRNodeId(rt_root->inode)),
                    "Route tree root/SOURCE should never be congested");
 
-    return prune_route_tree_recurr(rt_root, connections_inf, false, non_config_node_set_usage);
+    return prune_route_tree_recurr(rt_root, connections_inf, false, non_config_node_set_usage, only_once);
 }
 
 void pathfinder_update_cost_from_route_tree(const t_rt_node* rt_root, int add_or_sub) {

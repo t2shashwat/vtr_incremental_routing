@@ -1489,7 +1489,8 @@ static t_rt_node* setup_routing_resources(int itry,
         VTR_ASSERT_SAFE(should_route_net(net_id, connections_inf, true) || router_opts.routing_budgets_algorithm == YOYO);
 
         //Prune the branches of the tree that don't legally lead to sinks
-        rt_root = prune_route_tree(rt_root, connections_inf);
+        int only_once = 0;
+        rt_root = prune_route_tree(rt_root, connections_inf, only_once);
 
         //Now that the tree has been pruned, we can free the old traceback
         // NOTE: this must happen *after* pruning since it changes the
@@ -2169,8 +2170,9 @@ static void prune_unused_non_configurable_nets(CBRR& connections_inf) {
         VTR_ASSERT_SAFE(is_valid_skeleton_tree(rt_root));
 
         //Prune the branches of the tree that don't legally lead to sinks
+        int only_once = 0;
         rt_root = prune_route_tree(rt_root, connections_inf,
-                                   &non_config_node_set_usage);
+                                   &non_config_node_set_usage, only_once);
 
         // Free old traceback.
         free_traceback(net_id);
@@ -2570,7 +2572,13 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                 if (history_cost_map.find(node_id_from) != history_cost_map.end()){
                     route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];
                 }
+                else {
+                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 0.0;
+                }
             }
+        }
+        else if (router_opts.incr_route == 1 && itry > 1){
+            pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
         }
         
         /*
@@ -2580,9 +2588,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         float est_success_iteration = routing_predictor.estimate_success_iteration();
         printf("Is routing feasible: %d\n", routing_is_feasible);
         //Update resource costs and overuse info
-        if (itry == 1 && router_opts.icr_iter == 0) {
+        if (router_opts.incr_route == 0 && itry == 1) {
             pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); /* Acc_fac=0 for first iter. */
-        } else {
+        } else if (router_opts.incr_route == 0 && itry > 1){
             pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
         }
 
@@ -3279,7 +3287,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     auto& route_ctx = g_vpr_ctx.routing();
 
     t_rt_node* rt_root;
-    //ClusterNetId debug_net = (ClusterNetId)64511;
+    ClusterNetId debug_net = (ClusterNetId)17435;
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
@@ -3317,6 +3325,12 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 	    	    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
 	        }
         }*/
+	    if (net_id == debug_net){
+	        
+           
+            VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+        
+        }
         partial_rip_up_net_count++;    
         auto& reached_rt_sinks = connections_inf.get_reached_rt_sinks();
         auto& remaining_targets = connections_inf.get_remaining_targets();
@@ -3336,7 +3350,8 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         VTR_ASSERT_SAFE(should_route_net(net_id, connections_inf, true) || router_opts.routing_budgets_algorithm == YOYO);
 
         //Prune the branches of the tree that don't legally lead to sinks
-        rt_root = prune_route_tree(rt_root, connections_inf);
+        int only_once = 1;
+        rt_root = prune_route_tree(rt_root, connections_inf, only_once);
 
         //Now that the tree has been pruned, we can free the old traceback
         // NOTE: this must happen *after* pruning since it changes the
