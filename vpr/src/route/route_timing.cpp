@@ -1489,8 +1489,7 @@ static t_rt_node* setup_routing_resources(int itry,
         VTR_ASSERT_SAFE(should_route_net(net_id, connections_inf, true) || router_opts.routing_budgets_algorithm == YOYO);
 
         //Prune the branches of the tree that don't legally lead to sinks
-        int only_once = 0;
-        rt_root = prune_route_tree(rt_root, connections_inf, only_once);
+        rt_root = prune_route_tree(rt_root, connections_inf);
 
         //Now that the tree has been pruned, we can free the old traceback
         // NOTE: this must happen *after* pruning since it changes the
@@ -2170,9 +2169,8 @@ static void prune_unused_non_configurable_nets(CBRR& connections_inf) {
         VTR_ASSERT_SAFE(is_valid_skeleton_tree(rt_root));
 
         //Prune the branches of the tree that don't legally lead to sinks
-        int only_once = 0;
         rt_root = prune_route_tree(rt_root, connections_inf,
-                                   &non_config_node_set_usage, only_once);
+                                   &non_config_node_set_usage);
 
         // Free old traceback.
         free_traceback(net_id);
@@ -2496,6 +2494,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             }
         }
         std::unordered_map<size_t, float> history_cost_map;
+        std::unordered_map<size_t, float> iib_history_cost_map;
         std::unordered_map<size_t, size_t> node_id_map;
         if(router_opts.incr_route == 1 && router_opts.icr_iter >= 1 && itry == 1){
             std::string suffix = "_to_legalise.route";
@@ -2552,7 +2551,22 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             {
                 node_id_map[node_id_to] = node_id_from;
             }
-            node_map_fp.close();            
+            node_map_fp.close();
+            //======================
+            //reading hist file
+            std::ifstream hist_iib_fp;
+            std::string iib_hist_filename = "iib_history_cost_file_"+prev_icr_iter+".txt";
+            hist_iib_fp.open(iib_hist_filename);
+            if (!hist_iib_fp.is_open()) {
+                vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                    "Cannot open history cost file");
+            }
+            int node_id_, history_congestion_cost_;
+            while (hist_iib_fp >> node_id_ >> history_congestion_cost_)
+            {
+                iib_history_cost_map[node_id_] = history_congestion_cost_;
+            }
+            hist_iib_fp.close();
         }
           
         // Make sure any CLB OPINs used up by subblocks being hooked directly to them are reserved for that purpose
@@ -2572,7 +2586,10 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                 if (history_cost_map.find(node_id_from) != history_cost_map.end()){
                     route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];
                 }
-                else {
+                else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){
+                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to];
+                }
+                else{
                     route_ctx.rr_node_route_inf[node_id_to].acc_cost = 0.0;
                 }
             }
@@ -3325,12 +3342,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 	    	    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
 	        }
         }*/
-	    if (net_id == debug_net){
-	        
-           
-            VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
-        
-        }
+	    //if (net_id == debug_net){
+        //    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+        //}
         partial_rip_up_net_count++;    
         auto& reached_rt_sinks = connections_inf.get_reached_rt_sinks();
         auto& remaining_targets = connections_inf.get_remaining_targets();
@@ -3350,8 +3364,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         VTR_ASSERT_SAFE(should_route_net(net_id, connections_inf, true) || router_opts.routing_budgets_algorithm == YOYO);
 
         //Prune the branches of the tree that don't legally lead to sinks
-        int only_once = 1;
-        rt_root = prune_route_tree(rt_root, connections_inf, only_once);
+        rt_root = prune_route_tree(rt_root, connections_inf);
 
         //Now that the tree has been pruned, we can free the old traceback
         // NOTE: this must happen *after* pruning since it changes the
