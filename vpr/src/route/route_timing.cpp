@@ -2590,7 +2590,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                     route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to];
                 }
                 else{
-                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 0.0;
+                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;
                 }
             }
         }
