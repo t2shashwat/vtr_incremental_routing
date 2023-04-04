@@ -74,13 +74,14 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac) {
 
     if (overuse >= 0) {
         pres_cost = (1. + pres_fac * (overuse + 1));
+	
     } else {
         pres_cost = 1.;
     }
 
     auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
-
-    float cost = device_ctx.rr_indexed_data[cost_index].base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;
+    float legal_benefit;
+    float cost = device_ctx.rr_indexed_data[cost_index].base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;// * (route_ctx.rr_node_route_inf[inode].legal * 1.2);
 
     VTR_ASSERT_DEBUG_MSG(
         cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac),
