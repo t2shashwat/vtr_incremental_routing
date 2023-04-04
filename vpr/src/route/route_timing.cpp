@@ -2585,12 +2585,12 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 		auto iter = node_id_map.find(node_id_to);
 		if(iter != node_id_map.end()){
                 	size_t node_id_from = node_id_map[node_id_to];
-                	if (history_cost_map.find(node_id_from) != history_cost_map.end() && iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//Overlapping nodes between GI and IIB, cluster input i.e. wires and clb out pins and cluster outputs lut inputs and ff inputs
-                    		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from] + iib_history_cost_map[node_id_to];//1 + (history_cost_map[node_id_from]-1) * 0.4;
-                	}
-			else if (history_cost_map.find(node_id_from) != history_cost_map.end()){//GI
+			if (history_cost_map.find(node_id_from) != history_cost_map.end()){//GI
                     		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];//1 + (history_cost_map[node_id_from]-1) * 0.4;
                 	}
+			else{
+				VTR_LOG("SHOULD NOT BE HERE\n");
+			}
 			
 		}
 		else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//IIB
@@ -2601,7 +2601,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                     	route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;//std::floor(iib_history_cost_map[node_id_to]*0.1) + 1.0;
 		    }
                 }
-                else{//iib not used in routing // will enter here but will not affect routing
+                else{// will enter here but will not affect routing
 		    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;
                 }
             }
