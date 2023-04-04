@@ -547,6 +547,7 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
             ++overused_nodes;
             total_overuse += overuse;
             worst_overuse = std::max(worst_overuse, size_t(overuse));
+            route_ctx.rr_node_route_inf[(size_t)rr_id].legal = 0;
         }
     }
 

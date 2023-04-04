@@ -2500,7 +2500,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string suffix = "_to_legalise.route";
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
             std::string route_file_to_legalise =  prefix + suffix;
-            VTR_LOG("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise);
+            printf("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise);
 
             read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
             VTR_LOG("******* Successfully loaded partial route file\n");
@@ -2582,15 +2582,36 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             //loading history costs
             for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
                 size_t node_id_to = (size_t)rr_id;
-                size_t node_id_from = node_id_map[node_id_to];
-                if (history_cost_map.find(node_id_from) != history_cost_map.end()){
-                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];
+		auto iter = node_id_map.find(node_id_to);
+		if(iter != node_id_map.end()){
+                	size_t node_id_from = node_id_map[node_id_to];
+                	if (history_cost_map.find(node_id_from) != history_cost_map.end()){//GI
+                    		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];//1 + (history_cost_map[node_id_from]-1) * 0.4;
+		    		if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){//node in gi and used by nets and not congested
+					printf("***** marking nodes in GI as legal\n");
+		    			route_ctx.rr_node_route_inf[node_id_to].legal = 1;//marking the nodes as legal//more costly nodes as dont want these to be ripped up
+		    		}
+		    		else {//node in gi but not used by nets
+					printf("marking nodes in GI as not legal\n");
+		    			route_ctx.rr_node_route_inf[node_id_to].legal = 0;
+		    		}
+                	}
+		}
+		else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//IIB used in routing
+		    if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){
+                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to] + 1.0;// * 0.06 + 1.0;
+			printf("###### marking nodes in IIB as legal\n");
+		    	route_ctx.rr_node_route_inf[node_id_to].legal = 1;
+		    }
+		    else {
+                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = std::floor(iib_history_cost_map[node_id_to]*0.1) + 1.0;
+			printf("marking nodes in IIB as not legal\n");
+		    	route_ctx.rr_node_route_inf[node_id_to].legal = 0;
+		    }
                 }
-                else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){
-                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to];
-                }
-                else{
-                    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;
+                else{//iib not used in routing // will enter here but will not affect routing
+		    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;
+		    route_ctx.rr_node_route_inf[node_id_to].legal = 0;
                 }
             }
         }

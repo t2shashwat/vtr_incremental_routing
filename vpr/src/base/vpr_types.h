@@ -1518,7 +1518,7 @@ struct t_rr_node_route_inf {
     float backward_path_cost;
 
     short target_flag;
-
+    int legal;	
   public: //Accessors
     short occ() const { return occ_; }
 
