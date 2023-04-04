@@ -2595,7 +2595,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 		}
 		else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//IIB
 		    if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){//legal iib
-                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to]+1.0;// * 0.06 + 1.0;
+                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to];// * 0.06 + 1.0;
 		    }
 		    else {//illegal iibs
                     	route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;//std::floor(iib_history_cost_map[node_id_to]*0.1) + 1.0;
