@@ -2585,33 +2585,24 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 		auto iter = node_id_map.find(node_id_to);
 		if(iter != node_id_map.end()){
                 	size_t node_id_from = node_id_map[node_id_to];
-                	if (history_cost_map.find(node_id_from) != history_cost_map.end()){//GI
-                    		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];//1 + (history_cost_map[node_id_from]-1) * 0.4;
-		    		if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){//node in gi and used by nets and not congested
-					printf("***** marking nodes in GI as legal\n");
-		    			route_ctx.rr_node_route_inf[node_id_to].legal = 1;//marking the nodes as legal//more costly nodes as dont want these to be ripped up
-		    		}
-		    		else {//node in gi but not used by nets
-					printf("marking nodes in GI as not legal\n");
-		    			route_ctx.rr_node_route_inf[node_id_to].legal = 0;
-		    		}
+                	if (history_cost_map.find(node_id_from) != history_cost_map.end() && iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//Overlapping nodes between GI and IIB, cluster input i.e. wires and clb out pins and cluster outputs lut inputs and ff inputs
+                    		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from] + iib_history_cost_map[node_id_to];//1 + (history_cost_map[node_id_from]-1) * 0.4;
                 	}
+			else if (history_cost_map.find(node_id_from) != history_cost_map.end()){//GI
+                    		route_ctx.rr_node_route_inf[node_id_to].acc_cost = history_cost_map[node_id_from];//1 + (history_cost_map[node_id_from]-1) * 0.4;
+                	}
+			
 		}
-		else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//IIB used in routing
-		    if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){
-                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to] + 1.0;// * 0.06 + 1.0;
-			printf("###### marking nodes in IIB as legal\n");
-		    	route_ctx.rr_node_route_inf[node_id_to].legal = 1;
+		else if (iib_history_cost_map.find(node_id_to) != iib_history_cost_map.end()){//IIB
+		    if (route_ctx.rr_node_route_inf[node_id_to].occ() == device_ctx.rr_graph.node_capacity(RRNodeId(node_id_to))){//legal iib
+                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = iib_history_cost_map[node_id_to]+1.0;// * 0.06 + 1.0;
 		    }
-		    else {
-                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = std::floor(iib_history_cost_map[node_id_to]*0.1) + 1.0;
-			printf("marking nodes in IIB as not legal\n");
-		    	route_ctx.rr_node_route_inf[node_id_to].legal = 0;
+		    else {//illegal iibs
+                    	route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;//std::floor(iib_history_cost_map[node_id_to]*0.1) + 1.0;
 		    }
                 }
                 else{//iib not used in routing // will enter here but will not affect routing
 		    route_ctx.rr_node_route_inf[node_id_to].acc_cost = 1.0;
-		    route_ctx.rr_node_route_inf[node_id_to].legal = 0;
                 }
             }
         }
