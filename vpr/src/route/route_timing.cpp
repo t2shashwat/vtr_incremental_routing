@@ -1721,11 +1721,15 @@ static size_t calculate_wirelength_available() {
 
     size_t available_wirelength = 0;
     // But really what's happening is that this for loop iterates over every node and determines the available wirelength
+    VTR_LOG("============ Analysis: Calculating wirelength without considering IIB =========")
     for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
         const t_rr_type channel_type = rr_graph.node_type(rr_id);
-        if (channel_type == CHANX || channel_type == CHANY) {
-            available_wirelength += rr_graph.node_capacity(rr_id) * rr_graph.node_length(rr_id);
-        }
+	int ptc_val = rr_graph.node_ptc_num(rr_id);//getting to check if in the IIB
+	if (ptc_val < 304){
+        	if (channel_type == CHANX || channel_type == CHANY) {
+            		available_wirelength += rr_graph.node_capacity(rr_id) * rr_graph.node_length(rr_id);
+        	}
+	}
     }
     return available_wirelength;
 }
