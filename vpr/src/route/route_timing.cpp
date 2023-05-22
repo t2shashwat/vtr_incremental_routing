@@ -1721,7 +1721,7 @@ static size_t calculate_wirelength_available() {
 
     size_t available_wirelength = 0;
     // But really what's happening is that this for loop iterates over every node and determines the available wirelength
-    VTR_LOG("============ Analysis: Calculating wirelength without considering IIB =========")
+    VTR_LOG("============ Analysis: Calculating wirelength without considering IIB =========");
     for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
         const t_rr_type channel_type = rr_graph.node_type(rr_id);
 	int ptc_val = rr_graph.node_ptc_num(rr_id);//getting to check if in the IIB
