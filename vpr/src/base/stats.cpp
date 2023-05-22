@@ -128,10 +128,10 @@ void length_and_bends_stats() {
     total_segments = 0;
     num_global_nets = 0;
     num_clb_opins_reserved = 0;
-
+    VTR_LOG("============ Analysis: Calculating wirelength without considering IIB =========");
     for (auto net_id : cluster_ctx.clb_nlist.nets()) {
         if (!cluster_ctx.clb_nlist.net_is_ignored(net_id) && cluster_ctx.clb_nlist.net_sinks(net_id).size() != 0) { /* Globals don't count. */
-            get_num_bends_and_length(net_id, &bends, &length, &segments);
+	    get_num_bends_and_length(net_id, &bends, &length, &segments);
 
             total_bends += bends;
             max_bends = std::max(bends, max_bends);
@@ -308,6 +308,7 @@ void get_num_bends_and_length(ClusterNetId inet, int* bends_ptr, int* len_ptr, i
     while (tptr != nullptr) {
         inode = tptr->index;
         curr_type = rr_graph.node_type(RRNodeId(inode));
+        int ptc_val = rr_graph.node_ptc_num(RRNodeId(inode));
 
         if (curr_type == SINK) { /* Starting a new segment */
             tptr = tptr->next;   /* Link to existing path - don't add to len. */
@@ -319,7 +320,9 @@ void get_num_bends_and_length(ClusterNetId inet, int* bends_ptr, int* len_ptr, i
 
         else if (curr_type == CHANX || curr_type == CHANY) {
             segments++;
-            length += rr_graph.node_length(RRNodeId(inode));
+	    if (ptc_val < 304){
+            	length += rr_graph.node_length(RRNodeId(inode));
+	    }
 
             if (curr_type != prev_type && (prev_type == CHANX || prev_type == CHANY))
                 bends++;
