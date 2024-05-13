@@ -49,6 +49,7 @@ void invalidate_router_lookahead_cache();
 // performed via this function.
 const RouterLookahead* get_cached_router_lookahead(
     e_router_lookahead router_lookahead_type,
+    //float sbNode_lookahead_factor,
     std::string write_lookahead,
     std::string read_lookahead,
     const std::vector<t_segment_inf>& segment_inf,

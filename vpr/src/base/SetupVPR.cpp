@@ -380,6 +380,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     //mycode==================================
     RouterOpts->incr_route = Options.incr_route;
     RouterOpts->icr_iter = Options.icr_iter;
+    RouterOpts->sbNode_lookahead_factor = Options.sbNode_lookahead_factor;
     //========================================
     //TODO document these?
     RouterOpts->congestion_analysis = Options.full_stats;

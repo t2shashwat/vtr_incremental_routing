@@ -2181,6 +2181,11 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Sets the iteration of incremental routing mode")
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.sbNode_lookahead_factor, "--sbNode_lookahead_factor")
+        .help(
+            "Set the sbNode lookahead factor")
+        .default_value("1.00")
+        .show_in(argparse::ShowIn::HELP_ONLY);
     //========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")

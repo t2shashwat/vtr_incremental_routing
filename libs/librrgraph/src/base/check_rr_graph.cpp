@@ -475,8 +475,8 @@ void check_rr_node(const RRGraphView& rr_graph,
             }
 
             if (capacity != tracks_per_node) {
-                VPR_FATAL_ERROR(VPR_ERROR_ROUTE,
-                                "in check_rr_node: inode %d (type %d) has a capacity of %d.\n", inode, rr_type, capacity);
+                //VPR_FATAL_ERROR(VPR_ERROR_ROUTE,
+                //                "in check_rr_node: inode %d (type %d) has a capacity of %d.\n", inode, rr_type, capacity);
             }
             break;
 

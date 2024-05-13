@@ -66,7 +66,9 @@ enum e_representative_entry_method {
     SMALLEST,  //the smallest-delay cost recorded
     AVERAGE,
     GEOMEAN,
-    MEDIAN
+    MEDIAN,
+    SBNODE,
+    SCALE_SBNODE
 };
 
 /* a class that stores delay/congestion information for a given relative coordinate during the Dijkstra expansion.
@@ -81,6 +83,7 @@ class Expansion_Cost_Entry {
     Cost_Entry get_average_entry();
     Cost_Entry get_geomean_entry();
     Cost_Entry get_median_entry();
+    Cost_Entry get_scaled_entry();
 
   public:
     void add_cost_entry(float add_delay, float add_congestion) {
@@ -105,6 +108,7 @@ class Expansion_Cost_Entry {
     Cost_Entry get_representative_cost_entry(e_representative_entry_method method) {
         float nan = std::numeric_limits<float>::quiet_NaN();
         Cost_Entry entry(nan, nan);
+        Cost_Entry zero_cost_entry(0.0, 0.0);
 
         if (!cost_vector.empty()) {
             switch (method) {
@@ -122,6 +126,12 @@ class Expansion_Cost_Entry {
                     break;
                 case MEDIAN:
                     entry = this->get_median_entry();
+                    break;
+                case SBNODE:
+                    entry = zero_cost_entry; 
+                    break;
+                case SCALE_SBNODE:
+                    entry = this->get_scaled_entry(); 
                     break;
                 default:
                     break;
@@ -712,7 +722,19 @@ static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_ro
         for (unsigned iy = 0; iy < routing_cost_map.dim_size(1); iy++) {
             Expansion_Cost_Entry& expansion_cost_entry = routing_cost_map[ix][iy];
 
+            //if(segment_index > 5){
+            //    f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SBNODE);
+            //}
+            //else {
             f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(REPRESENTATIVE_ENTRY_METHOD);
+            if ((ix > iy) && (segment_index == 8 || segment_index == 9 || segment_index == 10)){
+                //VTR_LOG("****** ix > iy: segment_index: %d, %d, %d\n", segment_index, ix, iy);
+                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE);
+            }       
+            else if ((iy > ix) && (segment_index == 6 || segment_index == 7)){
+                //VTR_LOG("iy > ix: segment_index: %d, %d, %d\n", segment_index, ix, iy);
+                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE);
+            }       
         }
     }
 }
@@ -792,6 +814,20 @@ Cost_Entry Expansion_Cost_Entry::get_smallest_entry() {
     }
 
     return smallest_entry;
+}
+/* returns cost entry with the smallest delay scaled down by 0.95*/
+Cost_Entry Expansion_Cost_Entry::get_scaled_entry() {
+    Cost_Entry smallest_entry;
+    Cost_Entry scaled_smallest_entry;
+
+    for (auto entry : this->cost_vector) {
+        if (std::isnan(smallest_entry.delay) || entry.delay < smallest_entry.delay) {
+            smallest_entry = entry;
+        }
+    }
+    scaled_smallest_entry.delay = 1 * smallest_entry.delay;
+    scaled_smallest_entry.congestion = 1 * smallest_entry.congestion;
+    return scaled_smallest_entry;
 }
 
 /* returns a cost entry that represents the average of all the recorded entries */

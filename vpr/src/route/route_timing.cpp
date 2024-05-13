@@ -336,6 +336,7 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
 
     const auto* router_lookahead = get_cached_router_lookahead(
         router_opts.lookahead_type,
+        //router_opts.sbNode_lookahead_factor,
         router_opts.write_router_lookahead,
         router_opts.read_router_lookahead,
         segment_inf,
@@ -2320,6 +2321,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
     const auto* router_lookahead = get_cached_router_lookahead(
         router_opts.lookahead_type,
+        //router_opts.sbNode_lookahead_factor,
         router_opts.write_router_lookahead,
         router_opts.read_router_lookahead,
         segment_inf,
