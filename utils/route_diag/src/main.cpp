@@ -95,6 +95,7 @@ static void do_one_route(int source_node,
     RouterStats router_stats;
     auto router_lookahead = make_router_lookahead(
             router_opts.lookahead_type,
+            router_opts.sbNode_lookahead_factor,
             router_opts.write_router_lookahead,
             router_opts.read_router_lookahead,
             segment_inf,
@@ -149,6 +150,7 @@ static void profile_source(int source_rr_node,
 
     auto router_lookahead = make_router_lookahead(
             router_opts.lookahead_type,
+            router_opts.sbNode_lookahead_factor,
             router_opts.write_router_lookahead,
             router_opts.read_router_lookahead,
             segment_inf,

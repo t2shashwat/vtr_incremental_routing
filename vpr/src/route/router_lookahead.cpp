@@ -26,7 +26,7 @@ static std::unique_ptr<RouterLookahead> make_router_lookahead_object(e_router_lo
 
 std::unique_ptr<RouterLookahead> make_router_lookahead(
     e_router_lookahead router_lookahead_type,
-    //float sbNode_lookahead_factor,
+    float sbNode_lookahead_factor,
     std::string write_lookahead,
     std::string read_lookahead,
     const std::vector<t_segment_inf>& segment_inf,
@@ -34,7 +34,7 @@ std::unique_ptr<RouterLookahead> make_router_lookahead(
     std::unique_ptr<RouterLookahead> router_lookahead = make_router_lookahead_object(router_lookahead_type, is_flat);
 
     if (read_lookahead.empty()) {
-        router_lookahead->compute(segment_inf);
+        router_lookahead->compute(segment_inf, sbNode_lookahead_factor);
     } else {
         router_lookahead->read(read_lookahead);
     }
@@ -195,7 +195,7 @@ void invalidate_router_lookahead_cache() {
 
 const RouterLookahead* get_cached_router_lookahead(
     e_router_lookahead router_lookahead_type,
-    //float sbNode_lookahead_factor,
+    float sbNode_lookahead_factor,
     std::string write_lookahead,
     std::string read_lookahead,
     const std::vector<t_segment_inf>& segment_inf,
@@ -216,7 +216,7 @@ const RouterLookahead* get_cached_router_lookahead(
             cache_key,
             make_router_lookahead(
                 router_lookahead_type,
-                //sbNode_lookahead_factor,
+                sbNode_lookahead_factor,
                 write_lookahead,
                 read_lookahead,
                 segment_inf,

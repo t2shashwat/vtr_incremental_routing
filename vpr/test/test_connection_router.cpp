@@ -40,6 +40,7 @@ static float do_one_route(int source_node, int sink_node, const t_router_opts& r
     RouterStats router_stats;
     auto router_lookahead = make_router_lookahead(
         router_opts.lookahead_type,
+        router_opts.sbNode_lookahead_factor,
         router_opts.write_router_lookahead,
         router_opts.read_router_lookahead,
         segment_inf,

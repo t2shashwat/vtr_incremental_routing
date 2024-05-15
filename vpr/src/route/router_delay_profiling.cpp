@@ -120,7 +120,7 @@ std::vector<float> calculate_all_path_delays_from_rr_node(int src_rr_node,
     cost_params.bend_cost = router_opts.bend_cost;
 
     auto router_lookahead = make_router_lookahead(e_router_lookahead::NO_OP,
-                                                  /*write_lookahead=*/"", /*read_lookahead=*/"",
+                                                  1.0, /*write_lookahead=*/"", /*read_lookahead=*/"",
                                                   /*segment_inf=*/{},
                                                   is_flat);
     ConnectionRouter<BinaryHeap> router(

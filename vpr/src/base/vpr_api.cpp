@@ -719,7 +719,7 @@ void vpr_place(t_vpr_setup& vpr_setup, const t_arch& arch) {
         // the placer timer.
         get_cached_router_lookahead(
             vpr_setup.RouterOpts.lookahead_type,
-            //vpr_setup.RouterOpts.sbNode_lookahead_factor,
+            vpr_setup.RouterOpts.sbNode_lookahead_factor,
             vpr_setup.RouterOpts.write_router_lookahead,
             vpr_setup.RouterOpts.read_router_lookahead,
             vpr_setup.Segments,
@@ -876,7 +876,7 @@ RouteStatus vpr_route_fixed_W(t_vpr_setup& vpr_setup,
             // the routing timer.
             get_cached_router_lookahead(
                 vpr_setup.RouterOpts.lookahead_type,
-                //vpr_setup.RouterOpts.sbNode_lookahead_factor,
+                vpr_setup.RouterOpts.sbNode_lookahead_factor,
                 vpr_setup.RouterOpts.write_router_lookahead,
                 vpr_setup.RouterOpts.read_router_lookahead,
                 vpr_setup.Segments,

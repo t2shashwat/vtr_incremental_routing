@@ -83,7 +83,7 @@ class Expansion_Cost_Entry {
     Cost_Entry get_average_entry();
     Cost_Entry get_geomean_entry();
     Cost_Entry get_median_entry();
-    Cost_Entry get_scaled_entry();
+    Cost_Entry get_scaled_entry(const float sbNode_lookahead_factor);
 
   public:
     void add_cost_entry(float add_delay, float add_congestion) {
@@ -105,7 +105,7 @@ class Expansion_Cost_Entry {
         this->cost_vector.clear();
     }
 
-    Cost_Entry get_representative_cost_entry(e_representative_entry_method method) {
+    Cost_Entry get_representative_cost_entry(e_representative_entry_method method, const float sbNode_lookahead_factor = 1.0) {
         float nan = std::numeric_limits<float>::quiet_NaN();
         Cost_Entry entry(nan, nan);
         Cost_Entry zero_cost_entry(0.0, 0.0);
@@ -131,7 +131,7 @@ class Expansion_Cost_Entry {
                     entry = zero_cost_entry; 
                     break;
                 case SCALE_SBNODE:
-                    entry = this->get_scaled_entry(); 
+                    entry = this->get_scaled_entry(sbNode_lookahead_factor); 
                     break;
                 default:
                     break;
@@ -215,7 +215,7 @@ t_wire_cost_map f_wire_cost_map;
 
 /******** File-Scope Functions ********/
 Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, int delta_y);
-static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segment_inf);
+static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segment_inf, const float sbNode_lookahead_factor);
 
 /* returns index of a node from which to start routing */
 static RRNodeId get_start_node(int start_x, int start_y, int target_x, int target_y, t_rr_type rr_type, int seg_index, int track_offset);
@@ -225,7 +225,7 @@ static void run_dijkstra(RRNodeId start_node, int start_x, int start_y, t_routin
 /* iterates over the children of the specified node and selectively pushes them onto the priority queue */
 static void expand_dijkstra_neighbours(PQ_Entry parent_entry, vtr::vector<RRNodeId, float>& node_visited_costs, vtr::vector<RRNodeId, bool>& node_expanded, std::priority_queue<PQ_Entry>& pq);
 /* sets the lookahead cost map entries based on representative cost entries from routing_cost_map */
-static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_routing_cost_map& routing_cost_map);
+static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_routing_cost_map& routing_cost_map, const float sbNode_lookahead_factor);
 /* fills in missing lookahead map entries by copying the cost of the closest valid entry */
 static void fill_in_missing_lookahead_entries(int segment_index, e_rr_type chan_type);
 /* returns a cost entry in the f_wire_cost_map that is near the specified coordinates (and preferably towards (0,0)) */
@@ -382,12 +382,12 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
     return std::make_pair(expected_delay_cost, expected_cong_cost);
 }
 
-void MapLookahead::compute(const std::vector<t_segment_inf>& segment_inf) {
+void MapLookahead::compute(const std::vector<t_segment_inf>& segment_inf, const float sbNode_lookahead_factor) {
     vtr::ScopedStartFinishTimer timer("Computing router lookahead map");
-
+    VTR_LOG("The sbNode bias for lookahead is %f\n", sbNode_lookahead_factor);
     //First compute the delay map when starting from the various wire types
     //(CHANX/CHANY)in the routing architecture
-    compute_router_wire_lookahead(segment_inf);
+    compute_router_wire_lookahead(segment_inf, sbNode_lookahead_factor);
 
     //Next, compute which wire types are accessible (and the cost to reach them)
     //from the different physical tile type's SOURCEs & OPINs
@@ -422,7 +422,7 @@ Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, in
     return f_wire_cost_map[chan_index][seg_index][delta_x][delta_y];
 }
 
-static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segment_inf) {
+static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segment_inf, const float sbNode_lookahead_factor) {
     vtr::ScopedStartFinishTimer timer("Computing wire lookahead");
 
     auto& device_ctx = g_vpr_ctx.device();
@@ -554,7 +554,7 @@ static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segm
 
                 /* boil down the cost list in routing_cost_map at each coordinate to a representative cost entry and store it in the lookahead
                  * cost map */
-                set_lookahead_map_costs(iseg, chan_type, routing_cost_map);
+                set_lookahead_map_costs(iseg, chan_type, routing_cost_map, sbNode_lookahead_factor);
 
                 /* fill in missing entries in the lookahead cost map by copying the closest cost entries (cost map was computed based on
                  * a reference coordinate > (0,0) so some entries that represent a cross-chip distance have not been computed) */
@@ -711,7 +711,7 @@ static void expand_dijkstra_neighbours(PQ_Entry parent_entry, vtr::vector<RRNode
 }
 
 /* sets the lookahead cost map entries based on representative cost entries from routing_cost_map */
-static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_routing_cost_map& routing_cost_map) {
+static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_routing_cost_map& routing_cost_map, const float sbNode_lookahead_factor) {
     int chan_index = 0;
     if (chan_type == CHANY) {
         chan_index = 1;
@@ -726,15 +726,17 @@ static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_ro
             //    f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SBNODE);
             //}
             //else {
-            f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(REPRESENTATIVE_ENTRY_METHOD);
             if ((ix > iy) && (segment_index == 8 || segment_index == 9 || segment_index == 10)){
                 //VTR_LOG("****** ix > iy: segment_index: %d, %d, %d\n", segment_index, ix, iy);
-                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE);
+                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE, sbNode_lookahead_factor);
             }       
             else if ((iy > ix) && (segment_index == 6 || segment_index == 7)){
                 //VTR_LOG("iy > ix: segment_index: %d, %d, %d\n", segment_index, ix, iy);
-                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE);
-            }       
+                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE, sbNode_lookahead_factor);
+            }
+            else {
+                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(REPRESENTATIVE_ENTRY_METHOD);
+            }
         }
     }
 }
@@ -816,7 +818,7 @@ Cost_Entry Expansion_Cost_Entry::get_smallest_entry() {
     return smallest_entry;
 }
 /* returns cost entry with the smallest delay scaled down by 0.95*/
-Cost_Entry Expansion_Cost_Entry::get_scaled_entry() {
+Cost_Entry Expansion_Cost_Entry::get_scaled_entry(const float sbNode_lookahead_factor) {
     Cost_Entry smallest_entry;
     Cost_Entry scaled_smallest_entry;
 
@@ -825,8 +827,8 @@ Cost_Entry Expansion_Cost_Entry::get_scaled_entry() {
             smallest_entry = entry;
         }
     }
-    scaled_smallest_entry.delay = 1 * smallest_entry.delay;
-    scaled_smallest_entry.congestion = 1 * smallest_entry.congestion;
+    scaled_smallest_entry.delay =  sbNode_lookahead_factor * smallest_entry.delay;
+    scaled_smallest_entry.congestion = sbNode_lookahead_factor * smallest_entry.congestion;
     return scaled_smallest_entry;
 }
 
