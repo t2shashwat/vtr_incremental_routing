@@ -200,7 +200,7 @@ static void generate_route_timing_reports(const t_router_opts& router_opts,
 static void prune_unused_non_configurable_nets(CBRR& connections_inf);
 
 static void init_net_delay_from_lookahead(const RouterLookahead& router_lookahead,
-                                          ClbNetPinsMatrix<float>& net_delay);
+                                          ClbNetPinsMatrix<float>& net_delay, const float bias);
 
 #ifndef NO_GRAPHICS
 void update_router_info_and_check_bp(bp_router_type type, int net_id);
@@ -406,7 +406,7 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
 
                 {
                     //Estimate initial connection delays from the router lookahead
-                    init_net_delay_from_lookahead(*router_lookahead, net_delay);
+                    init_net_delay_from_lookahead(*router_lookahead, net_delay, router_opts.sbNode_lookahead_factor);
 
                     //Run STA to get estimated criticalities
                     timing_info->update();
@@ -1132,6 +1132,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
         // Set to the max timing criticality which should intern minimize clock insertion
         // delay by selecting a direct route from the clock source to the virtual sink
         cost_params.criticality = router_opts.max_criticality;
+    	cost_params.bias = router_opts.sbNode_lookahead_factor;
         if (!timing_driven_pre_route_to_clock_root(
                 router,
                 net_id,
@@ -1161,6 +1162,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
         VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
 
         cost_params.criticality = pin_criticality[target_pin];
+    	cost_params.bias = router_opts.sbNode_lookahead_factor;
 
         if (budgeting_inf.if_set()) {
             conn_delay_budget.max_delay = budgeting_inf.get_max_delay_budget(net_id, target_pin);
@@ -2192,12 +2194,13 @@ static void prune_unused_non_configurable_nets(CBRR& connections_inf) {
 
 //Initializes net_delay based on best-case delay estimates from the router lookahead
 static void init_net_delay_from_lookahead(const RouterLookahead& router_lookahead,
-                                          ClbNetPinsMatrix<float>& net_delay) {
+                                          ClbNetPinsMatrix<float>& net_delay, const float bias) {
     auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& route_ctx = g_vpr_ctx.routing();
 
     t_conn_cost_params cost_params;
     cost_params.criticality = 1.; //Ensures lookahead returns delay value
+    cost_params.bias = bias;
 
     for (auto net_id : cluster_ctx.clb_nlist.nets()) {
         if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) continue;
@@ -2392,7 +2395,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
                 {
                     //Estimate initial connection delays from the router lookahead
-                    init_net_delay_from_lookahead(*router_lookahead, net_delay);
+                    init_net_delay_from_lookahead(*router_lookahead, net_delay, router_opts.sbNode_lookahead_factor);
 
                     //Run STA to get estimated criticalities
                     timing_info->update();
@@ -3199,6 +3202,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     cost_params.pres_fac = pres_fac;
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
     cost_params.pres_fac = pres_fac;
+    cost_params.bias = router_opts.sbNode_lookahead_factor;
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
@@ -3212,6 +3216,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         // Set to the max timing criticality which should intern minimize clock insertion
         // delay by selecting a direct route from the clock source to the virtual sink
         cost_params.criticality = router_opts.max_criticality;
+    	cost_params.bias = router_opts.sbNode_lookahead_factor;
         if (!timing_driven_pre_route_to_clock_root(
                 router,
                 net_id,
@@ -3241,6 +3246,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
 
         cost_params.criticality = pin_criticality[target_pin];
+    	cost_params.bias = router_opts.sbNode_lookahead_factor;
 
         if (budgeting_inf.if_set()) {
             conn_delay_budget.max_delay = budgeting_inf.get_max_delay_budget(net_id, target_pin);
