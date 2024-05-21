@@ -1118,6 +1118,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
     cost_params.bend_cost = router_opts.bend_cost;
     cost_params.pres_fac = pres_fac;
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
+    cost_params.bias = router_opts.sbNode_lookahead_factor;
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
@@ -3197,6 +3198,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     cost_params.bend_cost = router_opts.bend_cost;
     cost_params.pres_fac = pres_fac;
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
+    cost_params.pres_fac = pres_fac;
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {

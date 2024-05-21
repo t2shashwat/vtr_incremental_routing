@@ -214,7 +214,7 @@ struct t_dijkstra_data {
 t_wire_cost_map f_wire_cost_map;
 
 /******** File-Scope Functions ********/
-Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, int delta_y);
+Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, int delta_y, bool delta_x_is_larger, bool sign_x_is_positive, bool sign_y_is_positive);
 static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segment_inf, const float sbNode_lookahead_factor);
 
 /* returns index of a node from which to start routing */
@@ -278,6 +278,10 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
 
     int delta_x, delta_y;
     get_xy_deltas(from_node, to_node, &delta_x, &delta_y);
+    bool sign_x_is_positive = delta_x >= 0; // true if positive
+    bool sign_y_is_positive = delta_y >= 0; // true if positive
+    bool delta_x_is_larger = delta_x >= delta_y; // true if positive
+    int seg_index = 0;
     delta_x = abs(delta_x);
     delta_y = abs(delta_y);
 
@@ -333,7 +337,7 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
                 } else {
                     //For an actual accessible wire, we query the wire look-up to get it's
                     //delay and congestion cost estimates
-                    wire_cost_entry = get_wire_cost_entry(reachable_wire_inf.wire_rr_type, reachable_wire_inf.wire_seg_index, delta_x, delta_y);
+                    wire_cost_entry = get_wire_cost_entry(reachable_wire_inf.wire_rr_type, reachable_wire_inf.wire_seg_index, delta_x, delta_y, delta_x_is_larger, sign_x_is_positive, sign_y_is_positive);
                 }
 
                 float this_delay_cost = (1. - params.criticality) * (reachable_wire_inf.delay + wire_cost_entry.delay);
@@ -356,11 +360,11 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
 
         auto from_cost_index = rr_graph.node_cost_index(from_node);
         int from_seg_index = device_ctx.rr_indexed_data[from_cost_index].seg_index;
-
+	seg_index = from_seg_index;
         VTR_ASSERT(from_seg_index >= 0);
 
         /* now get the expected cost from our lookahead map */
-        Cost_Entry cost_entry = get_wire_cost_entry(from_type, from_seg_index, delta_x, delta_y);
+        Cost_Entry cost_entry = get_wire_cost_entry(from_type, from_seg_index, delta_x, delta_y, delta_x_is_larger, sign_x_is_positive, sign_y_is_positive);
 
         float expected_delay = cost_entry.delay;
         float expected_cong = cost_entry.congestion;
@@ -378,8 +382,34 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
     } else { /* Change this if you want to investigate route-throughs */
         return std::make_pair(0., 0.);
     }
-
-    return std::make_pair(expected_delay_cost, expected_cong_cost);
+	
+    float bias = 1.00;
+    if (seg_index < 6){
+    	bias = 1.00;
+    }
+    else if (delta_x_is_larger && seg_index >= 8){
+	if (sign_x_is_positive && (seg_index == 8 || seg_index == 10)){
+    	    bias = params.bias;
+	}
+	else if (!sign_x_is_positive && (seg_index == 9 || seg_index == 10)){
+    	    bias = params.bias;
+    	}
+	else {
+    	    bias = 1.00;
+    	}
+	
+    }
+    else if (!delta_x_is_larger && seg_index == 6 && sign_y_is_positive){
+    	bias = params.bias;
+    }
+    else if (!delta_x_is_larger && seg_index == 7 && !sign_y_is_positive){
+    	bias = params.bias;
+    }
+    else{
+    	bias = 1.00;
+    }
+    	
+    return std::make_pair(bias * expected_delay_cost, bias * expected_cong_cost);
 }
 
 void MapLookahead::compute(const std::vector<t_segment_inf>& segment_inf, const float sbNode_lookahead_factor) {
@@ -408,7 +438,7 @@ void MapLookahead::write(const std::string& file) const {
 
 /******** Function Definitions ********/
 
-Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, int delta_y) {
+Cost_Entry get_wire_cost_entry(e_rr_type rr_type, int seg_index, int delta_x, int delta_y, bool delta_x_is_larger, bool sign_x_is_positive, bool sign_y_is_positive) {
     VTR_ASSERT_SAFE(rr_type == CHANX || rr_type == CHANY);
 
     int chan_index = 0;
@@ -550,7 +580,7 @@ static void compute_router_wire_lookahead(const std::vector<t_segment_inf>& segm
                                  &dijkstra_data);
                 }
 
-                if (false) print_router_cost_map(routing_cost_map);
+                if (true) print_router_cost_map(routing_cost_map);
 
                 /* boil down the cost list in routing_cost_map at each coordinate to a representative cost entry and store it in the lookahead
                  * cost map */
@@ -726,7 +756,7 @@ static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_ro
             //    f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SBNODE);
             //}
             //else {
-            if ((ix > iy) && (segment_index == 8 || segment_index == 9 || segment_index == 10)){
+            /*if ((ix > iy) && (segment_index == 8 || segment_index == 9 || segment_index == 10)){
                 //VTR_LOG("****** ix > iy: segment_index: %d, %d, %d\n", segment_index, ix, iy);
                 f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE, sbNode_lookahead_factor);
             }       
@@ -734,9 +764,9 @@ static void set_lookahead_map_costs(int segment_index, e_rr_type chan_type, t_ro
                 //VTR_LOG("iy > ix: segment_index: %d, %d, %d\n", segment_index, ix, iy);
                 f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(SCALE_SBNODE, sbNode_lookahead_factor);
             }
-            else {
-                f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(REPRESENTATIVE_ENTRY_METHOD);
-            }
+            else {*/
+            f_wire_cost_map[chan_index][segment_index][ix][iy] = expansion_cost_entry.get_representative_cost_entry(REPRESENTATIVE_ENTRY_METHOD);
+            //}
         }
     }
 }

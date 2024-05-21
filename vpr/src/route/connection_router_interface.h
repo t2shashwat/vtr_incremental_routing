@@ -25,6 +25,7 @@ struct t_conn_cost_params {
     float bend_cost = 1.;
     float pres_fac = 1.;
     const t_conn_delay_budget* delay_budget = nullptr;
+    float bias = 1.;
 
     //TODO: Eventually once delay budgets are working, t_conn_delay_budget
     //should be factoured out, and the delay budget parameters integrated
