@@ -312,6 +312,12 @@ class RRGraphBuilder {
     inline void reset_partitioned_flat() {
         node_storage_.partitioned_ = false;
     }
+    
+    inline void assign_list_to_node(
+        std::set<ClusterNetId> net_list,
+        const RRNodeId& id){
+        node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
+    }
 
     /* -- Internal data storage -- */
   private:
@@ -367,6 +373,8 @@ class RRGraphBuilder {
      * value:   map of <attribute_name, attribute_value>
      */
     MetadataStorage<std::tuple<int, int, short>> rr_edge_metadata_;
+
+    vtr::vector<RRNodeId, std::set<ClusterNetId>> allowed_nets_per_node;
 };
 
 #endif

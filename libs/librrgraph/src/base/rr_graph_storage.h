@@ -15,6 +15,9 @@
 #include "vtr_memory.h"
 #include "vtr_strong_id_range.h"
 #include "vtr_array_view.h"
+//SHA includes
+#include "../../../../vpr/src/base/clustered_netlist_fwd.h"
+#include <set>
 
 /* Main structure describing one routing resource node.  Everything in       *
  * this structure should describe the graph -- information needed only       *
@@ -617,6 +620,16 @@ class t_rr_graph_storage {
         std::bitset<NUM_SIDES> side_tt = node_storage[id].dir_side_.sides;
         return side_tt[size_t(side)];
     }
+    
+    inline void assign_list_to_node(
+        std::set<ClusterNetId> net_list, 
+        const RRNodeId& id){
+        allowed_nets_per_node[id] = net_list;    
+    }
+    inline std::set<ClusterNetId> get_list_of_allowed_nets(
+        const RRNodeId& id) const {
+        return allowed_nets_per_node[id];
+    }
 
   private:
     friend struct edge_swapper;
@@ -655,6 +668,9 @@ class t_rr_graph_storage {
     // loop of either the placer or router.
     vtr::vector<RRNodeId, t_rr_node_ptc_data> node_ptc_;
 
+    // global-detaile router support code
+    // SHA 
+    vtr::vector<RRNodeId, std::set<ClusterNetId>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is
     // always equal to the number of edges in the final graph.
@@ -714,6 +730,7 @@ class t_rr_graph_view {
         const vtr::array_view_id<RREdgeId, const RRNodeId> edge_src_node,
         const vtr::array_view_id<RREdgeId, const RRNodeId> edge_dest_node,
         const vtr::array_view_id<RREdgeId, const short> edge_switch)
+        //const vtr::array_view_id<RRNodeId, const std::set<ClusterNetId>> allowed_nets_per_node_)
         : node_storage_(node_storage)
         , node_ptc_(node_ptc)
         , node_first_edge_(node_first_edge)
@@ -721,6 +738,7 @@ class t_rr_graph_view {
         , edge_src_node_(edge_src_node)
         , edge_dest_node_(edge_dest_node)
         , edge_switch_(edge_switch) {}
+        //, allowed_nets_per_node(allowed_nets_per_node_) {}
 
     /****************
      * Node methods *
@@ -800,6 +818,10 @@ class t_rr_graph_view {
     short edge_switch(RREdgeId edge) const {
         return edge_switch_[edge];
     }
+    /*inline std::set<ClusterNetId> get_list_of_allowed_nets(
+        const RRNodeId& id){
+        return allowed_nets_per_node[id];
+    }*/
 
   private:
     RREdgeId first_edge(RRNodeId id) const {
@@ -817,6 +839,7 @@ class t_rr_graph_view {
     vtr::array_view_id<RREdgeId, const RRNodeId> edge_src_node_;
     vtr::array_view_id<RREdgeId, const RRNodeId> edge_dest_node_;
     vtr::array_view_id<RREdgeId, const short> edge_switch_;
+    //vtr::array_view_id<RRNodeId, const std::set<ClusterNetId>> allowed_nets_per_node;
 };
 
 #endif /* _RR_GRAPH_STORAGE_ */

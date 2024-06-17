@@ -56,7 +56,8 @@ class ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        RouterStats& router_stats)
+        RouterStats& router_stats,
+        ClusterNetId& net_id)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
@@ -70,7 +71,8 @@ class ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         const SpatialRouteTreeLookup& spatial_rt_lookup,
-        RouterStats& router_stats)
+        RouterStats& router_stats,
+        ClusterNetId& net_id)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to all sinks
@@ -86,7 +88,8 @@ class ConnectionRouterInterface {
         t_rt_node* rt_root,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        RouterStats& router_stats)
+        RouterStats& router_stats,
+        ClusterNetId& net_id)
         = 0;
 
     // Sets whether router debug information should be on.

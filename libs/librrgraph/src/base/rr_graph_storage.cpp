@@ -755,6 +755,7 @@ t_rr_graph_view t_rr_graph_storage::view() const {
         vtr::make_const_array_view_id(edge_src_node_),
         vtr::make_const_array_view_id(edge_dest_node_),
         vtr::make_const_array_view_id(edge_switch_));
+        //vtr::make_const_array_view_id(allowed_nets_per_node));
 }
 
 // Given `order`, a vector mapping each RRNodeId to a new one (old -> new),

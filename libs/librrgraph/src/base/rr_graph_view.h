@@ -159,6 +159,11 @@ class RRGraphView {
     inline short node_yhigh(RRNodeId node) const {
         return node_storage_.node_yhigh(node);
     }
+    //SHA
+    inline std::set<ClusterNetId> get_list_of_allowed_nets (
+        const RRNodeId& id) const {
+        return node_storage_.get_list_of_allowed_nets(id);
+    }
 
     /** @brief Get the first out coming edge of resource node. This function is inlined for runtime optimization. */
     inline RREdgeId node_first_edge(RRNodeId node) const {
@@ -453,6 +458,7 @@ class RRGraphView {
     MetadataStorage<std::tuple<int, int, short>> rr_edge_metadata_data() const {
         return rr_edge_metadata_;
     }
+    
 
   public: /* Validators */
     /** brief Validate that edge data is partitioned correctly

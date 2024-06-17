@@ -450,6 +450,7 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
     int rcv_finished_count = RCV_FINISH_EARLY_COUNTDOWN;
 
     print_route_status_header();
+    //For each node, load nets allowed to use that node
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
         RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
@@ -1262,7 +1263,8 @@ static bool timing_driven_pre_route_to_clock_root(
         sink_node,
         cost_params,
         bounding_box,
-        router_stats);
+        router_stats,
+        net_id);
 
     // TODO: Parts of the rest of this function are repetitive to code in timing_driven_route_sink. Should refactor.
     if (!found_path) {
@@ -1372,13 +1374,13 @@ static bool timing_driven_route_sink(
                                                                                                            cost_params,
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
-                                                                                                           router_stats);
+                                                                                                           router_stats, net_id);
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
                                                                                                cost_params,
                                                                                                bounding_box,
-                                                                                               router_stats);
+                                                                                               router_stats, net_id);
     }
 
     if (!found_path) {

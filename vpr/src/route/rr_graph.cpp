@@ -39,6 +39,9 @@
 #include "rr_types.h"
 #include "echo_files.h"
 
+//SHA
+#include <fstream>
+#include<string>
 //#define VERBOSE
 //used for getting the exact count of each edge type and printing it to std out.
 
@@ -439,6 +442,36 @@ void create_rr_graph(const t_graph_type graph_type,
                                                                   router_opts.reorder_rr_graph_nodes_threshold,
                                                                   router_opts.reorder_rr_graph_nodes_seed);
             }
+            //reading netlist per node
+            std::ifstream nets_per_node_fp;
+            std::string nets_per_node_filename = "nets_per_node.txt";
+            nets_per_node_fp.open(nets_per_node_filename);
+            int lineno = 0;
+            if (!nets_per_node_fp.is_open()) {
+                vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                    "Cannot open nets per node file");
+            }
+
+            std::string line;
+            while (getline(nets_per_node_fp, line)) {
+                std::istringstream iss(line);
+                //RRNodeId node_id;
+                int node_id;
+                //ClusterNetId net_id;
+                int net_id;
+                std::set<ClusterNetId> nets;
+
+                iss >> node_id;  // First read the node ID
+                while (iss >> net_id) {  // Then read all the following net IDs
+                    nets.insert(ClusterNetId(net_id));
+                }
+
+                // Now assign this list of nets to the node using the provided function
+                mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+                //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
+                //t_rr_graph_storage::assign_list_to_node(nets, node_id);
+            }
+            nets_per_node_fp.close(); 
         }
     } else {
         if (channel_widths_unchanged(device_ctx.chan_width, nodes_per_chan) && !device_ctx.rr_graph.empty() && is_flat == false) {
