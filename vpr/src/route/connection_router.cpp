@@ -513,11 +513,15 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     //check if net in the list of the to_node
     //get the list of nets allowed to pass through the node
     //SHA
-    std::set<ClusterNetId> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
-    allowed_nets_list.insert(ClusterNetId(-1));
-    bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
-    //if (!allowed){
-    //    return;
+    //if (router_opts.detailed_router == 1) {
+    //if (0) {
+        std::set<ClusterNetId> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
+        VTR_LOG("Checking if net is allowed\n");
+        allowed_nets_list.insert(ClusterNetId(-1));
+        bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
+        if (!allowed){
+            return;
+        }
     //}
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",

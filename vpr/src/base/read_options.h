@@ -190,6 +190,7 @@ struct t_options {
     argparse::ArgValue<int> incr_route;
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
+    argparse::ArgValue<int> detailed_router;
     //===========================
     /* Timing-driven router options only */
     argparse::ArgValue<float> astar_fac;

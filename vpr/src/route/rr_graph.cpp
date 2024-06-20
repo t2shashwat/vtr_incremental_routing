@@ -411,9 +411,12 @@ void create_rr_graph(const t_graph_type graph_type,
     auto& mutable_device_ctx = g_vpr_ctx.mutable_device();
     bool echo_enabled = getEchoEnabled() && isEchoFileEnabled(E_ECHO_RR_GRAPH_INDEXED_DATA);
     const char* echo_file_name = getEchoFileName(E_ECHO_RR_GRAPH_INDEXED_DATA);
+    VTR_LOG("[SHA] In create rr graph \n");
     if (!det_routing_arch->read_rr_graph_filename.empty()) {
+        VTR_LOG("[SHA] Loading RRG 00 \n");
         if (device_ctx.read_rr_graph_filename != det_routing_arch->read_rr_graph_filename) {
             free_rr_graph();
+            VTR_LOG("[SHA] Loading RRG 01\n");
 
             load_rr_file(&mutable_device_ctx.rr_graph_builder,
                          &mutable_device_ctx.rr_graph,
@@ -437,16 +440,19 @@ void create_rr_graph(const t_graph_type graph_type,
                          echo_enabled,
                          echo_file_name,
                          is_flat);
+            VTR_LOG("[SHA] Loading RRG 02\n");
             if (router_opts.reorder_rr_graph_nodes_algorithm != DONT_REORDER) {
                 mutable_device_ctx.rr_graph_builder.reorder_nodes(router_opts.reorder_rr_graph_nodes_algorithm,
                                                                   router_opts.reorder_rr_graph_nodes_threshold,
                                                                   router_opts.reorder_rr_graph_nodes_seed);
             }
+            VTR_LOG("[SHA] Loading RRG 03\n");
             //reading netlist per node
             std::ifstream nets_per_node_fp;
-            std::string nets_per_node_filename = "nets_per_node.txt";
+            std::string nets_per_node_filename = "nets_per_dnode.txt";
             nets_per_node_fp.open(nets_per_node_filename);
             int lineno = 0;
+            VTR_LOG("[SHA] Reading nets_per_dnode.txt file\n");
             if (!nets_per_node_fp.is_open()) {
                 vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
                     "Cannot open nets per node file");
@@ -467,6 +473,8 @@ void create_rr_graph(const t_graph_type graph_type,
                 }
 
                 // Now assign this list of nets to the node using the provided function
+                VTR_LOG("[SHA] Loading the net into net_id\n");
+                VTR_LOG("[SHA] Loading: %d\n", node_id);
                 mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
                 //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
                 //t_rr_graph_storage::assign_list_to_node(nets, node_id);
@@ -582,7 +590,7 @@ void print_rr_graph_stats() {
         num_rr_edges += rr_graph.edges(rr_node.id()).size();
     }
 
-    VTR_LOG("  RR Graph Nodes: %zu\n", rr_graph.num_nodes());
+    VTR_LOG("  [SHA] RR Graph Nodes: %zu\n", rr_graph.num_nodes());
     VTR_LOG("  RR Graph Edges: %zu\n", num_rr_edges);
 }
 

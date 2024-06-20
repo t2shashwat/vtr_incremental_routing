@@ -1245,6 +1245,7 @@ struct t_router_opts {
     int incr_route = 0;
     int icr_iter = 0;
     float sbNode_lookahead_factor = 0.0;
+    int detailed_router = 0;
     //==========================================
 };
 

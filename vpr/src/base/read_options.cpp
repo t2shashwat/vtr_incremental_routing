@@ -2186,6 +2186,11 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Set the sbNode lookahead factor")
         .default_value("1.00")
         .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.detailed_router, "--detailed_router")
+        .help(
+            "Turn the detailed router on")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
     //========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")
