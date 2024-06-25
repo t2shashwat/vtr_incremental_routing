@@ -442,6 +442,7 @@ void create_rr_graph(const t_graph_type graph_type,
                                                                   router_opts.reorder_rr_graph_nodes_threshold,
                                                                   router_opts.reorder_rr_graph_nodes_seed);
             }
+	    if(router_opts.detailed_router == 1){
 	    size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
             VTR_LOG("[SHA] Total nodes in the RRG: %d\n", total_rr_nodes);
             mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
@@ -477,7 +478,8 @@ void create_rr_graph(const t_graph_type graph_type,
                 //t_rr_graph_storage::assign_list_to_node(nets, node_id);
             }
             nets_per_node_fp.close(); 
-        }
+	  }
+	}
     } else {
         if (channel_widths_unchanged(device_ctx.chan_width, nodes_per_chan) && !device_ctx.rr_graph.empty() && is_flat == false) {
             //No change in channel width, so skip re-building RR graph
