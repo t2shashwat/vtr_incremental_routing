@@ -318,6 +318,11 @@ class RRGraphBuilder {
         const RRNodeId& id){
         node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
     }
+    
+    inline void resize_allowed_list_of_nodes(
+        size_t size){
+        node_storage_.resize_allowed_list_of_nodes(size);
+    }
 
     /* -- Internal data storage -- */
   private:

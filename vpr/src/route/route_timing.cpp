@@ -2039,11 +2039,12 @@ void enable_router_debug(
     bool match_iteration = (router_opts.router_debug_iteration == router_iteration || router_opts.router_debug_iteration < 0);
 
     f_router_debug = active_net_debug || active_sink_debug || active_iteration_debug;
-    router->set_router_debug(f_router_debug);
 
     if (active_net_debug) f_router_debug &= match_net;
     if (active_sink_debug) f_router_debug &= match_sink;
     if (active_iteration_debug) f_router_debug &= match_iteration;
+    
+    router->set_router_debug(f_router_debug);
 
 #ifndef VTR_ENABLE_DEBUG_LOGGING
     VTR_LOGV_WARN(f_router_debug, "Limited router debug output provided since compiled without VTR_ENABLE_DEBUG_LOGGING defined\n");
@@ -3205,6 +3206,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
     cost_params.pres_fac = pres_fac;
     cost_params.bias = router_opts.sbNode_lookahead_factor;
+    cost_params.offpath_penalty = router_opts.offpath_penalty;
+    cost_params.detailed_router = router_opts.detailed_router;
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {

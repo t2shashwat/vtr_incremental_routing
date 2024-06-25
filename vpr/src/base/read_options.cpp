@@ -2191,6 +2191,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Turn the detailed router on")
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.offpath_penalty, "--offpath_penalty")
+        .help(
+            "Set the value of offpath penalty")
+        .default_value("1.0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
     //========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")

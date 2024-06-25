@@ -382,6 +382,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->icr_iter = Options.icr_iter;
     RouterOpts->sbNode_lookahead_factor = Options.sbNode_lookahead_factor;
     RouterOpts->detailed_router = Options.detailed_router;
+    RouterOpts->offpath_penalty = Options.offpath_penalty;
     //========================================
     //TODO document these?
     RouterOpts->congestion_analysis = Options.full_stats;

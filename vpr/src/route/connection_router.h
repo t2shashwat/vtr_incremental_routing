@@ -207,7 +207,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const int from_node,
         const int to_node,
         const RREdgeId from_edge,
-        const int target_node);
+        const int target_node,
+	const float offpath_penalty);
 
     // Calculates the cost of reaching to_node
     void evaluate_timing_driven_node_costs(
@@ -216,7 +217,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const int from_node,
         const int to_node,
         const RREdgeId from_edge,
-        const int target_node);
+        const int target_node,
+	const float offpath_penalty);
 
     // Find paths from current heap to all nodes in the RR graph
     std::vector<t_heap> timing_driven_find_all_shortest_paths_from_heap(

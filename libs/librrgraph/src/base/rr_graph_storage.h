@@ -621,10 +621,16 @@ class t_rr_graph_storage {
         return side_tt[size_t(side)];
     }
     
+    inline void resize_allowed_list_of_nodes(
+        size_t size){
+        allowed_nets_per_node.resize(size);
+    }
     inline void assign_list_to_node(
         std::set<ClusterNetId> net_list, 
         const RRNodeId& id){
-        allowed_nets_per_node[id] = net_list;    
+	for (const auto& net_id : net_list) {
+        	allowed_nets_per_node[id].insert(net_id);
+    	}
     }
     inline std::set<ClusterNetId> get_list_of_allowed_nets(
         const RRNodeId& id) const {

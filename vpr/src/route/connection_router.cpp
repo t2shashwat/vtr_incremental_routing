@@ -513,16 +513,25 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     //check if net in the list of the to_node
     //get the list of nets allowed to pass through the node
     //SHA
-    //if (router_opts.detailed_router == 1) {
-    //if (0) {
+    float offpath_penalty = 1.0;
+    if (cost_params.detailed_router == 1) {
         std::set<ClusterNetId> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
-        VTR_LOG("Checking if net is allowed\n");
+        //VTR_LOG("allwed_nets_list to node: %d\n", to_node);
+        //VTR_LOG("[SHA] Target_ node: %d\n", target_node);
+	//for (auto net_id : allowed_nets_list){
+        //	VTR_LOG("allwed_nets_list: %d\n", net_id);
+	//}
+	//VTR_LOG("\n");
+	//VTR_LOG("Checking if net is allowed\n");
         allowed_nets_list.insert(ClusterNetId(-1));
-        bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
-        if (!allowed){
-            return;
-        }
-    //}
+        //bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
+        auto allowed = allowed_nets_list.find(net_id);
+	offpath_penalty = allowed != allowed_nets_list.end() ? 1.0 : cost_params.offpath_penalty;  
+        //VTR_LOG("Routing net: %d   %b\n", net_id, allowed);
+        //if (!allowed){
+        //    return;
+        //}
+    }
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
                    from_node, size_t(from_edge), to_node_int);
@@ -541,7 +550,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                                   from_node,
                                   to_node_int,
                                   from_edge,
-                                  target_node);
+                                  target_node,
+				  offpath_penalty);
     }
 }
 
@@ -552,7 +562,8 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
                                                        const int from_node,
                                                        const int to_node,
                                                        const RREdgeId from_edge,
-                                                       const int target_node) {
+                                                       const int target_node,
+						       const float offpath_penalty) {
     const auto& device_ctx = g_vpr_ctx.device();
     t_heap next;
 
@@ -578,7 +589,8 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
                                       from_node,
                                       to_node,
                                       from_edge,
-                                      target_node);
+                                      target_node,
+				      offpath_penalty);
 
     float best_total_cost = rr_node_route_inf_[to_node].path_cost;
     float best_back_cost = rr_node_route_inf_[to_node].backward_path_cost;
@@ -698,7 +710,8 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
                                                                const int from_node,
                                                                const int to_node,
                                                                const RREdgeId from_edge,
-                                                               const int target_node) {
+                                                               const int target_node,
+							       const float offpath_penalty) {
     /* new_costs.backward_cost: is the "known" part of the cost to this node -- the
      * congestion cost of all the routing resources back to the existing route
      * plus the known delay of the total path back to the source.
@@ -772,7 +785,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     }
 
     //Update the backward cost (upstream already included)
-    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost; //Congestion cost
+    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost * offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
 
     if (cost_params.bend_cost != 0.) {

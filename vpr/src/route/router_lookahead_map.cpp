@@ -385,7 +385,7 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
 	
     float bias = 1.00;
     //VTR_LOG("param_bias value %f idx: %d delta_x: %b sign_x: %b sign_y: %b\n", params.bias, seg_index, delta_x_is_larger, sign_x_is_positive, sign_y_is_positive);
-    if (seg_index < 6){
+    /*if (seg_index < 6){
     	bias = 1.00;
     }
     else if (delta_x_is_larger && seg_index >= 8){
@@ -408,7 +408,7 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
     }
     else{
     	bias = 1.00;
-    }
+    }*/
     //VTR_LOG(" after mult [d, cong, bias*]:  %f %f %f %f\n", expected_delay_cost, expected_cong_cost, bias * expected_delay_cost, bias * expected_cong_cost);
     	
     return std::make_pair(bias * expected_delay_cost, bias * expected_cong_cost);
