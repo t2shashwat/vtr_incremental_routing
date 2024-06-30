@@ -217,8 +217,8 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
         ++router_stats_->heap_pops;
 
         int inode = cheapest->index;
-        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g)\n",
-                       inode, cheapest->cost);
+        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) (%s)\n",
+                       inode, cheapest->cost, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
         //Have we found the target?
         if (inode == sink_node) {
@@ -466,13 +466,13 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
          || to_yhigh < bounding_box.ymin //Strictly below BB bottom-edge
          || to_ylow > bounding_box.ymax) //Strictly above BB top-edge
         && !rcv_path_manager.is_enabled()) {
-        VTR_LOGV_DEBUG(router_debug_,
-                       "      Pruned expansion of node %d edge %zu -> %d"
-                       " (to node location %d,%dx%d,%d outside of expanded"
-                       " net bounding box %d,%dx%d,%d)\n",
-                       from_node, size_t(from_edge), to_node_int,
-                       to_xlow, to_ylow, to_xhigh, to_yhigh,
-                       bounding_box.xmin, bounding_box.ymin, bounding_box.xmax, bounding_box.ymax);
+        //VTR_LOGV_DEBUG(router_debug_,
+        //               "      Pruned expansion of node %d edge %zu -> %d"
+        //               " (to node location %d,%dx%d,%d outside of expanded"
+        //               " net bounding box %d,%dx%d,%d)\n",
+        //               from_node, size_t(from_edge), to_node_int,
+        //              to_xlow, to_ylow, to_xhigh, to_yhigh,
+        //               bounding_box.xmin, bounding_box.ymin, bounding_box.xmax, bounding_box.ymax);
         return; /* Node is outside (expanded) bounding box. */
     }
 
@@ -489,13 +489,13 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                 || to_ylow < target_bb.ymin
                 || to_xhigh > target_bb.xmax
                 || to_yhigh > target_bb.ymax) {
-                VTR_LOGV_DEBUG(router_debug_,
-                               "      Pruned expansion of node %d edge %zu -> %d"
-                               " (to node is IPIN at %d,%dx%d,%d which does not"
-                               " lead to target block %d,%dx%d,%d)\n",
-                               from_node, size_t(from_edge), to_node_int,
-                               to_xlow, to_ylow, to_xhigh, to_yhigh,
-                               target_bb.xmin, target_bb.ymin, target_bb.xmax, target_bb.ymax);
+                //VTR_LOGV_DEBUG(router_debug_,
+                //               "      Pruned expansion of node %d edge %zu -> %d"
+                //               " (to node is IPIN at %d,%dx%d,%d which does not"
+                //               " lead to target block %d,%dx%d,%d)\n",
+                //               from_node, size_t(from_edge), to_node_int,
+                //               to_xlow, to_ylow, to_xhigh, to_yhigh,
+                //               target_bb.xmin, target_bb.ymin, target_bb.xmax, target_bb.ymax);
                 return;
             }
         }
@@ -526,11 +526,13 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
         allowed_nets_list.insert(ClusterNetId(-1));
         //bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
         auto allowed = allowed_nets_list.find(net_id);
-	offpath_penalty = allowed != allowed_nets_list.end() ? 1.0 : cost_params.offpath_penalty;  
-        //VTR_LOG("Routing net: %d   %b\n", net_id, allowed);
-        //if (!allowed){
-        //    return;
-        //}
+        //VTR_LOG("Penalty: %f   \n", cost_params.offpath_penalty);
+	//offpath_penalty = allowed ? 1.0 : cost_params.offpath_penalty;  
+	offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
+        //VTR_LOG("Routing net: %d   %f\n", net_id, offpath_penalty);
+        if (offpath_penalty != 1.0){
+            return;
+        }
     }
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",

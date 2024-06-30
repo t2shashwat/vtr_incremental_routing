@@ -1120,6 +1120,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
     cost_params.pres_fac = pres_fac;
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
     cost_params.bias = router_opts.sbNode_lookahead_factor;
+    cost_params.offpath_penalty = router_opts.offpath_penalty;
+    cost_params.detailed_router = router_opts.detailed_router;
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
@@ -2204,6 +2206,8 @@ static void init_net_delay_from_lookahead(const RouterLookahead& router_lookahea
     t_conn_cost_params cost_params;
     cost_params.criticality = 1.; //Ensures lookahead returns delay value
     cost_params.bias = bias;
+    //cost_params.offpath_penalty = router_opts.offpath_penalty;
+    //cost_params.detailed_router = router_opts.detailed_router;
 
     for (auto net_id : cluster_ctx.clb_nlist.nets()) {
         if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) continue;
@@ -3204,7 +3208,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     cost_params.bend_cost = router_opts.bend_cost;
     cost_params.pres_fac = pres_fac;
     cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
-    cost_params.pres_fac = pres_fac;
     cost_params.bias = router_opts.sbNode_lookahead_factor;
     cost_params.offpath_penalty = router_opts.offpath_penalty;
     cost_params.detailed_router = router_opts.detailed_router;
@@ -3335,7 +3338,6 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     auto& route_ctx = g_vpr_ctx.routing();
 
     t_rt_node* rt_root;
-    ClusterNetId debug_net = (ClusterNetId)17435;
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
