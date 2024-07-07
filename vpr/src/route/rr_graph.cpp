@@ -448,10 +448,10 @@ void create_rr_graph(const t_graph_type graph_type,
             mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
             //reading netlist per node
             std::ifstream nets_per_node_fp;
-            std::string nets_per_node_filename = "nets_per_dnode.txt";
+            std::string nets_per_node_filename = "connections_per_dnode.txt";
             nets_per_node_fp.open(nets_per_node_filename);
             int lineno = 0;
-            VTR_LOG("[SHA] Reading nets_per_dnode.txt file\n");
+            VTR_LOG("[SHA] Reading connectionss_per_dnode.txt file\n");
             if (!nets_per_node_fp.is_open()) {
                 vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
                     "Cannot open nets per node file");
@@ -463,12 +463,12 @@ void create_rr_graph(const t_graph_type graph_type,
                 //RRNodeId node_id;
                 int node_id;
                 //ClusterNetId net_id;
-                int net_id;
-                std::set<ClusterNetId> nets;
+		std::string net_id;
+                std::set<std::string> nets;
 
                 iss >> node_id;  // First read the node ID
                 while (iss >> net_id) {  // Then read all the following net IDs
-                    nets.insert(ClusterNetId(net_id));
+                    nets.insert(net_id);
 		    
                 }
 

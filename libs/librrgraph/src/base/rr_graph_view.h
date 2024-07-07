@@ -160,7 +160,7 @@ class RRGraphView {
         return node_storage_.node_yhigh(node);
     }
     //SHA
-    inline std::set<ClusterNetId> get_list_of_allowed_nets (
+    inline std::set<std::string> get_list_of_allowed_nets (
         const RRNodeId& id) const {
         return node_storage_.get_list_of_allowed_nets(id);
     }

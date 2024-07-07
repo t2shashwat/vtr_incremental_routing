@@ -314,7 +314,7 @@ class RRGraphBuilder {
     }
     
     inline void assign_list_to_node(
-        std::set<ClusterNetId> net_list,
+        std::set<std::string> net_list,
         const RRNodeId& id){
         node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
     }
@@ -379,7 +379,7 @@ class RRGraphBuilder {
      */
     MetadataStorage<std::tuple<int, int, short>> rr_edge_metadata_;
 
-    vtr::vector<RRNodeId, std::set<ClusterNetId>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node;
 };
 
 #endif

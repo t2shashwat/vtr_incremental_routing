@@ -114,7 +114,8 @@ static void do_one_route(int source_node,
     enable_router_debug(router_opts, ClusterNetId(), sink_node, 1, &router);
     bool found_path;
     t_heap cheapest;
-    ClusterNetId temp_net_id(-1);
+    //ClusterNetId temp_net_id(-1);
+    std::string temp_net_id = "-1";
     std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id);
 
     if (found_path) {

@@ -68,7 +68,8 @@ bool RouterDelayProfiler::calculate_delay(int source_node, int sink_node, const 
 
     bool found_path;
     t_heap cheapest;
-    ClusterNetId temp_net_id(-1);
+    //ClusterNetId temp_net_id(-1);
+    std::string temp_net_id = "-1";
     std::tie(found_path, cheapest) = router_.timing_driven_route_connection_from_route_tree(
         rt_root,
         sink_node,
@@ -136,7 +137,8 @@ std::vector<float> calculate_all_path_delays_from_rr_node(int src_rr_node,
         is_flat);
     RouterStats router_stats;
 
-    ClusterNetId temp_net_id(-1);
+    //ClusterNetId temp_net_id(-1);
+    std::string temp_net_id = "-1";
     std::vector<t_heap> shortest_paths = router.timing_driven_find_all_shortest_paths_from_route_tree(rt_root,
                                                                                                       cost_params,
                                                                                                       bounding_box,

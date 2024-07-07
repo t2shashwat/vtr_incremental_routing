@@ -626,13 +626,13 @@ class t_rr_graph_storage {
         allowed_nets_per_node.resize(size);
     }
     inline void assign_list_to_node(
-        std::set<ClusterNetId> net_list, 
+        std::set<std::string> net_list, 
         const RRNodeId& id){
 	for (const auto& net_id : net_list) {
         	allowed_nets_per_node[id].insert(net_id);
     	}
     }
-    inline std::set<ClusterNetId> get_list_of_allowed_nets(
+    inline std::set<std::string> get_list_of_allowed_nets(
         const RRNodeId& id) const {
         return allowed_nets_per_node[id];
     }
@@ -676,7 +676,7 @@ class t_rr_graph_storage {
 
     // global-detaile router support code
     // SHA 
-    vtr::vector<RRNodeId, std::set<ClusterNetId>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is
     // always equal to the number of edges in the final graph.

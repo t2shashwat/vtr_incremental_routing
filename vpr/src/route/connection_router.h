@@ -71,7 +71,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         RouterStats& router_stats,
-        ClusterNetId& net_id) final;
+        std::string& net_id) final;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
     // high fanout net.
@@ -85,7 +85,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         t_bb bounding_box,
         const SpatialRouteTreeLookup& spatial_rt_lookup,
         RouterStats& router_stats,
-        ClusterNetId& net_id) final;
+        std::string& net_id) final;
 
     // Finds a path from the route tree rooted at rt_root to all sinks
     // available.
@@ -101,7 +101,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         RouterStats& router_stats,
-        ClusterNetId& net_id) final;
+        std::string& net_id) final;
 
     void set_router_debug(bool router_debug) final {
         router_debug_ = router_debug;
@@ -150,7 +150,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     // Finds a path to sink_node, starting from the elements currently in the
     // heap.
@@ -165,7 +165,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     // Expand this current node if it is a cheaper path.
     void timing_driven_expand_cheapest(
@@ -173,7 +173,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int target_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     // Expand each neighbor of the current node.
     void timing_driven_expand_neighbours(
@@ -181,7 +181,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         int target_node,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     // Conditionally adds to_node to the router heap (via path from from_node
     // via from_edge).
@@ -197,7 +197,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_bb bounding_box,
         int target_node,
         const t_bb target_bb,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     // Add to_node to the heap, and also add any nodes which are connected by
     // non-configurable edges
@@ -224,7 +224,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
     std::vector<t_heap> timing_driven_find_all_shortest_paths_from_heap(
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId& net_id);
+        std::string& net_id);
 
     void empty_heap_annotating_node_route_inf();
 
