@@ -1367,7 +1367,9 @@ static bool timing_driven_route_sink(
     constexpr float HIGH_FANOUT_CRITICALITY_THRESHOLD = 0.9;
     bool sink_critical = (cost_params.criticality > HIGH_FANOUT_CRITICALITY_THRESHOLD);
     bool net_is_clock = route_ctx.is_clock_net[net_id] != 0;
-    std::string conn_id = std::to_string(static_cast<std::size_t>(net_id)) + "_" + std::to_string(itarget);
+    std::string conn_id = std::to_string(static_cast<std::size_t>(net_id)) + "_" + std::to_string(target_pin);
+    //VTR_LOG("connection_id: %s %zu %d\n", conn_id.c_str(), size_t(net_id), target_pin);
+    //std::cout << "This is a string: " << conn_id << std::endl;
     //ClusterNetId net_sink_id = ClusterNetId(net_id_with_sink_id);
     //We normally route high fanout nets by only adding spatially close-by routing to the heap (reduces run-time).
     //However, if the current sink is 'critical' from a timing perspective, we put the entire route tree back onto
@@ -2451,6 +2453,66 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     float pres_fac_new;
     size_t connections_routed_first_iteration, nets_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration; 
     print_route_status_header();
+    std::unordered_map<size_t, float> history_cost_map;
+    std::unordered_map<size_t, float> iib_history_cost_map;
+    std::unordered_map<size_t, size_t> node_id_map;
+    /*if(router_opts.detailed_router == 1){
+        printf("####### BEGINING loading files for detailed router: %d ######################\n", itry);
+        
+        //std::string suffix = "_to_legalise.route";
+        //std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
+        //std::string route_file_to_legalise =  prefix + suffix;
+        //printf("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise);
+
+        //read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
+        //VTR_LOG("******* Successfully loaded partial route file\n");
+        
+        //reading hist file
+        std::ifstream hist_fp;
+        std::string prev_icr_iter = std::to_string(0);
+        std::string hist_filename = "history_cost_file_"+prev_icr_iter+".txt";
+        hist_fp.open(hist_filename);
+        int lineno = 0;
+        if (!hist_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open history cost file");
+        }
+        int node_id, history_congestion_cost;
+        while (hist_fp >> node_id >> history_congestion_cost)
+        {
+            history_cost_map[node_id] = history_congestion_cost;
+        }
+        hist_fp.close();
+        //======================   
+        //reading node map file
+        std::ifstream node_map_fp;
+        std::string node_map_filename = "../gr_dr_map.map";
+        node_map_fp.open(node_map_filename);
+        if (!node_map_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open node map file");
+        }
+        std::string line;
+        while (getline(node_map_fp, line)) {
+            std::istringstream iss(line);
+            size_t gr_node_id;
+            size_t dr_node_id;
+            iss >> gr_node_id;  // First read the node ID
+            while (iss >> dr_node_id) {  // Then read all the following net IDs
+                node_id_map[dr_node_id] = gr_node_id;
+            }
+        }
+        node_map_fp.close();
+        for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+            size_t dr_node_id = (size_t)rr_id;
+            //auto iter = node_id_map.find(dr_node_id);
+            //if(iter != node_id_map.end()){
+            size_t gr_node_id = node_id_map[dr_node_id];
+            if (history_cost_map.find(gr_node_id) != history_cost_map.end()){//GI
+            	route_ctx.rr_node_route_inf[dr_node_id].acc_cost = history_cost_map[gr_node_id];//1 + (history_cost_map[node_id_from]-1) * 0.4;
+            }
+         } 
+    }*/
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
         RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
@@ -2477,7 +2539,10 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         ClusterNetId temp_net_id;
         complete_rip_up_net_count = 0;
         partial_rip_up_net_count = 0;
-        //printf("####### BEGINING iteration: %d ######################\n", itry);
+	//std::vector<ClusterNetId> first_100_nets;
+	//size_t num_elements_to_copy = 100;
+	//first_100_nets.reserve(num_elements_to_copy);
+	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
         for (auto net_id : sorted_nets) {
             temp_net_id = net_id;
             bool was_rerouted = false;
@@ -2512,9 +2577,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 #endif
             }
         }
-        std::unordered_map<size_t, float> history_cost_map;
-        std::unordered_map<size_t, float> iib_history_cost_map;
-        std::unordered_map<size_t, size_t> node_id_map;
+        //std::unordered_map<size_t, float> history_cost_map;
+        //std::unordered_map<size_t, float> iib_history_cost_map;
+        //std::unordered_map<size_t, size_t> node_id_map;
         if(router_opts.incr_route == 1 && router_opts.icr_iter >= 1 && itry == 1){
             std::string suffix = "_to_legalise.route";
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);

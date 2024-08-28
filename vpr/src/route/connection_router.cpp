@@ -516,21 +516,28 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
         std::set<std::string> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
-        //VTR_LOG("allwed_nets_list to node: %d\n", to_node);
+        //VTR_LOG("allwed_nets_list to node: %d %s\n", to_node, net_id.c_str());
         //VTR_LOG("[SHA] Target_ node: %d\n", target_node);
+        //VTR_LOG("allwed_nets_list:  ");
 	//for (auto net_id : allowed_nets_list){
-        //	VTR_LOG("allwed_nets_list: %d\n", net_id);
+        	//VTR_LOG("%s ", net_id.c_str());
 	//}
 	//VTR_LOG("\n");
 	//VTR_LOG("Checking if net is allowed\n");
-        allowed_nets_list.insert(std::string("-1"));
+	//if (allowed_nets_list.empty()) {
+	//    offpath_penalty = 1.0;
+	//}
+	//else {
+            allowed_nets_list.insert(std::string("-1"));
         //bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
-        auto allowed = allowed_nets_list.find(net_id);
+            auto allowed = allowed_nets_list.find(net_id);
         //VTR_LOG("Penalty: %f   \n", cost_params.offpath_penalty);
 	//offpath_penalty = allowed ? 1.0 : cost_params.offpath_penalty;  
-	offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
-        //VTR_LOG("Routing net: %d   %f\n", net_id, offpath_penalty);
-        if (offpath_penalty != 1.0){
+	    offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
+        //VTR_LOG("Routing net: %s   %f\n", net_id.c_str(), offpath_penalty);
+        //Uncomment below code to run without offpath penalty
+	//}
+	if (offpath_penalty < 0){
             return;
 	}
     }

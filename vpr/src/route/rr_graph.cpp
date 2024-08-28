@@ -467,10 +467,13 @@ void create_rr_graph(const t_graph_type graph_type,
                 std::set<std::string> nets;
 
                 iss >> node_id;  // First read the node ID
+		//VTR_LOG("Net ID read: %d  ", node_id);
                 while (iss >> net_id) {  // Then read all the following net IDs
                     nets.insert(net_id);
+		    //VTR_LOG("%s ", net_id.c_str());
 		    
                 }
+		//VTR_LOG("\n", net_id);
 
                 // Now assign this list of nets to the node using the provided function
                 mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));

@@ -70,13 +70,15 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac) {
     auto& route_ctx = g_vpr_ctx.routing();
 
     float pres_cost;
-    int overuse = route_ctx.rr_node_route_inf[inode].occ() - rr_graph.node_capacity(RRNodeId(inode));
+    int capacity = rr_graph.node_capacity(RRNodeId(inode));
+    int occupancy = route_ctx.rr_node_route_inf[inode].occ();
+    int overuse = occupancy - capacity;
 
     if (overuse >= 0) {
         pres_cost = (1. + pres_fac * (overuse + 1));
 	
     } else {
-        pres_cost = 1.;
+        pres_cost = 1.;// + (occupancy) * (pres_fac/capacity);
     }
 
     auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
