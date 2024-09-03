@@ -1382,13 +1382,13 @@ static bool timing_driven_route_sink(
                                                                                                            cost_params,
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
-                                                                                                           router_stats, net_id, target_sink);
+                                                                                                           router_stats, net_id, target_pin);
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
                                                                                                cost_params,
                                                                                                bounding_box,
-                                                                                               router_stats, net_id, target_sink);
+                                                                                               router_stats, net_id, target_pin);
     }
 
     if (!found_path) {
