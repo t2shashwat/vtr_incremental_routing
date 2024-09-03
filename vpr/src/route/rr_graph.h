@@ -19,7 +19,7 @@ enum {
     RR_GRAPH_WARN_CHAN_X_WIDTH_CHANGED = 0x02,
     RR_GRAPH_WARN_CHAN_Y_WIDTH_CHANGED = 0x03
 };
-
+std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id);
 void create_rr_graph(const t_graph_type graph_type,
                      const std::vector<t_physical_tile_type>& block_types,
                      const DeviceGrid& grid,

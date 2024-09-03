@@ -393,6 +393,23 @@ static void build_rr_graph(const t_graph_type graph_type,
                            bool is_flat,
                            int* Warnings);
 
+std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
+    /* configure connection id format in this function */
+    // assume 'netid_sinkid' format
+    int loc = 0;
+    for (char c: connection_id) {
+        loc++;
+        if (c == '_') break;
+    }
+    if (loc == 1 or loc == connection_id.length()) {
+        VTR_LOG("connection id '%s' does not conform to the format.", connection_id);
+        return std::pair<ClusterNetId, int>(ClusterNetId(-1), int(-1));
+    }
+    return std::pair<ClusterNetId, int>(
+        ClusterNetId(std::stoi(connection_id.substr(0, loc))),
+        int(std::stoi(connection_id.substr(loc))));
+};
+
 /******************* Subroutine definitions *******************************/
 
 void create_rr_graph(const t_graph_type graph_type,
@@ -463,16 +480,29 @@ void create_rr_graph(const t_graph_type graph_type,
                 //RRNodeId node_id;
                 int node_id;
                 //ClusterNetId net_id;
-		std::string net_id;
-                std::set<std::string> nets;
+		//std::string net_id;
+		std::string connection_id;
+                //std::set<std::string> nets;
+		std::map<ClusterNetId, std::set<int>> nets;
 
                 iss >> node_id;  // First read the node ID
 		//VTR_LOG("Net ID read: %d  ", node_id);
-                while (iss >> net_id) {  // Then read all the following net IDs
-                    nets.insert(net_id);
+                //while (iss >> net_id) {  // Then read all the following net IDs
+                    //nets.insert(net_id);
 		    //VTR_LOG("%s ", net_id.c_str());
 		    
-                }
+                //}
+               while (iss >> connection_id) {  // Then read all the following net IDs
+                    // nets.insert(net_id);
+                    ClusterNetId netid; int sinkid;
+                    std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
+                    if (not nets.count(netid)) {
+                        nets[netid] = std::set<int>();
+                    }
+                    nets.at(netid).insert(sinkid);
+                    //VTR_LOG("%s ", net_id.c_str());
+
+                 }
 		//VTR_LOG("\n", net_id);
 
                 // Now assign this list of nets to the node using the provided function

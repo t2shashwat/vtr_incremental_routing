@@ -626,16 +626,33 @@ class t_rr_graph_storage {
         allowed_nets_per_node.resize(size);
     }
     inline void assign_list_to_node(
-        std::set<std::string> net_list, 
+        //std::set<std::string> net_list,
+	std::map<ClusterNetId, std::set<int>> net_list, 
         const RRNodeId& id){
-	for (const auto& net_id : net_list) {
-        	allowed_nets_per_node[id].insert(net_id);
-    	}
+	//for (const auto& net_id : net_list) {
+        //	allowed_nets_per_node[id].insert(net_id);
+    	//}
+	for (const auto& [net_id, sink_ids] : net_list) {
+            // allowed_nets_per_node[id].insert(net_id);
+            int max_sinkid = *sink_ids.rbegin();
+            allowed_nets_per_node[id][net_id] = std::vector<bool>(size_t(max_sinkid + 1), false);
+            for (auto sinkid: sink_ids) {
+                allowed_nets_per_node[id].at(net_id).at(size_t(sinkid)) = true;
+            }
+       }
     }
-    inline std::set<std::string> get_list_of_allowed_nets(
+    /*inline std::set<std::string> get_list_of_allowed_nets(
         const RRNodeId& id) const {
         return allowed_nets_per_node[id];
-    }
+    }*/
+    inline bool check_connection_allowed_to_use_node(
+        const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
+            //ClusterNetId netid; int sinkid;
+            //std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
+            if (not allowed_nets_per_node[id].count(netid)) return false;
+            if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) return false;
+            return allowed_nets_per_node[id].at(netid).at(size_t(sinkid));
+        }
 
   private:
     friend struct edge_swapper;
@@ -676,7 +693,8 @@ class t_rr_graph_storage {
 
     // global-detaile router support code
     // SHA 
-    vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node;
+    //vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<bool>>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is
     // always equal to the number of edges in the final graph.

@@ -18,9 +18,9 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
     RouterStats& router_stats,
-    std::string& net_id) {
+    ClusterNetId net_id, int sink_id) {
     router_stats_ = &router_stats;
-    t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id);
+    t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id, sink_id);
 
     if (cheapest != nullptr) {
         rcv_path_manager.update_route_tree_set(cheapest->path_data);
@@ -42,7 +42,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
     int sink_node,
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
-    std::string& net_id) {
+    ClusterNetId net_id, int sink_id) {
     //Re-add route nodes from the existing route tree to the heap.
     //They need to be repushed onto the heap since each node's cost is target specific.
     add_route_tree_to_heap(rt_root, sink_node, cost_params);
@@ -63,7 +63,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
     t_heap* cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                                 cost_params,
-                                                                bounding_box, net_id);
+                                                                bounding_box, net_id, sink_id);
 
     if (cheapest == nullptr) {
         //Found no path found within the current bounding box.
@@ -105,7 +105,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
         //Try finding the path again with the relaxed bounding box
         cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                             cost_params,
-                                                            full_device_bounding_box, net_id);
+                                                            full_device_bounding_box, net_id, sink_id);
     }
 
     if (cheapest == nullptr) {
@@ -130,7 +130,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     t_bb net_bounding_box,
     const SpatialRouteTreeLookup& spatial_rt_lookup,
     RouterStats& router_stats,
-    std::string& net_id){
+    ClusterNetId net_id, int sink_id){
     router_stats_ = &router_stats;
 
     // re-explore route tree from root to add any new nodes (buildheap afterwards)
@@ -153,7 +153,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 
     t_heap* cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                                 cost_params,
-                                                                high_fanout_bb, net_id);
+                                                                high_fanout_bb, net_id, sink_id);
 
     if (cheapest == nullptr) {
         //Found no path, that may be due to an unlucky choice of existing route tree sub-set,
@@ -169,7 +169,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
                                                                sink_node,
                                                                cost_params,
                                                                net_bounding_box,
-                                                               net_id);
+                                                               net_id, sink_id);
     }
 
     if (cheapest == nullptr) {
@@ -200,7 +200,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 template<typename Heap>
 t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sink_node,
                                                                          const t_conn_cost_params cost_params,
-                                                                         t_bb bounding_box, std::string& net_id) {
+                                                                         t_bb bounding_box, ClusterNetId net_id, int sink_id) {
     VTR_ASSERT_SAFE(heap_.is_valid());
 
     if (heap_.is_empty_heap()) { //No source
@@ -237,7 +237,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
         timing_driven_expand_cheapest(cheapest,
                                       sink_node,
                                       cost_params,
-                                      bounding_box, net_id);
+                                      bounding_box, net_id, sink_id);
 
         rcv_path_manager.free_path_struct(cheapest->path_data);
         heap_.free(cheapest);
@@ -264,7 +264,7 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
     RouterStats& router_stats,
-    std::string& net_id) {
+    ClusterNetId net_id, int sink_id) {
     router_stats_ = &router_stats;
 
     //Add the route tree to the heap with no specific target node
@@ -272,7 +272,7 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
     add_route_tree_to_heap(rt_root, target_node, cost_params);
     heap_.build_heap(); // via sifting down everything
 
-    auto res = timing_driven_find_all_shortest_paths_from_heap(cost_params, bounding_box, net_id);
+    auto res = timing_driven_find_all_shortest_paths_from_heap(cost_params, bounding_box, net_id, sink_id);
     heap_.empty_heap();
 
     return res;
@@ -288,7 +288,7 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
 template<typename Heap>
 std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_paths_from_heap(
     const t_conn_cost_params cost_params,
-    t_bb bounding_box, std::string& net_id) {
+    t_bb bounding_box, ClusterNetId net_id, int sink_id) {
     std::vector<t_heap> cheapest_paths(rr_nodes_.size());
 
     VTR_ASSERT_SAFE(heap_.is_valid());
@@ -316,7 +316,7 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
         timing_driven_expand_cheapest(cheapest,
                                       target_node,
                                       cost_params,
-                                      bounding_box, net_id);
+                                      bounding_box, net_id, sink_id);
 
         if (cheapest_paths[inode].index == OPEN || cheapest_paths[inode].cost >= cheapest->cost) {
             VTR_LOGV_DEBUG(router_debug_, "  Better cost to node %d: %g (was %g)\n", inode, cheapest->cost, cheapest_paths[inode].cost);
@@ -336,7 +336,7 @@ template<typename Heap>
 void ConnectionRouter<Heap>::timing_driven_expand_cheapest(t_heap* cheapest,
                                                            int target_node,
                                                            const t_conn_cost_params cost_params,
-                                                           t_bb bounding_box, std::string& net_id) {
+                                                           t_bb bounding_box, ClusterNetId net_id, int sink_id) {
     int inode = cheapest->index;
 
     t_rr_node_route_inf* route_inf = &rr_node_route_inf_[inode];
@@ -368,7 +368,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_cheapest(t_heap* cheapest,
         update_cheapest(cheapest, route_inf);
 
         timing_driven_expand_neighbours(cheapest, cost_params, bounding_box,
-                                        target_node, net_id);
+                                        target_node, net_id, sink_id);
     } else {
         //Post-heap prune, do not re-explore from the current/new partial path as it
         //has worse cost than the best partial path to this node found so far
@@ -384,7 +384,7 @@ template<typename Heap>
 void ConnectionRouter<Heap>::timing_driven_expand_neighbours(t_heap* current,
                                                              const t_conn_cost_params cost_params,
                                                              t_bb bounding_box,
-                                                             int target_node, std::string& net_id) {
+                                                             int target_node, ClusterNetId net_id, int sink_id) {
     /* Puts all the rr_nodes adjacent to current on the heap.
      */
 
@@ -435,7 +435,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbours(t_heap* current,
                                        cost_params,
                                        bounding_box,
                                        target_node,
-                                       target_bb, net_id);
+                                       target_bb, net_id, sink_id);
     }
 }
 
@@ -450,7 +450,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                                                             const t_conn_cost_params cost_params,
                                                             const t_bb bounding_box,
                                                             int target_node,
-                                                            const t_bb target_bb, std::string& net_id) {
+                                                            const t_bb target_bb, ClusterNetId net_id, int sink_id) {
     RRNodeId to_node(to_node_int);
     int to_xlow = rr_graph_->node_xlow(to_node);
     int to_ylow = rr_graph_->node_ylow(to_node);
@@ -515,7 +515,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     //SHA
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
-        std::set<std::string> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
+	//std::set<std::string> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
+	auto allowed = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
         //VTR_LOG("allwed_nets_list to node: %d %s\n", to_node, net_id.c_str());
         //VTR_LOG("[SHA] Target_ node: %d\n", target_node);
         //VTR_LOG("allwed_nets_list:  ");
@@ -528,12 +529,13 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	//    offpath_penalty = 1.0;
 	//}
 	//else {
-            allowed_nets_list.insert(std::string("-1"));
+            //allowed_nets_list.insert(std::string("-1"));
         //bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
-            auto allowed = allowed_nets_list.find(net_id);
+            //auto allowed = allowed_nets_list.find(net_id);
         //VTR_LOG("Penalty: %f   \n", cost_params.offpath_penalty);
 	//offpath_penalty = allowed ? 1.0 : cost_params.offpath_penalty;  
-	    offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
+	    //offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
+	 offpath_penalty = (allowed) ? 1.0 : cost_params.offpath_penalty;
         //VTR_LOG("Routing net: %s   %f\n", net_id.c_str(), offpath_penalty);
         //Uncomment below code to run without offpath penalty
 	//}

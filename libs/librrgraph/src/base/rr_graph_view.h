@@ -160,10 +160,14 @@ class RRGraphView {
         return node_storage_.node_yhigh(node);
     }
     //SHA
-    inline std::set<std::string> get_list_of_allowed_nets (
+    /*inline std::set<std::string> get_list_of_allowed_nets (
         const RRNodeId& id) const {
         return node_storage_.get_list_of_allowed_nets(id);
-    }
+    }*/
+    inline bool check_connection_allowed_to_use_node(
+        const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
+            return node_storage_.check_connection_allowed_to_use_node(id, netid, sinkid);
+        }
 
     /** @brief Get the first out coming edge of resource node. This function is inlined for runtime optimization. */
     inline RREdgeId node_first_edge(RRNodeId node) const {
