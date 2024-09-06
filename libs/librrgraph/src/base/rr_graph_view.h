@@ -160,10 +160,10 @@ class RRGraphView {
         return node_storage_.node_yhigh(node);
     }
     //SHA
-    /*inline std::set<std::string> get_list_of_allowed_nets (
+    inline std::set<std::string> get_list_of_allowed_nets (
         const RRNodeId& id) const {
         return node_storage_.get_list_of_allowed_nets(id);
-    }*/
+    }
     inline bool check_connection_allowed_to_use_node(
         const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
             return node_storage_.check_connection_allowed_to_use_node(id, netid, sinkid);

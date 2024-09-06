@@ -625,32 +625,52 @@ class t_rr_graph_storage {
         size_t size){
         allowed_nets_per_node.resize(size);
     }
+    
+    inline void resize_allowed_list_of_nodes_v2(
+        size_t size){
+        allowed_nets_per_node_v2.resize(size);
+    }
     inline void assign_list_to_node(
         //std::set<std::string> net_list,
 	std::map<ClusterNetId, std::set<int>> net_list, 
-        const RRNodeId& id){
+        const RRNodeId& node_id){
 	//for (const auto& net_id : net_list) {
         //	allowed_nets_per_node[id].insert(net_id);
     	//}
 	for (const auto& [net_id, sink_ids] : net_list) {
             // allowed_nets_per_node[id].insert(net_id);
             int max_sinkid = *sink_ids.rbegin();
-            allowed_nets_per_node[id][net_id] = std::vector<bool>(size_t(max_sinkid + 1), false);
+            allowed_nets_per_node[node_id][net_id] = std::vector<bool>(size_t(max_sinkid + 1), false);
             for (auto sinkid: sink_ids) {
-                allowed_nets_per_node[id].at(net_id).at(size_t(sinkid)) = true;
+                allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid)) = true;
+		//printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
             }
        }
     }
-    /*inline std::set<std::string> get_list_of_allowed_nets(
+    inline void assign_list_to_node_v2(
+        std::set<std::string> net_list,
+        const RRNodeId& id){
+	for (const auto& net_id : net_list) {
+        	allowed_nets_per_node_v2[id].insert(net_id);
+    	}
+    }
+    inline std::set<std::string> get_list_of_allowed_nets(
         const RRNodeId& id) const {
-        return allowed_nets_per_node[id];
-    }*/
+        return allowed_nets_per_node_v2[id];
+    }
     inline bool check_connection_allowed_to_use_node(
         const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
             //ClusterNetId netid; int sinkid;
             //std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
-            if (not allowed_nets_per_node[id].count(netid)) return false;
-            if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) return false;
+            if (not allowed_nets_per_node[id].count(netid)) {
+		//printf("Checking on node: %zu net_id: %zu sink_id: %d count:%d\n", size_t(id), size_t(netid), sinkid, allowed_nets_per_node[id].count(netid));
+	  	return false;
+	    }
+            if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) {
+		//printf("Size of net array: %d sink: %d node_id: %zu net_id: %zu\n", allowed_nets_per_node[id].at(netid).size(), sinkid, size_t(id), size_t(netid));
+		return false;
+	    }
+	    //printf("Present: %d node_id: %zu net_id: %zu sinkid: %d\n", allowed_nets_per_node[id].at(netid).at(size_t(sinkid)), size_t(id), size_t(netid), sinkid);
             return allowed_nets_per_node[id].at(netid).at(size_t(sinkid));
         }
 
@@ -693,7 +713,7 @@ class t_rr_graph_storage {
 
     // global-detaile router support code
     // SHA 
-    //vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node_v2;
     vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<bool>>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is

@@ -341,7 +341,7 @@ std::pair<float, float> MapLookahead::get_expected_delay_and_cong(RRNodeId from_
                 }
 
                 float this_delay_cost = (params.criticality) * (reachable_wire_inf.delay + wire_cost_entry.delay);
-                float this_cong_cost = (1 - params.criticality) * (reachable_wire_inf.congestion + wire_cost_entry.congestion);
+                float this_cong_cost = (1. - params.criticality) * (reachable_wire_inf.congestion + wire_cost_entry.congestion);
 
                 expected_delay_cost = std::min(expected_delay_cost, this_delay_cost);
                 expected_cong_cost = std::min(expected_cong_cost, this_cong_cost);

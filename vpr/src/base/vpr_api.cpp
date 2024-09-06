@@ -419,7 +419,7 @@ void vpr_create_device(t_vpr_setup& vpr_setup, const t_arch& arch) {
     vpr_setup_noc(vpr_setup, arch);
 
     if (vpr_setup.PlacerOpts.place_chan_width != NO_FIXED_CHANNEL_WIDTH) {
-        vpr_create_rr_graph(vpr_setup, arch, vpr_setup.PlacerOpts.place_chan_width);
+        //vpr_create_rr_graph(vpr_setup, arch, vpr_setup.PlacerOpts.place_chan_width);
     }
 }
 

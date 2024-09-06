@@ -463,6 +463,7 @@ void create_rr_graph(const t_graph_type graph_type,
 	    size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
             VTR_LOG("[SHA] Total nodes in the RRG: %d\n", total_rr_nodes);
             mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+            mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes_v2(total_rr_nodes);
             //reading netlist per node
             std::ifstream nets_per_node_fp;
             std::string nets_per_node_filename = "connections_per_dnode.txt";
@@ -475,42 +476,46 @@ void create_rr_graph(const t_graph_type graph_type,
             }
 
             std::string line;
-            while (getline(nets_per_node_fp, line)) {
+            /*while (getline(nets_per_node_fp, line)) {
                 std::istringstream iss(line);
-                //RRNodeId node_id;
                 int node_id;
-                //ClusterNetId net_id;
-		//std::string net_id;
-		std::string connection_id;
-                //std::set<std::string> nets;
-		std::map<ClusterNetId, std::set<int>> nets;
-
+                std::set<std::string> nets_v2;
+		std::string net_id;
                 iss >> node_id;  // First read the node ID
 		//VTR_LOG("Net ID read: %d  ", node_id);
-                //while (iss >> net_id) {  // Then read all the following net IDs
-                    //nets.insert(net_id);
+                while (iss >> net_id) {  // Then read all the following net IDs
+                    nets_v2.insert(net_id);
 		    //VTR_LOG("%s ", net_id.c_str());
-		    
-                //}
+                }
+                mutable_device_ctx.rr_graph_builder.assign_list_to_node_v2(nets_v2, RRNodeId(node_id));
+	    }*/	
+            nets_per_node_fp.close(); 
+            nets_per_node_fp.open(nets_per_node_filename);
+            VTR_LOG("[SHA] Reading connectionss_per_dnode.txt file\n");
+            while (getline(nets_per_node_fp, line)) {
+                std::istringstream iss(line);
+		std::string connection_id;
+		std::map<ClusterNetId, std::set<int>> nets;
+                int node_id;
+                iss >> node_id;  // First read the node ID
                while (iss >> connection_id) {  // Then read all the following net IDs
                     // nets.insert(net_id);
                     ClusterNetId netid; int sinkid;
                     std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
+		    //VTR_LOG("Reading file: %d ");
                     if (not nets.count(netid)) {
                         nets[netid] = std::set<int>();
                     }
                     nets.at(netid).insert(sinkid);
                     //VTR_LOG("%s ", net_id.c_str());
-
                  }
 		//VTR_LOG("\n", net_id);
-
                 // Now assign this list of nets to the node using the provided function
                 mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
                 //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
                 //t_rr_graph_storage::assign_list_to_node(nets, node_id);
             }
-            nets_per_node_fp.close(); 
+            nets_per_node_fp.close();
 	  }
 	}
     } else {
