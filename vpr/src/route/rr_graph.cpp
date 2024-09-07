@@ -409,6 +409,18 @@ std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
         ClusterNetId(std::stoi(connection_id.substr(0, loc))),
         int(std::stoi(connection_id.substr(loc))));
 };
+std::tuple<ClusterNetId, int, int> get_netid_sinkid_hop(std::string connection_id) {
+    /* configure connection id format in this function */
+    // assume 'netid_sinkid_hop' format
+    int netId, sinkId, hop;
+    char delim;
+    std::stringstream ss(connection_id);
+    if (ss >> netId >> delim >> sinkId >> delim >> hop) {
+        return std::make_tuple(ClusterNetId(netId), sinkId, hop);  // Return the values as a tuple
+    } else {
+        throw VTR_LOG_ERROR("Invalid string format");
+    }
+};
 
 /******************* Subroutine definitions *******************************/
 
@@ -495,18 +507,18 @@ void create_rr_graph(const t_graph_type graph_type,
             while (getline(nets_per_node_fp, line)) {
                 std::istringstream iss(line);
 		std::string connection_id;
-		std::map<ClusterNetId, std::set<int>> nets;
+		std::map<ClusterNetId, std::set<std::pair<int, int>> nets;
                 int node_id;
                 iss >> node_id;  // First read the node ID
                while (iss >> connection_id) {  // Then read all the following net IDs
                     // nets.insert(net_id);
-                    ClusterNetId netid; int sinkid;
-                    std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
+                    ClusterNetId netid; int sinkid, hop;
+                    std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
 		    //VTR_LOG("Reading file: %d ");
                     if (not nets.count(netid)) {
                         nets[netid] = std::set<int>();
                     }
-                    nets.at(netid).insert(sinkid);
+                    nets.at(netid).insert(std::make_pair(sinkid, hop));
                     //VTR_LOG("%s ", net_id.c_str());
                  }
 		//VTR_LOG("\n", net_id);

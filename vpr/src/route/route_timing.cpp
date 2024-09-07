@@ -2458,6 +2458,54 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<size_t, float> history_cost_map;
     std::unordered_map<size_t, float> iib_history_cost_map;
     std::unordered_map<size_t, size_t> node_id_map;
+    std::unordered_map<size_t, std::unordered_map<int, int>> net_id_to_sink_order_map;
+    if(router_opts.detailed_router == 1) {
+        std::ifstream sink_order_fp;
+        std::string sink_order_filename = "sink_order.txt";
+        sink_order_fp.open(sink_order_filename);
+        int lineno = 0;
+        VTR_LOG("[SHA] Reading sink_order.txt file\n");
+        if (!sink_order_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open sink order file");
+        }
+
+        std::string line;
+        while (getline(sink_order_fp, line)) {
+ 	    if (line.empty()) {
+            // If the line is empty, skip processing
+            continue;
+            }
+            std::istringstream iss(line);
+	    size_t net_id;
+	    int net_pin_index;
+            std::vector<int> sink_order;
+	    std::unordered_map<int, int> sink_order_index;
+            
+	    iss >> net_id;  // First read the net ID
+	    //VTR_LOG("Net ID read: %d  ", node_id);
+            while (iss >> net_pin_index) {  // Then read all the following net IDs
+                sink_order.push_back(net_pin_index);
+	        //VTR_LOG("%s ", net_id.c_str());
+            }
+    	    for (int i = 0; i < sink_order.size(); ++i) {
+        	sink_order_index[sink_order[i]] = i;
+    	    }
+	    if (net_id == 48){
+		VTR_LOG("%zu", net_id);
+    	    	for (int i = 0; i < sink_order.size(); ++i) {
+		    VTR_LOG(" %d", sink_order[i]);
+    	    	}
+	    	VTR_LOG("\n");
+		VTR_LOG("%zu", net_id);
+    	    	for (int i = 0; i < sink_order_index.size(); ++i) {
+		    VTR_LOG(" %d", sink_order_index[i]);
+    	    	}
+	    	VTR_LOG("\n");
+	    }
+	    net_id_to_sink_order_map[net_id] = sink_order_index;
+	}
+    }
     /*if(router_opts.detailed_router == 1){
         printf("####### BEGINING loading files for detailed router: %d ######################\n", itry);
         
@@ -2547,12 +2595,14 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
         for (auto net_id : sorted_nets) {
             temp_net_id = net_id;
+	    std::unordered_map<int, int> sink_order_index = net_id_to_sink_order_map[size_t(net_id)];
             bool was_rerouted = false;
             bool is_routable = try_timing_driven_route_net_incr_route(filename_opts,
                                                            router,
                                                            net_id,
                                                            itry,
                                                            pres_fac,
+							   sink_order_index,
                                                            router_opts,
                                                            connections_inf,
                                                            router_iteration_stats,
@@ -3104,6 +3154,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  ClusterNetId net_id,
                                  int itry,
                                  float pres_fac,
+				 std::unordered_map<int, int>& sink_order_index,
                                  const t_router_opts& router_opts,
                                  CBRR& connections_inf,
                                  RouterStats& router_stats,
@@ -3146,6 +3197,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                             net_id,
                                             itry,
                                             pres_fac,
+					    sink_order_index,
                                             router_opts,
                                             connections_inf,
                                             router_stats,
@@ -3179,6 +3231,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              ClusterNetId net_id,
                              int itry,
                              float pres_fac,
+			     std::unordered_map<int, int>& sink_order_index,
                              const t_router_opts& router_opts,
                              CBRR& connections_inf,
                              RouterStats& router_stats,
@@ -3266,7 +3319,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     }
 
     // compare the criticality of different sink nodes
-    sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
+        return sink_order_index[a] < sink_order_index[b];
+    });
 
     /* Update base costs according to fanout and criticality rules */
     update_rr_base_costs(num_sinks);

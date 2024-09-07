@@ -211,6 +211,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
     t_heap* cheapest = nullptr;
+    int heap_count = 0;
     while (!heap_.is_empty_heap()) {
         // cheapest t_heap in current route tree to be expanded on
         cheapest = heap_.get_heap_head();
@@ -238,6 +239,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
                                       sink_node,
                                       cost_params,
                                       bounding_box, net_id, sink_id);
+	hop_count++;
 
         rcv_path_manager.free_path_struct(cheapest->path_data);
         heap_.free(cheapest);
@@ -519,8 +521,12 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	//std::string conn_id = std::to_string(static_cast<std::size_t>(net_id)) + "_" + std::to_string(sink_id);
         //auto allowed = allowed_nets_list.find(conn_id);
 	//offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
-	auto allowed_2 = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	float offpath_penalty = (allowed_2) ? 1.0 : cost_params.offpath_penalty;
+	int hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
+	float offpath_penalty = (hop == current_hop) ? 1.0 : cost_params.offpath_penalty;
+	if (offpath_penalty < 0){
+            return;
+	}
+
         /* 	
 	if (offpath_penalty_new != offpath_penalty){
 		VTR_LOG("Comparing offpath for net (%zu) sink: %d, node (%d): old: %f new: %f \n", size_t(net_id), sink_id, to_node, offpath_penalty, offpath_penalty_new);	
@@ -547,9 +553,6 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
         //VTR_LOG("Routing net: %s   %f\n", net_id.c_str(), offpath_penalty);
         //Uncomment below code to run without offpath penalty
 	//}
-	if (offpath_penalty < 0){
-            return;
-	}
     }
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
@@ -911,9 +914,10 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
 
     if (!rcv_path_manager.is_enabled()) {
         // tot_cost = backward_path_cost + cost_params.astar_fac * expected_cost;
-        float tot_cost = backward_path_cost
-                         + cost_params.astar_fac
-                               * router_lookahead_.get_expected_cost(RRNodeId(inode), RRNodeId(target_node), cost_params, R_upstream);
+        //float tot_cost = backward_path_cost
+        //                 + cost_params.astar_fac
+        //                       * router_lookahead_.get_expected_cost(RRNodeId(inode), RRNodeId(target_node), cost_params, R_upstream);
+        float tot_cost = 0.;
         VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s)\n", inode, tot_cost,
                        describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 

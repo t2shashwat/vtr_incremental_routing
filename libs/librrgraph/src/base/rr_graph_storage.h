@@ -632,17 +632,17 @@ class t_rr_graph_storage {
     }
     inline void assign_list_to_node(
         //std::set<std::string> net_list,
-	std::map<ClusterNetId, std::set<int>> net_list, 
+	std::map<ClusterNetId, std::set<std::pair<int, int>>> net_list, 
         const RRNodeId& node_id){
 	//for (const auto& net_id : net_list) {
         //	allowed_nets_per_node[id].insert(net_id);
     	//}
 	for (const auto& [net_id, sink_ids] : net_list) {
             // allowed_nets_per_node[id].insert(net_id);
-            int max_sinkid = *sink_ids.rbegin();
+            int max_sinkid = *sink_ids.rbegin().first;
             allowed_nets_per_node[node_id][net_id] = std::vector<bool>(size_t(max_sinkid + 1), false);
-            for (auto sinkid: sink_ids) {
-                allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid)) = true;
+            for (const auto& sinkid: sink_ids) {
+                allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid.first)) = sinkid.second;//true;
 		//printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
             }
        }
@@ -658,7 +658,7 @@ class t_rr_graph_storage {
         const RRNodeId& id) const {
         return allowed_nets_per_node_v2[id];
     }
-    inline bool check_connection_allowed_to_use_node(
+    inline int check_connection_allowed_to_use_node(
         const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
             //ClusterNetId netid; int sinkid;
             //std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);

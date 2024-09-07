@@ -315,7 +315,7 @@ class RRGraphBuilder {
     
     inline void assign_list_to_node(
         //std::set<std::string> net_list,
-	std::map<ClusterNetId, std::set<int>> net_list,
+	std::map<ClusterNetId, std::set<std::pair<int, int>>> net_list,
         const RRNodeId& id){
         node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
     }
