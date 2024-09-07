@@ -2273,6 +2273,23 @@ bool try_timing_driven_route_incr_route(const t_router_opts& router_opts,
     }
 }
 
+std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
+    /* configure connection id format in this function */
+    // assume 'netid_sinkid' format
+    int loc = 0;
+    for (char c: connection_id) {
+        loc++;
+        if (c == '_') break;
+    }
+    if (loc == 1 or loc == connection_id.length()) {
+        VTR_LOG("connection id '%s' does not conform to the format.", connection_id);
+        return std::pair<ClusterNetId, int>(ClusterNetId(-1), int(-1));
+    }
+    return std::pair<ClusterNetId, int>(
+        ClusterNetId(std::stoi(connection_id.substr(0, loc))),
+        int(std::stoi(connection_id.substr(loc))));
+};
+
 int complete_rip_up_net_count;
 int partial_rip_up_net_count;
 template<typename ConnectionRouter>
@@ -2459,6 +2476,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<size_t, float> iib_history_cost_map;
     std::unordered_map<size_t, size_t> node_id_map;
     std::unordered_map<size_t, std::unordered_map<int, int>> net_id_to_sink_order_map;
+    std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>> branch_node_map;
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";
@@ -2473,8 +2491,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         std::string line;
         while (getline(sink_order_fp, line)) {
  	    if (line.empty()) {
-            // If the line is empty, skip processing
-            continue;
+            	// If the line is empty, skip processing
+            	continue;
             }
             std::istringstream iss(line);
 	    size_t net_id;
@@ -2505,6 +2523,39 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    }
 	    net_id_to_sink_order_map[net_id] = sink_order_index;
 	}
+        // reading branch node 
+	// net, net_pin_index --> all branch dnode id
+	std::ifstream branch_dnode_map_fp;
+        std::string branch_dnode_map_filename = "branch_node_map.txt";
+        branch_dnode_map_fp.open(branch_dnode_map_filename);
+        lineno = 0;
+        VTR_LOG("[SHA] Reading branch_node_map.txt file\n");
+        if (!branch_dnode_map_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open branch node map file");
+        }
+
+        while (getline(branch_dnode_map_fp, line)) {
+ 	    if (line.empty()) {	
+		continue	    
+	    }
+            std::istringstream iss(line);
+            int dnode_id;
+	    std::set<int> dnode_ids;
+
+	    ClusterNetId net_id;
+	    int sink_id;
+	    std::string connection_id;
+            iss >> connection_id;  // First read the node ID
+	    
+	    std::tie(net_id, sink_id) = get_netid_and_sinkid(connection_id);
+            
+	    while (iss >> dnode_id) {  // Then read all the following net IDs
+	        dnode_ids.insert(dnode_id);
+            }
+            branch_node_map[std::make_pair(net_id, sink_id)] = dnode_ids;
+	}
+        branch_dnode_map_fp.close();
     }
     /*if(router_opts.detailed_router == 1){
         printf("####### BEGINING loading files for detailed router: %d ######################\n", itry);
@@ -2603,6 +2654,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                                                            itry,
                                                            pres_fac,
 							   sink_order_index,
+							   branch_node_map,
                                                            router_opts,
                                                            connections_inf,
                                                            router_iteration_stats,
@@ -3155,6 +3207,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  int itry,
                                  float pres_fac,
 				 std::unordered_map<int, int>& sink_order_index,
+				 std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>>& branch_node_map,
                                  const t_router_opts& router_opts,
                                  CBRR& connections_inf,
                                  RouterStats& router_stats,
@@ -3198,6 +3251,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                             itry,
                                             pres_fac,
 					    sink_order_index,
+					    branch_node_map,
                                             router_opts,
                                             connections_inf,
                                             router_stats,
@@ -3232,6 +3286,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              int itry,
                              float pres_fac,
 			     std::unordered_map<int, int>& sink_order_index,
+			     std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>>& branch_node_map,
                              const t_router_opts& router_opts,
                              CBRR& connections_inf,
                              RouterStats& router_stats,
@@ -3372,7 +3427,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
         int target_pin = remaining_targets[itarget];
 
-        int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+        std::set<int> branch_nodes = branch_node_map[std::make_pair(net_id, target_pin)]; // all nodesare part of same global node
+        		
+	int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
         enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 

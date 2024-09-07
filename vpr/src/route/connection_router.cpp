@@ -18,9 +18,14 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
     RouterStats& router_stats,
-    ClusterNetId net_id, int sink_id) {
+    ClusterNetId net_id, int sink_id,
+    std::set<int> branch_nodes) {
     router_stats_ = &router_stats;
-    t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id, sink_id);
+
+    RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+
+    t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id, sink_id, branch_nodes, seg_index_branch_node);
 
     if (cheapest != nullptr) {
         rcv_path_manager.update_route_tree_set(cheapest->path_data);
@@ -42,10 +47,11 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
     int sink_node,
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
-    ClusterNetId net_id, int sink_id) {
+    ClusterNetId net_id, int sink_id,
+    std::set<int> branch_nodes, int seg_index_branch_node) {
     //Re-add route nodes from the existing route tree to the heap.
     //They need to be repushed onto the heap since each node's cost is target specific.
-    add_route_tree_to_heap(rt_root, sink_node, cost_params);
+    add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     heap_.build_heap(); // via sifting down everything
 
     int source_node = rt_root->inode;
@@ -99,7 +105,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
         //Re-initialize the heap since it was emptied by the previous call to
         //timing_driven_route_connection_from_heap()
-        add_route_tree_to_heap(rt_root, sink_node, cost_params);
+        add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
         heap_.build_heap(); // via sifting down everything
 
         //Try finding the path again with the relaxed bounding box
@@ -130,12 +136,16 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     t_bb net_bounding_box,
     const SpatialRouteTreeLookup& spatial_rt_lookup,
     RouterStats& router_stats,
-    ClusterNetId net_id, int sink_id){
+    ClusterNetId net_id, int sink_id,
+    std::set<int> branch_nodes){
     router_stats_ = &router_stats;
+
+    RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 
     // re-explore route tree from root to add any new nodes (buildheap afterwards)
     // route tree needs to be repushed onto the heap since each node's cost is target specific
-    t_bb high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box);
+    t_bb high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     heap_.build_heap();
 
     int source_node = rt_root->inode;
@@ -169,7 +179,8 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
                                                                sink_node,
                                                                cost_params,
                                                                net_bounding_box,
-                                                               net_id, sink_id);
+                                                               net_id, sink_id,
+							       branch_nodes, seg_index_branch_node);
     }
 
     if (cheapest == nullptr) {
@@ -266,12 +277,13 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
     const t_conn_cost_params cost_params,
     t_bb bounding_box,
     RouterStats& router_stats,
-    ClusterNetId net_id, int sink_id) {
+    ClusterNetId net_id, int sink_id,
+    std::set<int> branch_nodes, int seg_index_branch_node) {
     router_stats_ = &router_stats;
 
     //Add the route tree to the heap with no specific target node
     int target_node = OPEN;
-    add_route_tree_to_heap(rt_root, target_node, cost_params);
+    add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     heap_.build_heap(); // via sifting down everything
 
     auto res = timing_driven_find_all_shortest_paths_from_heap(cost_params, bounding_box, net_id, sink_id);
@@ -865,7 +877,9 @@ template<typename Heap>
 void ConnectionRouter<Heap>::add_route_tree_to_heap(
     t_rt_node* rt_node,
     int target_node,
-    const t_conn_cost_params cost_params) {
+    const t_conn_cost_params cost_params,
+    std::set<int> branch_nodes, int seg_index_branch_node) {
+
     /* Puts the entire partial routing below and including rt_node onto the heap *
      * (except for those parts marked as not to be expanded) by calling itself   *
      * recursively.                                                              */
@@ -873,12 +887,21 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     t_rt_node* child_node;
     t_linked_rt_edge* linked_rt_edge;
 
+    const auto& device_ctx = g_vpr_ctx.device();
     /* Pre-order depth-first traversal */
     // IPINs and SINKS are not re_expanded
     if (rt_node->re_expand) {
-        add_route_tree_node_to_heap(rt_node,
+	int child_node_inode = rt_node->inode;
+        RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
+        int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+	if (seg_index_child_node == seg_index_branch_node){
+	    if (branch_nodes.count(child_node_inode){ // should not be zero, if zero node dne	
+		   add_route_tree_node_to_heap(rt_node,
                                     target_node,
                                     cost_params);
+		   return;
+	    }
+	}
     }
 
     linked_rt_edge = rt_node->u.child_list;
@@ -886,7 +909,7 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     while (linked_rt_edge != nullptr) {
         child_node = linked_rt_edge->child;
         add_route_tree_to_heap(child_node, target_node,
-                               cost_params);
+                               cost_params, branch_nodes, seg_index_branch_node);
         linked_rt_edge = linked_rt_edge->next;
     }
 }
@@ -952,7 +975,8 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     int target_node,
     const t_conn_cost_params cost_params,
     const SpatialRouteTreeLookup& spatial_rt_lookup,
-    t_bb net_bounding_box) {
+    t_bb net_bounding_box,
+    std::set<int> branch_nodes, int seg_index_branch_node) {
     //For high fanout nets we only add those route tree nodes which are spatially close
     //to the sink.
     //
@@ -993,17 +1017,26 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
             for (t_rt_node* rt_node : spatial_rt_lookup[bin_x][bin_y]) {
                 if (!rt_node->re_expand) continue; //Some nodes (like IPINs) shouldn't be re-expanded
 
-                //Put the node onto the heap
-                add_route_tree_node_to_heap(rt_node, target_node, cost_params);
+		int child_node_inode = rt_node->inode;
+        	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
+        	int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+		if (seg_index_child_node == seg_index_branch_node){
+	    		if (branch_nodes.count(child_node_inode){ // should not be zero, if zero node dne	
+                		//Put the node onto the heap
+                		add_route_tree_node_to_heap(rt_node, target_node, cost_params);
 
-                //Update Bounding Box
-                RRNodeId node(rt_node->inode);
-                highfanout_bb.xmin = std::min<int>(highfanout_bb.xmin, rr_graph_->node_xlow(node));
-                highfanout_bb.ymin = std::min<int>(highfanout_bb.ymin, rr_graph_->node_ylow(node));
-                highfanout_bb.xmax = std::max<int>(highfanout_bb.xmax, rr_graph_->node_xhigh(node));
-                highfanout_bb.ymax = std::max<int>(highfanout_bb.ymax, rr_graph_->node_yhigh(node));
+                		//Update Bounding Box
+                		RRNodeId node(rt_node->inode);
+                		highfanout_bb.xmin = std::min<int>(highfanout_bb.xmin, rr_graph_->node_xlow(node));
+                		highfanout_bb.ymin = std::min<int>(highfanout_bb.ymin, rr_graph_->node_ylow(node));
+                		highfanout_bb.xmax = std::max<int>(highfanout_bb.xmax, rr_graph_->node_xhigh(node));
+                		highfanout_bb.ymax = std::max<int>(highfanout_bb.ymax, rr_graph_->node_yhigh(node));
 
-                ++nodes_added;
+                		++nodes_added;
+        			bounding_box = adjust_highfanout_bounding_box(highfanout_bb);
+				return bouding_box;
+			}
+		}
             }
 
             constexpr int SINGLE_BIN_MIN_NODES = 2;
@@ -1023,7 +1056,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
 
     t_bb bounding_box = net_bounding_box;
     if (nodes_added == 0) { //If the target bin and it's surrounding bins were empty, just add the full route tree
-        add_route_tree_to_heap(rt_root, target_node, cost_params);
+        add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     } else {
         //We found nearby routing, replace original bounding box to be localized around that routing
         bounding_box = adjust_highfanout_bounding_box(highfanout_bb);

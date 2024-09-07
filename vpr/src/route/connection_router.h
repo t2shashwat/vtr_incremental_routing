@@ -71,7 +71,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         RouterStats& router_stats,
-        ClusterNetId net_id, int sink_id) final;
+        ClusterNetId net_id, int sink_idi,
+	std::set<int> branch_nodes) final;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
     // high fanout net.
@@ -85,7 +86,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         t_bb bounding_box,
         const SpatialRouteTreeLookup& spatial_rt_lookup,
         RouterStats& router_stats,
-        ClusterNetId net_id, int sink_id) final;
+        ClusterNetId net_id, int sink_id,
+	std::set<int> branch_nodes) final;
 
     // Finds a path from the route tree rooted at rt_root to all sinks
     // available.
@@ -101,7 +103,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         RouterStats& router_stats,
-        ClusterNetId net_id, int sink_id) final;
+        ClusterNetId net_id, int sink_id,
+	std::set<int> branch_nodes, int seg_index_branch_node) final;
 
     void set_router_debug(bool router_debug) final {
         router_debug_ = router_debug;
@@ -150,7 +153,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId net_id, int sink_id);
+        ClusterNetId net_id, int sink_id,
+	std::set<int> branch_nodes, int seg_index_branch_node);
 
     // Finds a path to sink_node, starting from the elements currently in the
     // heap.
@@ -232,7 +236,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
     //used as branch-points for further routing.
     void add_route_tree_to_heap(t_rt_node* rt_node,
                                 int target_node,
-                                const t_conn_cost_params cost_params);
+                                const t_conn_cost_params cost_params,
+				std::set<int> branch_nodes, int seg_index_branch_node);
 
     // Evaluate node costs using the RCV algorith
     float compute_node_cost_using_rcv(const t_conn_cost_params cost_params,
@@ -261,7 +266,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int target_node,
         const t_conn_cost_params cost_params,
         const SpatialRouteTreeLookup& spatial_route_tree_lookup,
-        t_bb net_bounding_box);
+        t_bb net_bounding_box,
+	std::set<int> branch_nodes, int seg_index_branch_node);
 
     const DeviceGrid& grid_;
     const RouterLookahead& router_lookahead_;
