@@ -22,6 +22,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     std::set<int> branch_nodes) {
     router_stats_ = &router_stats;
 
+    const auto& device_ctx = g_vpr_ctx.device();
     RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
     int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 
@@ -140,6 +141,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     std::set<int> branch_nodes){
     router_stats_ = &router_stats;
 
+    const auto& device_ctx = g_vpr_ctx.device();
     RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
     int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 
@@ -231,7 +233,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 
         int inode = cheapest->index;
 	
-	int current_hop_value = rr_graph_->check_connection_allowed_to_use_node(inode, net_id, sink_id);
+	int current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
     	VTR_ASSERT_SAFE(current_hop_value != -1);
 	if (current_hop_value == -1) {
 		VTR_LOG("***** [SHA] Current hop value should not be negative\n");
@@ -337,11 +339,12 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
         //By setting the target_node to OPEN in combination with the NoOp router
         //lookahead we can re-use the node exploration code from the regular router
         int target_node = OPEN;
-
+	
+	int temp_hop = 0;
         timing_driven_expand_cheapest(cheapest,
                                       target_node,
                                       cost_params,
-                                      bounding_box, net_id, sink_id);
+                                      bounding_box, net_id, sink_id, temp_hop);
 
         if (cheapest_paths[inode].index == OPEN || cheapest_paths[inode].cost >= cheapest->cost) {
             VTR_LOGV_DEBUG(router_debug_, "  Better cost to node %d: %g (was %g)\n", inode, cheapest->cost, cheapest_paths[inode].cost);
@@ -907,7 +910,7 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
         RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
         int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 	if (seg_index_child_node == seg_index_branch_node){
-	    if (branch_nodes.count(child_node_inode){ // should not be zero, if zero node dne	
+	    if (branch_nodes.count(child_node_inode)){ // should not be zero, if zero node dne	
 		   add_route_tree_node_to_heap(rt_node,
                                     target_node,
                                     cost_params);
@@ -1000,6 +1003,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     //the entire route tree (which is likely large for a high fanout net).
 
     //Determine which bin the target node is located in
+    const auto& device_ctx = g_vpr_ctx.device();
     RRNodeId target_node_id(target_node);
 
     int target_bin_x = grid_to_bin_x(rr_graph_->node_xlow(target_node_id), spatial_rt_lookup);
@@ -1016,6 +1020,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     //Add existing routing starting from the target bin.
     //If the target's bin has insufficient existing routing add from the surrounding bins
     bool done = false;
+    t_bb bounding_box;// = net_bounding_box;
     for (int dx : {0, -1, +1}) {
         size_t bin_x = target_bin_x + dx;
 
@@ -1033,7 +1038,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
         	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
         	int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 		if (seg_index_child_node == seg_index_branch_node){
-	    		if (branch_nodes.count(child_node_inode){ // should not be zero, if zero node dne	
+	    		if (branch_nodes.count(child_node_inode)){ // should not be zero, if zero node dne	
                 		//Put the node onto the heap
                 		add_route_tree_node_to_heap(rt_node, target_node, cost_params);
 
@@ -1046,7 +1051,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
 
                 		++nodes_added;
         			bounding_box = adjust_highfanout_bounding_box(highfanout_bb);
-				return bouding_box;
+				return bounding_box;
 			}
 		}
             }
@@ -1066,7 +1071,8 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
         if (done) break;
     }
 
-    t_bb bounding_box = net_bounding_box;
+    bounding_box = net_bounding_box;
+
     if (nodes_added == 0) { //If the target bin and it's surrounding bins were empty, just add the full route tree
         add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     } else {

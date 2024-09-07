@@ -393,8 +393,7 @@ static void build_rr_graph(const t_graph_type graph_type,
                            bool is_flat,
                            int* Warnings);
 
-std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
-    /* configure connection id format in this function */
+/*std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
     // assume 'netid_sinkid' format
     int loc = 0;
     for (char c: connection_id) {
@@ -408,18 +407,18 @@ std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
     return std::pair<ClusterNetId, int>(
         ClusterNetId(std::stoi(connection_id.substr(0, loc))),
         int(std::stoi(connection_id.substr(loc))));
-};
+};*/
+
 std::tuple<ClusterNetId, int, int> get_netid_sinkid_hop(std::string connection_id) {
-    /* configure connection id format in this function */
     // assume 'netid_sinkid_hop' format
     int netId, sinkId, hop;
     char delim;
     std::stringstream ss(connection_id);
     if (ss >> netId >> delim >> sinkId >> delim >> hop) {
         return std::make_tuple(ClusterNetId(netId), sinkId, hop);  // Return the values as a tuple
-    } else {
-        throw VTR_LOG_ERROR("Invalid string format");
-    }
+    } //else {
+      //  throw VTR_LOG_ERROR("Invalid string format");
+    //}
 };
 
 /******************* Subroutine definitions *******************************/
@@ -507,7 +506,7 @@ void create_rr_graph(const t_graph_type graph_type,
             while (getline(nets_per_node_fp, line)) {
                 std::istringstream iss(line);
 		std::string connection_id;
-		std::map<ClusterNetId, std::set<std::pair<int, int>> nets;
+		std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
                 int node_id;
                 iss >> node_id;  // First read the node ID
                while (iss >> connection_id) {  // Then read all the following net IDs
@@ -516,7 +515,7 @@ void create_rr_graph(const t_graph_type graph_type,
                     std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
 		    //VTR_LOG("Reading file: %d ");
                     if (not nets.count(netid)) {
-                        nets[netid] = std::set<int>();
+                        nets[netid] = std::set<std::pair<int,int>>();
                     }
                     nets.at(netid).insert(std::make_pair(sinkid, hop));
                     //VTR_LOG("%s ", net_id.c_str());

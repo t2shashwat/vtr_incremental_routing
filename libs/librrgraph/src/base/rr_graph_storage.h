@@ -639,7 +639,7 @@ class t_rr_graph_storage {
     	//}
 	for (const auto& [net_id, sink_ids] : net_list) {
             // allowed_nets_per_node[id].insert(net_id);
-            int max_sinkid = *sink_ids.rbegin().first;
+            int max_sinkid = sink_ids.rbegin()->first;
             allowed_nets_per_node[node_id][net_id] = std::vector<int>(size_t(max_sinkid + 1), -1);
             for (const auto& sinkid: sink_ids) {
                 allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid.first)) = sinkid.second;//true;

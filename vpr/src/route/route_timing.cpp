@@ -104,7 +104,8 @@ static bool timing_driven_route_sink(
     RouterStats& router_stats,
     route_budgets& budgeting_inf,
     const RoutingPredictor& routing_predictor,
-    bool is_flat);
+    bool is_flat,
+    std::set<int> branch_nodes);
 
 template<typename ConnectionRouter>
 static bool timing_driven_pre_route_to_clock_root(
@@ -1176,7 +1177,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
         }
 
         profiling::conn_start();
-
+	std::set<int> branch_nodes;
         // build a branch in the route tree to the target
         if (!timing_driven_route_sink(router,
                                       net_id,
@@ -1189,7 +1190,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
                                       router_stats,
                                       budgeting_inf,
                                       routing_predictor,
-                                      is_flat))
+                                      is_flat,
+				      branch_nodes))
             return false;
 
         profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
@@ -1262,13 +1264,14 @@ static bool timing_driven_pre_route_to_clock_root(
     t_heap cheapest;
     //std::string conn_id = std::to_string(static_cast<std::size_t>(net_id));
     int sink_id = 0;
+    std::set<int> branch_nodes;
     std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(
         rt_root,
         sink_node,
         cost_params,
         bounding_box,
         router_stats,
-        net_id, sink_id);
+        net_id, sink_id, branch_nodes);
 
     // TODO: Parts of the rest of this function are repetitive to code in timing_driven_route_sink. Should refactor.
     if (!found_path) {
@@ -1343,7 +1346,8 @@ static bool timing_driven_route_sink(
     RouterStats& router_stats,
     route_budgets& budgeting_inf,
     const RoutingPredictor& routing_predictor,
-    bool is_flat) {
+    bool is_flat,
+    std::set<int> branch_nodes) {
     /* Build a path from the existing route tree rooted at rt_root to the target_node
      * add this branch to the existing route tree and update pathfinder costs and rr_node_route_inf to reflect this */
     const auto& device_ctx = g_vpr_ctx.device();
@@ -1382,13 +1386,13 @@ static bool timing_driven_route_sink(
                                                                                                            cost_params,
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
-                                                                                                           router_stats, net_id, target_pin);
+                                                                                                           router_stats, net_id, target_pin, branch_nodes);
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
                                                                                                cost_params,
                                                                                                bounding_box,
-                                                                                               router_stats, net_id, target_pin);
+                                                                                               router_stats, net_id, target_pin, branch_nodes);
     }
 
     if (!found_path) {
@@ -2476,7 +2480,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<size_t, float> iib_history_cost_map;
     std::unordered_map<size_t, size_t> node_id_map;
     std::unordered_map<size_t, std::unordered_map<int, int>> net_id_to_sink_order_map;
-    std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>> branch_node_map;
+    std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";
@@ -2537,7 +2541,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
         while (getline(branch_dnode_map_fp, line)) {
  	    if (line.empty()) {	
-		continue	    
+		continue;	    
 	    }
             std::istringstream iss(line);
             int dnode_id;
@@ -2553,7 +2557,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    while (iss >> dnode_id) {  // Then read all the following net IDs
 	        dnode_ids.insert(dnode_id);
             }
-            branch_node_map[std::make_pair(net_id, sink_id)] = dnode_ids;
+            branch_node_map[net_id][sink_id] = dnode_ids;
 	}
         branch_dnode_map_fp.close();
     }
@@ -3207,7 +3211,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  int itry,
                                  float pres_fac,
 				 std::unordered_map<int, int>& sink_order_index,
-				 std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>>& branch_node_map,
+				 std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>>& branch_node_map,
                                  const t_router_opts& router_opts,
                                  CBRR& connections_inf,
                                  RouterStats& router_stats,
@@ -3286,7 +3290,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              int itry,
                              float pres_fac,
 			     std::unordered_map<int, int>& sink_order_index,
-			     std::unordered_map<std::pair<ClusterNetId, int>, std::set<int>>& branch_node_map,
+			     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>>& branch_node_map,
                              const t_router_opts& router_opts,
                              CBRR& connections_inf,
                              RouterStats& router_stats,
@@ -3427,7 +3431,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
         int target_pin = remaining_targets[itarget];
 
-        std::set<int> branch_nodes = branch_node_map[std::make_pair(net_id, target_pin)]; // all nodesare part of same global node
+        std::set<int> branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
         		
 	int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
@@ -3460,7 +3464,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                       router_stats,
                                       budgeting_inf,
                                       routing_predictor,
-                                      is_flat))
+                                      is_flat,
+				      branch_nodes))
             return false;
 
         profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
