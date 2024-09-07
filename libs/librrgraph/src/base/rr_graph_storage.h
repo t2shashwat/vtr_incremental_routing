@@ -640,7 +640,7 @@ class t_rr_graph_storage {
 	for (const auto& [net_id, sink_ids] : net_list) {
             // allowed_nets_per_node[id].insert(net_id);
             int max_sinkid = *sink_ids.rbegin().first;
-            allowed_nets_per_node[node_id][net_id] = std::vector<bool>(size_t(max_sinkid + 1), false);
+            allowed_nets_per_node[node_id][net_id] = std::vector<int>(size_t(max_sinkid + 1), -1);
             for (const auto& sinkid: sink_ids) {
                 allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid.first)) = sinkid.second;//true;
 		//printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
@@ -714,7 +714,7 @@ class t_rr_graph_storage {
     // global-detaile router support code
     // SHA 
     vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node_v2;
-    vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<bool>>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<int>>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is
     // always equal to the number of edges in the final graph.

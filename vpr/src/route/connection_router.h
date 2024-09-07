@@ -177,7 +177,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int target_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId net_id, int sink_id);
+        ClusterNetId net_id, int sink_id,
+	int current_hop_value);
 
     // Expand each neighbor of the current node.
     void timing_driven_expand_neighbours(
@@ -185,7 +186,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         int target_node,
-        ClusterNetId net_id, int sink_id);
+        ClusterNetId net_id, int sink_id,
+	int current_hop_value);
 
     // Conditionally adds to_node to the router heap (via path from from_node
     // via from_edge).
@@ -201,7 +203,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_bb bounding_box,
         int target_node,
         const t_bb target_bb,
-        ClusterNetId net_id, int sink_id);
+        ClusterNetId net_id, int sink_id,
+	int current_hop_value);
 
     // Add to_node to the heap, and also add any nodes which are connected by
     // non-configurable edges

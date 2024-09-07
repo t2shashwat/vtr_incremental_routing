@@ -222,14 +222,23 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
     t_heap* cheapest = nullptr;
-    int heap_count = 0;
+    int current_hop_value = 0;
     while (!heap_.is_empty_heap()) {
         // cheapest t_heap in current route tree to be expanded on
         cheapest = heap_.get_heap_head();
+	
         ++router_stats_->heap_pops;
 
         int inode = cheapest->index;
-        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) (%s)\n",
+	
+	int current_hop_value = rr_graph_->check_connection_allowed_to_use_node(inode, net_id, sink_id);
+    	VTR_ASSERT_SAFE(current_hop_value != -1);
+	if (current_hop_value == -1) {
+		VTR_LOG("***** [SHA] Current hop value should not be negative\n");
+	
+	}	
+
+	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) (%s)\n",
                        inode, cheapest->cost, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
         //Have we found the target?
@@ -249,8 +258,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
         timing_driven_expand_cheapest(cheapest,
                                       sink_node,
                                       cost_params,
-                                      bounding_box, net_id, sink_id);
-	hop_count++;
+                                      bounding_box, net_id, sink_id, current_hop_value);
 
         rcv_path_manager.free_path_struct(cheapest->path_data);
         heap_.free(cheapest);
@@ -315,9 +323,12 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
         // cheapest t_heap in current route tree to be expanded on
         t_heap* cheapest = heap_.get_heap_head();
         ++router_stats_->heap_pops;
+	
 
         int inode = cheapest->index;
-        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g)\n",
+	
+        
+	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g)\n",
                        inode, cheapest->cost);
 
         //Since we want to find shortest paths to all nodes in the graph
@@ -350,7 +361,7 @@ template<typename Heap>
 void ConnectionRouter<Heap>::timing_driven_expand_cheapest(t_heap* cheapest,
                                                            int target_node,
                                                            const t_conn_cost_params cost_params,
-                                                           t_bb bounding_box, ClusterNetId net_id, int sink_id) {
+                                                           t_bb bounding_box, ClusterNetId net_id, int sink_id, int current_hop_value) {
     int inode = cheapest->index;
 
     t_rr_node_route_inf* route_inf = &rr_node_route_inf_[inode];
@@ -382,7 +393,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_cheapest(t_heap* cheapest,
         update_cheapest(cheapest, route_inf);
 
         timing_driven_expand_neighbours(cheapest, cost_params, bounding_box,
-                                        target_node, net_id, sink_id);
+                                        target_node, net_id, sink_id, current_hop_value);
     } else {
         //Post-heap prune, do not re-explore from the current/new partial path as it
         //has worse cost than the best partial path to this node found so far
@@ -398,7 +409,7 @@ template<typename Heap>
 void ConnectionRouter<Heap>::timing_driven_expand_neighbours(t_heap* current,
                                                              const t_conn_cost_params cost_params,
                                                              t_bb bounding_box,
-                                                             int target_node, ClusterNetId net_id, int sink_id) {
+                                                             int target_node, ClusterNetId net_id, int sink_id, int current_hop_value) {
     /* Puts all the rr_nodes adjacent to current on the heap.
      */
 
@@ -449,7 +460,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbours(t_heap* current,
                                        cost_params,
                                        bounding_box,
                                        target_node,
-                                       target_bb, net_id, sink_id);
+                                       target_bb, net_id, sink_id, current_hop_value);
     }
 }
 
@@ -464,7 +475,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                                                             const t_conn_cost_params cost_params,
                                                             const t_bb bounding_box,
                                                             int target_node,
-                                                            const t_bb target_bb, ClusterNetId net_id, int sink_id) {
+                                                            const t_bb target_bb, ClusterNetId net_id, int sink_id,
+							    int current_hop_value) {
     RRNodeId to_node(to_node_int);
     int to_xlow = rr_graph_->node_xlow(to_node);
     int to_ylow = rr_graph_->node_ylow(to_node);
@@ -534,7 +546,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
         //auto allowed = allowed_nets_list.find(conn_id);
 	//offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
 	int hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	float offpath_penalty = (hop == current_hop) ? 1.0 : cost_params.offpath_penalty;
+	float offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
 	if (offpath_penalty < 0){
             return;
 	}
