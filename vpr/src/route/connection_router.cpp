@@ -145,6 +145,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
     int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 
+    VTR_LOG("Segment index of the branch_node: %d\n", seg_index_branch_node);
     // re-explore route tree from root to add any new nodes (buildheap afterwards)
     // route tree needs to be repushed onto the heap since each node's cost is target specific
     t_bb high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
@@ -909,8 +910,12 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
 	int child_node_inode = rt_node->inode;
         RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
         int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    	if (target_node == 5941554)
+		VTR_LOG("** [NOT HF] Segment index of route tree node: %d node: %d\n", seg_index_child_node, child_node_inode);
 	if (seg_index_child_node == seg_index_branch_node){
+    	    VTR_LOG("** [Not HF] Segment index of route tree node: %d %d\n", seg_index_child_node, child_node_inode);
 	    if (branch_nodes.count(child_node_inode)){ // should not be zero, if zero node dne	
+    	    	VTR_LOG("** [Not HF][Found] Segment index of route tree node: %d %d\n", seg_index_child_node, child_node_inode);
 		   add_route_tree_node_to_heap(rt_node,
                                     target_node,
                                     cost_params);
@@ -1034,11 +1039,15 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
             for (t_rt_node* rt_node : spatial_rt_lookup[bin_x][bin_y]) {
                 if (!rt_node->re_expand) continue; //Some nodes (like IPINs) shouldn't be re-expanded
 
-		int child_node_inode = rt_node->inode;
-        	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(child_node_inode));
-        	int seg_index_child_node = device_ctx.rr_indexed_data[cost_index].seg_index;
-		if (seg_index_child_node == seg_index_branch_node){
-	    		if (branch_nodes.count(child_node_inode)){ // should not be zero, if zero node dne	
+		int inode = rt_node->inode;
+        	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(inode));
+        	int seg_index_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    		if (target_node == 5941554)
+			VTR_LOG("** Segment index of route tree node: %d node: %d\n", seg_index_node, inode);
+		if (seg_index_node == seg_index_branch_node){
+    			VTR_LOG("** Segment index of route tree node: %d node: %d\n", seg_index_node, inode);
+	    		if (branch_nodes.count(inode)){ // should not be zero, if zero node dne	
+    				VTR_LOG("** [Found] Segment index of route tree node: %d node: %d\n", seg_index_node, inode);
                 		//Put the node onto the heap
                 		add_route_tree_node_to_heap(rt_node, target_node, cost_params);
 

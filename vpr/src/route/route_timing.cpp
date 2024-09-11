@@ -2406,76 +2406,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         device_ctx.rr_graph.rr_switch(),
         route_ctx.rr_node_route_inf,
         is_flat);
-
-    // Make sure template type ConnectionRouter is a ConnectionRouterInterface.
-    static_assert(std::is_base_of<ConnectionRouterInterface, ConnectionRouter>::value, "ConnectionRouter must implement the ConnectionRouterInterface");
-
-    /*
-     * On the first routing iteration ignore congestion to get reasonable net
-     * delay estimates. Set criticalities to 1 when timing analysis is on to
-     * optimize timing, and to 0 when timing analysis is off to optimize routability.
-     *
-     * Subsequent iterations use the net delays from the previous iteration.
-     */
-    std::shared_ptr<SetupHoldTimingInfo> route_timing_info;
-    {
-        vtr::ScopedStartFinishTimer init_timing_timer("Initializing router criticalities");
-        if (timing_info) {
-            if (router_opts.initial_timing == e_router_initial_timing::ALL_CRITICAL) {
-                //First routing iteration, make all nets critical for a min-delay routing
-                route_timing_info = make_constant_timing_info(1.);
-            } else {
-                VTR_ASSERT(router_opts.initial_timing == e_router_initial_timing::LOOKAHEAD);
-
-                {
-                    //Estimate initial connection delays from the router lookahead
-                    init_net_delay_from_lookahead(*router_lookahead, net_delay, router_opts.sbNode_lookahead_factor);
-
-                    //Run STA to get estimated criticalities
-                    timing_info->update();
-                }
-                route_timing_info = timing_info;
-            }
-        } else {
-            //Not timing driven, force criticality to zero for a routability-driven routing
-            route_timing_info = make_constant_timing_info(0.);
-        }
-        VTR_LOG("Initial Net Connection Criticality Histogram:\n");
-        print_router_criticality_histogram(*route_timing_info, netlist_pin_lookup);
-    }
-
-    std::unique_ptr<ClusteredPinTimingInvalidator> pin_timing_invalidator;
-    if (timing_info) {
-        pin_timing_invalidator = std::make_unique<ClusteredPinTimingInvalidator>(cluster_ctx.clb_nlist,
-                                                                                 netlist_pin_lookup,
-                                                                                 atom_ctx.nlist,
-                                                                                 atom_ctx.lookup,
-                                                                                 *timing_info->timing_graph());
-    }
-
-    RouterStats router_stats;
-    timing_driven_route_structs route_structs;
-    float prev_iter_cumm_time = 0;
-    vtr::Timer iteration_timer;
-    int num_net_bounding_boxes_updated = 0;
-    int itry_since_last_convergence = -1;
-
-    // This heap is used for reserve_locally_used_opins.
-    BinaryHeap small_heap;
-    small_heap.init_heap(device_ctx.grid);
-
-    // When RCV is enabled the router will not stop unless negative hold slack is 0
-    // In some cases this isn't doable, due to global nets or intracluster routing issues
-    // In these cases RCV will finish early if it goes RCV_FINISH_EARLY_COUNTDOWN iterations without detecting resolvable negative hold slack
-    // Increasing this will make the router fail occasionally, decreasing will sometimes not let all hold violations be resolved
-    constexpr int RCV_FINISH_EARLY_COUNTDOWN = 15;
-
-    int rcv_finished_count = RCV_FINISH_EARLY_COUNTDOWN;
-    //mycode
-    float final_pres_fac;
-    float pres_fac_new;
-    size_t connections_routed_first_iteration, nets_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration; 
-    print_route_status_header();
+   
+    //loading files needed for detailed router
     std::unordered_map<size_t, float> history_cost_map;
     std::unordered_map<size_t, float> iib_history_cost_map;
     std::unordered_map<size_t, size_t> node_id_map;
@@ -2618,6 +2550,76 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             }
          } 
     }*/
+
+    // Make sure template type ConnectionRouter is a ConnectionRouterInterface.
+    static_assert(std::is_base_of<ConnectionRouterInterface, ConnectionRouter>::value, "ConnectionRouter must implement the ConnectionRouterInterface");
+
+    /*
+     * On the first routing iteration ignore congestion to get reasonable net
+     * delay estimates. Set criticalities to 1 when timing analysis is on to
+     * optimize timing, and to 0 when timing analysis is off to optimize routability.
+     *
+     * Subsequent iterations use the net delays from the previous iteration.
+     */
+    std::shared_ptr<SetupHoldTimingInfo> route_timing_info;
+    {
+        vtr::ScopedStartFinishTimer init_timing_timer("Initializing router criticalities");
+        if (timing_info) {
+            if (router_opts.initial_timing == e_router_initial_timing::ALL_CRITICAL) {
+                //First routing iteration, make all nets critical for a min-delay routing
+                route_timing_info = make_constant_timing_info(1.);
+            } else {
+                VTR_ASSERT(router_opts.initial_timing == e_router_initial_timing::LOOKAHEAD);
+
+                {
+                    //Estimate initial connection delays from the router lookahead
+                    init_net_delay_from_lookahead(*router_lookahead, net_delay, router_opts.sbNode_lookahead_factor);
+
+                    //Run STA to get estimated criticalities
+                    timing_info->update();
+                }
+                route_timing_info = timing_info;
+            }
+        } else {
+            //Not timing driven, force criticality to zero for a routability-driven routing
+            route_timing_info = make_constant_timing_info(0.);
+        }
+        VTR_LOG("Initial Net Connection Criticality Histogram:\n");
+        print_router_criticality_histogram(*route_timing_info, netlist_pin_lookup);
+    }
+
+    std::unique_ptr<ClusteredPinTimingInvalidator> pin_timing_invalidator;
+    if (timing_info) {
+        pin_timing_invalidator = std::make_unique<ClusteredPinTimingInvalidator>(cluster_ctx.clb_nlist,
+                                                                                 netlist_pin_lookup,
+                                                                                 atom_ctx.nlist,
+                                                                                 atom_ctx.lookup,
+                                                                                 *timing_info->timing_graph());
+    }
+
+    RouterStats router_stats;
+    timing_driven_route_structs route_structs;
+    float prev_iter_cumm_time = 0;
+    vtr::Timer iteration_timer;
+    int num_net_bounding_boxes_updated = 0;
+    int itry_since_last_convergence = -1;
+
+    // This heap is used for reserve_locally_used_opins.
+    BinaryHeap small_heap;
+    small_heap.init_heap(device_ctx.grid);
+
+    // When RCV is enabled the router will not stop unless negative hold slack is 0
+    // In some cases this isn't doable, due to global nets or intracluster routing issues
+    // In these cases RCV will finish early if it goes RCV_FINISH_EARLY_COUNTDOWN iterations without detecting resolvable negative hold slack
+    // Increasing this will make the router fail occasionally, decreasing will sometimes not let all hold violations be resolved
+    constexpr int RCV_FINISH_EARLY_COUNTDOWN = 15;
+
+    int rcv_finished_count = RCV_FINISH_EARLY_COUNTDOWN;
+    //mycode
+    float final_pres_fac;
+    float pres_fac_new;
+    size_t connections_routed_first_iteration, nets_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration; 
+    print_route_status_header();
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
         RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
@@ -3432,7 +3434,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         int target_pin = remaining_targets[itarget];
 
         std::set<int> branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
-        		
+	VTR_LOG("target_pin: %d\n", target_pin);        		
+	for (auto node : branch_nodes){
+		VTR_LOG("Branch nodes: %d\n", node);        		
+	
+	}
 	int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
         enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
