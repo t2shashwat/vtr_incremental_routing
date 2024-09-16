@@ -118,7 +118,8 @@ static void do_one_route(int source_node,
     //std::string temp_net_id = "-1";
     int temp_sink_id = 0;
     std::set<int> temp_branch_nodes;
-    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes);
+    int itry = 1;
+    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes, itry);
 
     if (found_path) {
         VTR_ASSERT(cheapest.index == sink_node);

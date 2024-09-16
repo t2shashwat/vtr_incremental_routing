@@ -509,7 +509,7 @@ void create_rr_graph(const t_graph_type graph_type,
 		std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
                 int node_id;
                 iss >> node_id;  // First read the node ID
-               while (iss >> connection_id) {  // Then read all the following net IDs
+                while (iss >> connection_id) {  // Then read all the following net IDs
                     // nets.insert(net_id);
                     ClusterNetId netid; int sinkid, hop;
                     std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);

@@ -60,7 +60,8 @@ class ConnectionRouterInterface {
         t_bb bounding_box,
         RouterStats& router_stats,
         ClusterNetId net_id, int sink_id,
-	std::set<int> branch_nodes)
+	std::set<int> branch_nodes,
+	int itry)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
@@ -76,7 +77,8 @@ class ConnectionRouterInterface {
         const SpatialRouteTreeLookup& spatial_rt_lookup,
         RouterStats& router_stats,
         ClusterNetId net_id, int sink_id,
-	std::set<int> branch_nodes)
+	std::set<int> branch_nodes,
+	int itry)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to all sinks
