@@ -55,12 +55,12 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
     //Re-add route nodes from the existing route tree to the heap.
     //They need to be repushed onto the heap since each node's cost is target specific.
     bool found;
-    //if (itry < 6){
+    if (itry < 6){
     	found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
-    //}
-    //else {
-//	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
-    //}
+    }
+    else {
+	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
+    }
     heap_.build_heap(); // via sifting down everything
 
     int source_node = rt_root->inode;
@@ -122,12 +122,12 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
         //Re-initialize the heap since it was emptied by the previous call to
         //timing_driven_route_connection_from_heap()
-    	//if (itry < 6){
+    	if (itry < 6){
             found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
-    	//}
-    	//else {
-	//    add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
-    	//}
+    	}
+    	else {
+	    add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
+    	}
         heap_.build_heap(); // via sifting down everything
 
         //Try finding the path again with the relaxed bounding box
@@ -171,12 +171,12 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     // re-explore route tree from root to add any new nodes (buildheap afterwards)
     // route tree needs to be repushed onto the heap since each node's cost is target specific
     t_bb high_fanout_bb;
-    //if (itry < 6) {
+    if (itry < 6) {
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
-    //}
-    //else {
-    //	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
-    //}
+    }
+    else {
+    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
+    }
 
     heap_.build_heap();
 

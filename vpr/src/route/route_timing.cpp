@@ -3390,9 +3390,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     // compare the criticality of different sink nodes
     //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
-    sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
-        return sink_order_index[a] < sink_order_index[b];
-    });
+    if (itry < 6){
+   	 sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
+        	return sink_order_index[a] < sink_order_index[b];
+    	});
+    }
+    else {
+    	sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    }
 
     /* Update base costs according to fanout and criticality rules */
     update_rr_base_costs(num_sinks);
