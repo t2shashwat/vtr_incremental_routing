@@ -181,7 +181,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         ClusterNetId net_id, int sink_id,
-	std::set<int>& current_hop_value, 
+	int current_hop_value, 
 	int itry);
 
     // Expand each neighbor of the current node.
@@ -191,7 +191,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         t_bb bounding_box,
         int target_node,
         ClusterNetId net_id, int sink_id,
-	std::set<int>& current_hop_value,
+	int current_hop_value,
 	int itry);
 
     // Conditionally adds to_node to the router heap (via path from from_node
@@ -209,7 +209,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int target_node,
         const t_bb target_bb,
         ClusterNetId net_id, int sink_id,
-	std::set<int>& current_hop_value,
+	int current_hop_value,
 	int itry);
 
     // Add to_node to the heap, and also add any nodes which are connected by
