@@ -2661,7 +2661,11 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    	continue;
 	    } 
             temp_net_id = net_id;
-	    std::unordered_map<int, int> sink_order_index = net_id_to_sink_order_map[size_t(net_id)];
+	    std::unordered_map<int, int> sink_order_index;
+	    if (router_opts.detailed_router == 1){
+	    	sink_order_index = net_id_to_sink_order_map[size_t(net_id)];
+	    }
+
             bool was_rerouted = false;
             bool is_routable = try_timing_driven_route_net_incr_route(filename_opts,
                                                            router,
@@ -2821,7 +2825,13 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         printf("Is routing feasible: %d\n", routing_is_feasible);
         //Update resource costs and overuse info
         if (router_opts.incr_route == 0 && itry == 1) {
-            pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); /* Acc_fac=0 for first iter. */
+	    if (router_opts.first_iter_pres_fac != 0) {
+            	pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info); /* Acc_fac=0 for first iter. */
+	    }
+	    else {
+            	pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); /* Acc_fac=0 for first iter. */
+	    }
+
         } else if (router_opts.incr_route == 0 && itry > 1){
             pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
         }
@@ -3390,7 +3400,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     // compare the criticality of different sink nodes
     //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
-    if (itry < 6){
+    if (itry < 6 && router_opts.detailed_router == 1){
    	 sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
         	return sink_order_index[a] < sink_order_index[b];
     	});
@@ -3447,7 +3457,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
         int target_pin = remaining_targets[itarget];
 
-        std::set<int> branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
+        std::set<int> branch_nodes;
+	if (router_opts.detailed_router == 1){
+            branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
+	}
 	/*VTR_LOG("target_pin: %d\n", target_pin);        		
 	for (auto node : branch_nodes){
 		VTR_LOG("Branch nodes: %d\n", node);        		

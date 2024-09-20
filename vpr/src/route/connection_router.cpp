@@ -24,9 +24,12 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     router_stats_ = &router_stats;
 
     const auto& device_ctx = g_vpr_ctx.device();
-    RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
-    int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
 
+    int seg_index_branch_node = 0;
+    if (cost_params.detailed_router == 1){
+    	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    	seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    }
     t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id, sink_id, branch_nodes, seg_index_branch_node, itry);
 
     if (cheapest != nullptr) {
@@ -55,7 +58,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
     //Re-add route nodes from the existing route tree to the heap.
     //They need to be repushed onto the heap since each node's cost is target specific.
     bool found;
-    if (itry < 6){
+    if (itry < 1 && cost_params.detailed_router == 1){
     	found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     }
     else {
@@ -122,7 +125,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
         //Re-initialize the heap since it was emptied by the previous call to
         //timing_driven_route_connection_from_heap()
-    	if (itry < 6){
+    	if (itry < 1 && cost_params.detailed_router == 1){
             found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     	}
     	else {
@@ -164,14 +167,17 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     router_stats_ = &router_stats;
 
     const auto& device_ctx = g_vpr_ctx.device();
-    RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
-    int seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    int seg_index_branch_node = 0;
+    if (cost_params.detailed_router == 1){
+    	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    	seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    }
 
     //VTR_LOG("Segment index of the branch_node: %d\n", seg_index_branch_node);
     // re-explore route tree from root to add any new nodes (buildheap afterwards)
     // route tree needs to be repushed onto the heap since each node's cost is target specific
     t_bb high_fanout_bb;
-    if (itry < 6) {
+    if (itry < 1 && cost_params.detailed_router == 1) {
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
     else {
@@ -656,37 +662,17 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	//VTR_LOG("Pushing nodes, did find\n");
 	//float offpath_penalty = node_allowed ? 1.0 : cost_params.offpath_penalty;
 	int hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	float offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
+	if (itry > 1) {
+		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
+	}
+	else {
+		offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
+	}
+	
 	if (offpath_penalty < 0){
             return;
 	}
 
-        /* 	
-	if (offpath_penalty_new != offpath_penalty){
-		VTR_LOG("Comparing offpath for net (%zu) sink: %d, node (%d): old: %f new: %f \n", size_t(net_id), sink_id, to_node, offpath_penalty, offpath_penalty_new);	
-	}*/
-	//VTR_LOG("allwed_nets_list to node: %d %s\n", to_node, net_id.c_str());
-        
-	//VTR_LOG("[SHA] Target_ node: %d\n", target_node);
-        //VTR_LOG("allwed_nets_list:  ");
-	//for (auto net_id : allowed_nets_list){
-        	//VTR_LOG("%s ", net_id.c_str());
-	//}
-	//VTR_LOG("\n");
-	//VTR_LOG("Checking if net is allowed\n");
-	//if (allowed_nets_list.empty()) {
-	//    offpath_penalty = 1.0;
-	//}
-	//else {
-            //allowed_nets_list.insert(std::string("-1"));
-        //bool allowed = std::binary_search(allowed_nets_list.begin(), allowed_nets_list.end(), net_id);
-            //auto allowed = allowed_nets_list.find(net_id);
-        //VTR_LOG("Penalty: %f   \n", cost_params.offpath_penalty);
-	//offpath_penalty = allowed ? 1.0 : cost_params.offpath_penalty;  
-	    //offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
-        //VTR_LOG("Routing net: %s   %f\n", net_id.c_str(), offpath_penalty);
-        //Uncomment below code to run without offpath penalty
-	//}
     }
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
@@ -962,13 +948,14 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     } else {
         const auto& device_ctx = g_vpr_ctx.device();
         //Update total cost
-        //float expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
-        /*VTR_LOGV_DEBUG(router_debug_ && !std::isfinite(expected_cost),
+        float expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
+        VTR_LOGV_DEBUG(router_debug_ && !std::isfinite(expected_cost),
                        "        Lookahead from %s (%s) to %s (%s) is non-finite, expected_cost = %f, to->R_upstream = %f\n",
                        rr_node_arch_name(to_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, to_node, is_flat_).c_str(),
                        rr_node_arch_name(target_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, target_node, is_flat_).c_str(),
-                       expected_cost, to->R_upstream);*/
-        total_cost += to->backward_path_cost;// + cost_params.astar_fac * expected_cost;
+                       expected_cost, to->R_upstream);
+        
+	total_cost += to->backward_path_cost + cost_params.astar_fac * expected_cost;
     }
     to->cost = total_cost;
 }
