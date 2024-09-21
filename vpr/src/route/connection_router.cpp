@@ -68,20 +68,20 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
     int source_node = rt_root->inode;
 
-    if (heap_.is_empty_heap()) {
+    /*if (heap_.is_empty_heap()) {
         VTR_LOG("No source in route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
         VTR_LOG("Adding partial route tree in VTR style\n");
 	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     	heap_.build_heap(); // via sifting down everything
     	source_node = rt_root->inode;
-    	
+    */	
 	if (heap_.is_empty_heap()) {
             VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
 
             free_route_tree(rt_root);
             return nullptr;
 	}
-    }
+    //}
 
     VTR_LOGV_DEBUG(router_debug_, "  Routing to %d as normal net (BB: %d,%d x %d,%d)\n", sink_node,
                    bounding_box.xmin, bounding_box.ymin,
@@ -188,19 +188,19 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 
     int source_node = rt_root->inode;
 
-    if (heap_.is_empty_heap()) {
+    /*if (heap_.is_empty_heap()) {
         VTR_LOG("No source in route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
         VTR_LOG("[HF] Adding partial route tree in VTR style\n");
     	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     	heap_.build_heap();
     	source_node = rt_root->inode;
-
+	*/
     	if (heap_.is_empty_heap()) {
             VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
             free_route_tree(rt_root);
             return std::make_pair(false, t_heap());
 	}
-    }
+    //}
 
     VTR_LOGV_DEBUG(router_debug_, "  Routing to %d as high fanout net (BB: %d,%d x %d,%d)\n", sink_node,
                    high_fanout_bb.xmin, high_fanout_bb.ymin,
@@ -267,7 +267,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
     t_heap* cheapest = nullptr;
-    //int current_hop_value = 0;
+    int current_hop_value = 0;
     //int sink_hop_counter = 0;
     while (!heap_.is_empty_heap()) {
         // cheapest t_heap in current route tree to be expanded on
@@ -276,50 +276,17 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
         ++router_stats_->heap_pops;
 
         int inode = cheapest->index;
+        
+	t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+	if (node_type == CHANX || node_type == CHANY){
+	    ++router_stats_->wire_heap_pops;
+	}
 	//VTR_LOG("want to Read set for Multi hops\n");	    
 	
 	//std::set<int> current_hop_values = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
-	int current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
-	/*if (current_hop_values.size()==0){
-	    VTR_LOG("***** [SHA] HOP ARRAY SHOULD NOT BE EMPTY *****************\n");
-	}*/
-	//VTR_LOG("Read set for Multi hops\n");	    
-	//Problems with below appraoch:
-	//1. need to get value of sink_hop_counter for every time the sink is routed, and
-	//that values depends on until which node the route was retained
-	//Two values to solve this: 
-	//1. Get hop of the node that was popped --> hop value again depends on the sink_hop_counter (deadlock)
-	//2. Get the parent of the popped node, and then get the correct hop value, if parent has multiple hops
-	//then the agian a deadlock, look for its parent, and so on
-	//2. 
-	/*if (current_hop_values.size()==0){
-   		current_hop_value = 0;
+	if (cost_params.detailed_router == 1) {	
+		current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
 	}
-	else if (current_hop_values.size()==1){
-		//VTR_LOG("Size = 1 Multi hops\n");	    
-   		current_hop_value = *current_hop_values.begin();
-	}
-	else {
-	    	VTR_LOG("List of current hop values: \n");	    
-		for (auto itt : current_hop_values){
-			VTR_LOG("%d ", itt);
-		}
-		VTR_LOG("\n");
-		//find a value that is greater than sink_hop_counter + 1
-		auto it = current_hop_values.upper_bound(sink_hop_counter+1);
-		//no value greater than sink_hop_counter
-		if (it == current_hop_values.begin()) {
-		    current_hop_value = *std::prev(current_hop_values.end());
-	    	    VTR_LOG("Multi hops (no value > SHC): %d hop_counter: %d\n", current_hop_value, sink_hop_counter);	    
-		}
-		else {
-		    --it;
-	    	    current_hop_value = *it;	    
-	    	    VTR_LOG("Multi hops: %d hop_counter: %d\n", current_hop_value, sink_hop_counter);	    
-		}
-	}
-	sink_hop_counter = std::max(sink_hop_counter+1, current_hop_value);*/
-	//take the hop value which is +1 of previous hop, as we are between which hop value to take
 	
 	//VTR_ASSERT_SAFE(current_hop_values != -1);
 	/*if (current_hop_value == -1) {
@@ -380,8 +347,8 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
 
     //Add the route tree to the heap with no specific target node
     int target_node = OPEN;
-    //add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
-    bool found = add_only_branch_node_of_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
+    add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
+    //bool found = add_only_branch_node_of_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     heap_.build_heap(); // via sifting down everything
 
     auto res = timing_driven_find_all_shortest_paths_from_heap(cost_params, bounding_box, net_id, sink_id);
@@ -414,8 +381,12 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
         t_heap* cheapest = heap_.get_heap_head();
         ++router_stats_->heap_pops;
 	
-
         int inode = cheapest->index;
+	
+	t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+	if (node_type == CHANX || node_type == CHANY){
+	    ++router_stats_->wire_heap_pops;
+	}
 	
         
 	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g)\n",
@@ -635,34 +606,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     //SHA
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
-	//std::set<std::string> allowed_nets_list = rr_graph_->get_list_of_allowed_nets(to_node);
-	//std::string conn_id = std::to_string(static_cast<std::size_t>(net_id)) + "_" + std::to_string(sink_id);
-        //auto allowed = allowed_nets_list.find(conn_id);
-	//offpath_penalty = (allowed != allowed_nets_list.end()) ? 1.0 : cost_params.offpath_penalty;  
-	//VTR_LOG("Prior to Pushing nodes:\n");
-	//std::set<int> hops = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	//VTR_LOG("Pushing nodes:\n");
-	
-	/*bool node_allowed = false;
-	if (itry < 10) {
-	    for (auto hop : current_hop_values){
-	        auto allowed = hops.find(hop + 1);
-    	        if (allowed != hops.end()){
-	        	node_allowed = true;
-	    	break;
-	        }  
-	    }
-	}
-	else {
-	    if (hops.size() > 0){
-		 // check that this is a good enough check to ensure thatthen node is on the global path
-	    	node_allowed = true;
-	    }
-	}*/
-	//VTR_LOG("Pushing nodes, did find\n");
-	//float offpath_penalty = node_allowed ? 1.0 : cost_params.offpath_penalty;
 	int hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	if (itry > 1) {
+	if (itry > 3) {
 		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
 	}
 	else {
@@ -768,6 +713,11 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
 
         heap_.add_to_heap(next_ptr);
         ++router_stats_->heap_pushes;
+	//===
+	t_rr_type node_type = rr_graph_->node_type(RRNodeId(to_node));
+	if (node_type == CHANX || node_type == CHANY){
+	    ++router_stats_->wire_heap_pushes;
+	}
     }
 
     if (rcv_path_manager.is_enabled() && next.path_data != nullptr) {
@@ -1104,6 +1054,10 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap_with_zero_cost(
     }
 
     ++router_stats_->heap_pushes;
+    t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+    if (node_type == CHANX || node_type == CHANY){
+	    ++router_stats_->wire_heap_pushes;
+    }
 }
 
 //Unconditionally adds rt_node to the heap
@@ -1146,6 +1100,10 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
     }
 
     ++router_stats_->heap_pushes;
+    t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+    if (node_type == CHANX || node_type == CHANY){
+        ++router_stats_->wire_heap_pushes;
+    }
 }
 
 static t_bb adjust_highfanout_bounding_box(t_bb highfanout_bb) {
