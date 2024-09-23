@@ -320,21 +320,21 @@ class RRGraphBuilder {
         node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
     }
     
-    inline void assign_list_to_node_v2(
+    /*inline void assign_list_to_node_v2(
         std::set<std::string> net_list,
         const RRNodeId& id){
         node_storage_.assign_list_to_node_v2(net_list, id);//allowed_nets_per_node[id] = net_list;
-    }
+    }*/
     
     inline void resize_allowed_list_of_nodes(
         size_t size){
         node_storage_.resize_allowed_list_of_nodes(size);
     }
     
-    inline void resize_allowed_list_of_nodes_v2(
+    /*inline void resize_allowed_list_of_nodes_v2(
         size_t size){
         node_storage_.resize_allowed_list_of_nodes_v2(size);
-    }
+    }*/
 
     /* -- Internal data storage -- */
   private:

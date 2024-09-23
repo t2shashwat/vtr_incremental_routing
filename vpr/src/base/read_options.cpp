@@ -2192,6 +2192,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.load_gr_history, "--load_gr_history")
+        .help(
+            "Load history cost from global router")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.offpath_penalty, "--offpath_penalty")
         .help(
             "Set the value of offpath penalty")

@@ -606,11 +606,16 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     //SHA
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
-	int hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-	if (itry > 3) {
+	int hop;
+	if (itry == 2) {
+		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
 	}
+	else if (itry > 2) {
+		offpath_penalty = 1.0;
+	}
 	else {
+		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
 	}
 	

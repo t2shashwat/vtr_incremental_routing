@@ -19,6 +19,7 @@ void pathfinder_update_path_occupancy(t_trace* route_segment_start, int add_or_s
 void pathfinder_update_single_node_occupancy(int inode, int add_or_sub);
 
 void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& overuse_info);
+void pathfinder_update_acc_cost_to_lock_nodes(float acc_fac, OveruseInfo& overuse_info);
 
 float update_pres_fac(float new_pres_fac);
 

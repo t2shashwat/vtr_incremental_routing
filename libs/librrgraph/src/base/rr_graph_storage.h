@@ -626,10 +626,10 @@ class t_rr_graph_storage {
         allowed_nets_per_node.resize(size);
     }
     
-    inline void resize_allowed_list_of_nodes_v2(
+    /*inline void resize_allowed_list_of_nodes_v2(
         size_t size){
         allowed_nets_per_node_v2.resize(size);
-    }
+    }*/
     inline void assign_list_to_node(
         //std::set<std::string> net_list,
 	std::map<ClusterNetId, std::set<std::pair<int, int>>> net_list, 
@@ -649,17 +649,17 @@ class t_rr_graph_storage {
             }
        }
     }
-    inline void assign_list_to_node_v2(
+    /*inline void assign_list_to_node_v2(
         std::set<std::string> net_list,
         const RRNodeId& id){
 	for (const auto& net_id : net_list) {
         	allowed_nets_per_node_v2[id].insert(net_id);
     	}
-    }
-    inline std::set<std::string> get_list_of_allowed_nets(
+    }*/
+    /*inline std::set<std::string> get_list_of_allowed_nets(
         const RRNodeId& id) const {
         return allowed_nets_per_node_v2[id];
-    }
+    }*/
     //inline const std::set<int> check_connection_allowed_to_use_node(
     inline const int check_connection_allowed_to_use_node(
         const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
@@ -669,12 +669,12 @@ class t_rr_graph_storage {
             if (not allowed_nets_per_node[id].count(netid)) {
 		//printf("Checking on node: %zu net_id: %zu sink_id: %d count:%d\n", size_t(id), size_t(netid), sinkid, allowed_nets_per_node[id].count(netid));
 	  	//return empty_set;
-	  	return false;
+	  	return -1;
 	    }
             if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) {
 		//printf("Size of net array: %d sink: %d node_id: %zu net_id: %zu\n", allowed_nets_per_node[id].at(netid).size(), sinkid, size_t(id), size_t(netid));
 		//return empty_set;
-		return false;
+		return -1;
 	    }
 	    //const std::set<int>& my_set = allowed_nets_per_node[id].at(netid).at(size_t(sinkid));
 	    //printf("Present: %d node_id: %zu net_id: %zu sinkid: %d\n", *my_set.begin(), size_t(id), size_t(netid), sinkid);
@@ -721,7 +721,7 @@ class t_rr_graph_storage {
 
     // global-detaile router support code
     // SHA 
-    vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node_v2;
+    //vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node_v2;
     //vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<std::set<int>>>> allowed_nets_per_node;
     vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<int>>> allowed_nets_per_node;
     // This array stores the first edge of each RRNodeId.  Not that the length

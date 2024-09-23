@@ -191,6 +191,7 @@ struct t_options {
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
     argparse::ArgValue<int> detailed_router;
+    argparse::ArgValue<int> load_gr_history;
     argparse::ArgValue<float> offpath_penalty;
     //===========================
     /* Timing-driven router options only */

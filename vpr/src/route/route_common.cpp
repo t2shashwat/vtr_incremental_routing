@@ -547,7 +547,7 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
             ++overused_nodes;
             total_overuse += overuse;
             worst_overuse = std::max(worst_overuse, size_t(overuse));
-            route_ctx.rr_node_route_inf[(size_t)rr_id].legal = 0;
+            //route_ctx.rr_node_route_inf[(size_t)rr_id].legal = 0;
         }
     }
 
@@ -557,6 +557,34 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
     overuse_info.worst_overuse = worst_overuse;
 }
 
+void pathfinder_update_acc_cost_to_lock_nodes(float acc_fac, OveruseInfo& overuse_info) {
+    /* This routine recomputes the acc_cost (accumulated congestion cost) of each       *
+     * routing resource for the pathfinder algorithm after all nets have been routed.   *
+     * It updates the accumulated cost to by adding in the number of extra signals      *
+     * sharing a resource right now (i.e. after each complete iteration) times acc_fac. *
+     * THIS ROUTINE ASSUMES THE OCCUPANCY VALUES IN RR_NODE ARE UP TO DATE.             *
+     * This routine also creates a new overuse info for the current routing iteration.  */
+
+    auto& device_ctx = g_vpr_ctx.device();
+    const auto& rr_graph = device_ctx.rr_graph;
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
+    size_t overused_nodes = 0, total_overuse = 0, worst_overuse = 0;
+
+    for (const RRNodeId& rr_id : rr_graph.nodes()) {
+        int overuse = route_ctx.rr_node_route_inf[(size_t)rr_id].occ() - rr_graph.node_capacity(rr_id);
+
+        // If overused, update the acc_cost and add this node to the overuse info
+        // If not, do nothing
+        if (overuse == 0) {
+            route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost += 100000.;
+        }
+    }
+
+    // Update overuse info
+    overuse_info.overused_nodes = overused_nodes;
+    overuse_info.total_overuse = total_overuse;
+    overuse_info.worst_overuse = worst_overuse;
+}
 float update_pres_fac(float new_pres_fac) {
     /* This routine should take the new value of the present congestion factor *
      * and propagate it to all the relevant data fields in the vpr flow.       *
