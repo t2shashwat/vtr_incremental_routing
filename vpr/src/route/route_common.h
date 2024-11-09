@@ -74,22 +74,14 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ
     float pres_cost;
     int capacity = rr_graph.node_capacity(RRNodeId(inode));
     int occupancy = route_ctx.rr_node_route_inf[inode].occ();
-    int g_occupancy = route_ctx.rr_node_route_inf[inode].g_occ();
+    //int g_occupancy = route_ctx.rr_node_route_inf[inode].g_occ();
     int overuse = occupancy - capacity;
 
     auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
     float base_cost = device_ctx.rr_indexed_data[cost_index].base_cost;
 
-    int g_capacity = 8;
-    if (base_cost == 12.0)
-    {
-	g_capacity = 4;
-    }
-    float g_occupancy_factor = g_occupancy/g_capacity;
     if (overuse >= 0) {
-        pres_cost = (1. + pres_fac * static_cast<float>(std::pow(g_occupancy, global_occ_factor)) *  (overuse + 1));
-        //pres_cost = (1. + pres_fac * (overuse + 1));
-	
+        pres_cost = (1. + pres_fac * (overuse + 1));
     } else {
         pres_cost = 1.;// + (occupancy) * (pres_fac/capacity);
     }
