@@ -68,20 +68,12 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
     int source_node = rt_root->inode;
 
-    /*if (heap_.is_empty_heap()) {
-        VTR_LOG("No source in route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
-        VTR_LOG("Adding partial route tree in VTR style\n");
-	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
-    	heap_.build_heap(); // via sifting down everything
-    	source_node = rt_root->inode;
-    */	
-	if (heap_.is_empty_heap()) {
-            VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
+    if (heap_.is_empty_heap()) {
+        VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
 
-            free_route_tree(rt_root);
-            return nullptr;
-	}
-    //}
+        free_route_tree(rt_root);
+        return nullptr;
+    }
 
     VTR_LOGV_DEBUG(router_debug_, "  Routing to %d as normal net (BB: %d,%d x %d,%d)\n", sink_node,
                    bounding_box.xmin, bounding_box.ymin,
@@ -181,7 +173,6 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
     else {
-    	//high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
 	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     	high_fanout_bb = net_bounding_box;
     }
@@ -190,19 +181,11 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 
     int source_node = rt_root->inode;
 
-    /*if (heap_.is_empty_heap()) {
-        VTR_LOG("No source in route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
-        VTR_LOG("[HF] Adding partial route tree in VTR style\n");
-    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
-    	heap_.build_heap();
-    	source_node = rt_root->inode;
-	*/
-    	if (heap_.is_empty_heap()) {
-            VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
-            free_route_tree(rt_root);
-            return std::make_pair(false, t_heap());
-	}
-    //}
+    if (heap_.is_empty_heap()) {
+    	VTR_LOG("No source in route tree after adding entire partial route tree: %s\n", describe_unrouteable_connection(source_node, sink_node, is_flat_).c_str());
+        free_route_tree(rt_root);
+        return std::make_pair(false, t_heap());
+    }
 
     VTR_LOGV_DEBUG(router_debug_, "  Routing to %d as high fanout net (BB: %d,%d x %d,%d)\n", sink_node,
                    high_fanout_bb.xmin, high_fanout_bb.ymin,
@@ -283,18 +266,14 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	if (node_type == CHANX || node_type == CHANY){
 	    ++router_stats_->wire_heap_pops;
 	}
-	//VTR_LOG("want to Read set for Multi hops\n");	    
 	
-	//std::set<int> current_hop_values = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
 	if (cost_params.detailed_router == 1) {	
-		current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
+	    current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
 	}
 	
-	//VTR_ASSERT_SAFE(current_hop_values != -1);
-	/*if (current_hop_value == -1) {
-		VTR_LOG("***** [SHA] Current hop value should not be negative\n");
-	
-	}*/	
+	if (current_hop_value == -1) {
+            VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Current hop value should not be negative");
+	}	
 
 	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
                        inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
@@ -350,7 +329,6 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
     //Add the route tree to the heap with no specific target node
     int target_node = OPEN;
     add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
-    //bool found = add_only_branch_node_of_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     heap_.build_heap(); // via sifting down everything
 
     auto res = timing_driven_find_all_shortest_paths_from_heap(cost_params, bounding_box, net_id, sink_id);
@@ -603,9 +581,6 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
         }
     }
     
-    //check if net in the list of the to_node
-    //get the list of nets allowed to pass through the node
-    //SHA
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
 	int hop;
@@ -613,9 +588,6 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
 	}
-	/*else if (itry > 2) {
-		offpath_penalty = 1.0;
-	}*/
 	else {
 		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
@@ -912,7 +884,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
                        rr_node_arch_name(target_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, target_node, is_flat_).c_str(),
                        expected_cost, to->R_upstream);
         
-	total_cost += to->backward_path_cost;// + cost_params.astar_fac * expected_cost;
+	total_cost += to->backward_path_cost + cost_params.astar_fac * expected_cost;
     }
     to->cost = total_cost;
 }
