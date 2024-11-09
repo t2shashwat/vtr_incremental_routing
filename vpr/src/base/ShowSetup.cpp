@@ -286,6 +286,12 @@ static void ShowRouterOpts(const t_router_opts& RouterOpts) {
             case DEMAND_ONLY_NORMALIZED_LENGTH:
                 VTR_LOG("DEMAND_ONLY_NORMALIZED_LENGTH\n");
                 break;
+            case FREQUENCY_ONLY:
+                VTR_LOG("FREQUENCY_ONLY\n");
+                break;
+            case ULTRASCALE_PLUS:
+                VTR_LOG("ULTRASCALE_PLUS\n");
+                break;
             default:
                 VPR_FATAL_ERROR(VPR_ERROR_UNKNOWN, "Unknown base_cost_type\n");
         }
@@ -442,6 +448,12 @@ static void ShowRouterOpts(const t_router_opts& RouterOpts) {
                 break;
             case DEMAND_ONLY:
                 VTR_LOG("DEMAND_ONLY\n");
+                break;
+            case FREQUENCY_ONLY:
+                VTR_LOG("FREQUENCY_ONLY\n");
+                break;
+            case ULTRASCALE_PLUS:
+                VTR_LOG("ULTRASCALE_PLUS\n");
                 break;
             default:
                 VTR_LOG_ERROR("Unknown router base cost type\n");

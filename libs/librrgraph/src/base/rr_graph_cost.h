@@ -8,7 +8,9 @@ enum e_base_cost_type {
     DELAY_NORMALIZED_LENGTH_FREQUENCY,
     DELAY_NORMALIZED_LENGTH_BOUNDED,
     DEMAND_ONLY,
-    DEMAND_ONLY_NORMALIZED_LENGTH
+    DEMAND_ONLY_NORMALIZED_LENGTH,
+    FREQUENCY_ONLY,
+    ULTRASCALE_PLUS
 };
 
 ///@brief Index of the SOURCE, SINK, OPIN, IPIN, etc. member of device_ctx.rr_indexed_data.

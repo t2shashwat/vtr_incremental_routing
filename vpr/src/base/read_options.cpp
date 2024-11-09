@@ -322,6 +322,10 @@ struct ParseBaseCost {
             conv_value.set_value(DEMAND_ONLY);
         else if (str == "delay_normalized_length_bounded")
             conv_value.set_value(DELAY_NORMALIZED_LENGTH_BOUNDED);
+        else if (str == "frequency_only")
+            conv_value.set_value(FREQUENCY_ONLY);
+        else if (str == "ultrascale_plus")
+            conv_value.set_value(ULTRASCALE_PLUS);
         else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_router_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -344,6 +348,10 @@ struct ParseBaseCost {
             conv_value.set_value("demand_only_normalized_length");
         else if (val == DELAY_NORMALIZED_LENGTH_BOUNDED)
             conv_value.set_value("delay_normalized_length_bounded");
+        else if (val == FREQUENCY_ONLY)
+            conv_value.set_value("frequency_only");
+        else if (val == ULTRASCALE_PLUS)
+            conv_value.set_value("utrascale_plus");
         else {
             VTR_ASSERT(val == DEMAND_ONLY);
             conv_value.set_value("demand_only");

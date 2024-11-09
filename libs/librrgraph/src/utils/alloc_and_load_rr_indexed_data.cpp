@@ -406,7 +406,42 @@ static void load_rr_indexed_data_base_costs(const RRGraphView& rr_graph,
             //Base cost = (delay_norm * len) * (1 + (1-freq))
             rr_indexed_data[RRIndexedDataId(index)].base_cost = (delay_normalization_fac / rr_indexed_data[RRIndexedDataId(index)].inv_length) * (1 + (1 - freq_fac));
 
-        } else {
+        } else if (base_cost_type == FREQUENCY_ONLY) {
+            rr_indexed_data[RRIndexedDataId(index)].base_cost = delay_normalization_fac;
+            float length = (1 / rr_indexed_data[RRIndexedDataId(index)].inv_length);
+            if (length == 1) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+            }
+            else if (length == 2) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+            }
+            else if (length == 4) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+            }
+            else if (length == 12) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 2;
+            }
+            VTR_LOG("[SHA][FRQ_ONLY] Base cost value: %d, %f\n", RRIndexedDataId(index), rr_indexed_data[RRIndexedDataId(index)].base_cost);
+
+        } else if (base_cost_type == ULTRASCALE_PLUS) {
+            rr_indexed_data[RRIndexedDataId(index)].base_cost = delay_normalization_fac;
+            float length = (1 / rr_indexed_data[RRIndexedDataId(index)].inv_length);
+            if (length == 1) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+            }
+            else if (length == 2) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 3;
+            }
+            else if (length == 4) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 5;
+            }
+            else if (length == 12) {
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 12;
+            }
+            VTR_LOG("[SHA][US+] Base cost value: %d, %f\n", RRIndexedDataId(index), rr_indexed_data[RRIndexedDataId(index)].base_cost);
+
+        } 
+	else {
             VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Unrecognized base cost type");
         }
     }
