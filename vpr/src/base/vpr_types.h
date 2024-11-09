@@ -1246,6 +1246,9 @@ struct t_router_opts {
     int icr_iter = 0;
     float sbNode_lookahead_factor = 0.0;
     int detailed_router = 0;
+    int preorder_sink_order = 0;
+    int relax_hop_order = 1000;
+    float global_occ_factor = 0;
     int load_gr_history = 0;
     float offpath_penalty = 1.0;
     //==========================================
@@ -1525,12 +1528,19 @@ struct t_rr_node_route_inf {
     int legal;	
   public: //Accessors
     short occ() const { return occ_; }
+  
+  public: //Accessors
+    short g_occ() const { return g_occ_; }
 
   public: //Mutators
     void set_occ(int new_occ) { occ_ = new_occ; }
+ 
+  public: //Mutators
+    void set_g_occ(int new_g_occ) { g_occ_ = new_g_occ; }
 
   private: //Data
     short occ_ = 0;
+    short g_occ_ = 0;
 };
 
 /**

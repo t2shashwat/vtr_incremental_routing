@@ -538,11 +538,12 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
 
     for (const RRNodeId& rr_id : rr_graph.nodes()) {
         int overuse = route_ctx.rr_node_route_inf[(size_t)rr_id].occ() - rr_graph.node_capacity(rr_id);
+    	//int g_occupancy = route_ctx.rr_node_route_inf[(size_t)rr_id].g_occ();
 
         // If overused, update the acc_cost and add this node to the overuse info
         // If not, do nothing
         if (overuse > 0) {
-            route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost += overuse * acc_fac;
+            route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost += overuse * acc_fac;// * g_occupancy;
 
             ++overused_nodes;
             total_overuse += overuse;
@@ -838,11 +839,11 @@ void reset_path_costs(const std::vector<int>& visited_rr_nodes) {
 
 /* Returns the congestion cost of using this rr-node plus that of any      *
  * non-configurably connected rr_nodes that must be used when it is used.  */
-float get_rr_cong_cost(int inode, float pres_fac) {
+float get_rr_cong_cost(int inode, float pres_fac, float global_occ_factor) {
     auto& device_ctx = g_vpr_ctx.device();
     auto& route_ctx = g_vpr_ctx.routing();
 
-    float cost = get_single_rr_cong_cost(inode, pres_fac);
+    float cost = get_single_rr_cong_cost(inode, pres_fac, global_occ_factor);
 
     if (route_ctx.non_configurable_bitset.get(inode)) {
         // Access unordered_map only when the node is part of a non-configurable set
@@ -853,7 +854,7 @@ float get_rr_cong_cost(int inode, float pres_fac) {
                     continue; //Already included above
                 }
 
-                cost += get_single_rr_cong_cost(node, pres_fac);
+                cost += get_single_rr_cong_cost(node, pres_fac, global_occ_factor);
             }
         }
     }
@@ -1100,6 +1101,7 @@ void reset_rr_node_route_structs() {
         node_inf.backward_path_cost = std::numeric_limits<float>::infinity();
         node_inf.target_flag = 0;
         node_inf.set_occ(0);
+        node_inf.set_g_occ(0);
     }
 }
 
@@ -1507,7 +1509,7 @@ void print_route(const char* placement_file, const char* route_file) {
 //
 // To model this we 'reserve' these locally used outputs, ensuring that the router will not use them (as if it did
 // this would equate to duplicating a BLE into an already in-use BLE instance, which is clearly incorrect).
-void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_fac, bool rip_up_local_opins) {
+void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_fac, float global_occ_factor, bool rip_up_local_opins) {
     int num_local_opin, inode, from_node, iconn, num_edges, to_node;
     int iclass, ipin;
     float cost;
@@ -1565,7 +1567,7 @@ void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_f
                 VTR_ASSERT(rr_graph.node_type(RRNodeId(to_node)) == OPIN);
 
                 //Add the OPIN to the heap according to it's congestion cost
-                cost = get_rr_cong_cost(to_node, pres_fac);
+                cost = get_rr_cong_cost(to_node, pres_fac, global_occ_factor);
                 add_node_to_heap(heap, route_ctx.rr_node_route_inf,
                                  to_node, cost, OPEN, RREdgeId::INVALID(),
                                  0., 0.);

@@ -371,6 +371,7 @@ static void load_rr_indexed_data_base_costs(const RRGraphView& rr_graph,
     for (index = CHANX_COST_INDEX_START; index < rr_indexed_data.size(); index++) {
         if (base_cost_type == DELAY_NORMALIZED || base_cost_type == DEMAND_ONLY) {
             rr_indexed_data[RRIndexedDataId(index)].base_cost = delay_normalization_fac;
+	    VTR_LOG("[SHA] Base cost value: %d, %f\n", RRIndexedDataId(index), rr_indexed_data[RRIndexedDataId(index)].base_cost);
 
         } else if (base_cost_type == DELAY_NORMALIZED_LENGTH || base_cost_type == DEMAND_ONLY_NORMALIZED_LENGTH) {
             rr_indexed_data[RRIndexedDataId(index)].base_cost = delay_normalization_fac / rr_indexed_data[RRIndexedDataId(index)].inv_length;

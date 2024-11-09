@@ -28,6 +28,8 @@ struct t_conn_cost_params {
     float bias = 1.;
     float offpath_penalty = 1.;
     int detailed_router = 0;
+    int relax_hop_order = 1000;
+    float global_occ_factor = 0.0;
 
     //TODO: Eventually once delay budgets are working, t_conn_delay_budget
     //should be factoured out, and the delay budget parameters integrated

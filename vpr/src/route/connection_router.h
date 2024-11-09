@@ -246,7 +246,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
     void add_route_tree_to_heap(t_rt_node* rt_node,
                                 int target_node,
                                 const t_conn_cost_params cost_params,
-				std::set<int> branch_nodes, int seg_index_branch_node);
+				std::set<int> branch_nodes, int seg_index_branch_node,
+				ClusterNetId net_id, int sink_id);
     
     bool add_only_branch_node_of_route_tree_to_heap(t_rt_node* rt_node,
                                 int target_node,
@@ -281,7 +282,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         const SpatialRouteTreeLookup& spatial_route_tree_lookup,
         t_bb net_bounding_box,
-	std::set<int> branch_nodes, int seg_index_branch_node);
+	std::set<int> branch_nodes, int seg_index_branch_node,
+	ClusterNetId net_id, int sink_id);
     
     t_bb add_only_branch_node_of_high_fanout_route_tree_to_heap(
         t_rt_node* rt_root,

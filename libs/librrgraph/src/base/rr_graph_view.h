@@ -169,6 +169,9 @@ class RRGraphView {
             return node_storage_.check_connection_allowed_to_use_node(id, netid, sinkid);
         }
 
+    inline const int get_global_occupancy(const RRNodeId& id) const {
+        return node_storage_.get_global_occupancy(id);
+    }
     /** @brief Get the first out coming edge of resource node. This function is inlined for runtime optimization. */
     inline RREdgeId node_first_edge(RRNodeId node) const {
         return node_storage_.first_edge(node);

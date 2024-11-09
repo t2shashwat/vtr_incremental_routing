@@ -681,6 +681,11 @@ class t_rr_graph_storage {
 
             return allowed_nets_per_node[id].at(netid).at(size_t(sinkid));
         }
+    
+    inline const int get_global_occupancy(const RRNodeId& id) const {
+    	return allowed_nets_per_node[id].size();
+    }
+
 
   private:
     friend struct edge_swapper;

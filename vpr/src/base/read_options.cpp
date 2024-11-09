@@ -2192,6 +2192,24 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.preorder_sink_order, "--preorder_sink_order")
+        .help(
+            "Sort the sinks in pre-order traversal of global router tree on")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.relax_hop_order, "--relax_hop_order")
+        .help(
+            "Set the iteration to relax hop order from")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.global_occ_factor, "--global_occ_factor")
+        .help(
+            "Set the global occupancy factor")
+        .default_value("0.0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.load_gr_history, "--load_gr_history")
         .help(
             "Load history cost from global router")

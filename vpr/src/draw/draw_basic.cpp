@@ -374,7 +374,7 @@ void draw_routing_costs(ezgl::renderer* g) {
             || draw_state->show_routing_costs
                    == DRAW_LOG_TOTAL_ROUTING_COSTS) {
             cost = get_single_rr_cong_cost((size_t)rr_id,
-                                           get_draw_state_vars()->pres_fac);
+                                           get_draw_state_vars()->pres_fac, 0.0);
 
         } else if (draw_state->show_routing_costs == DRAW_BASE_ROUTING_COSTS) {
             cost = get_single_rr_cong_base_cost((size_t)rr_id);

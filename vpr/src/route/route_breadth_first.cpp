@@ -98,7 +98,7 @@ bool try_breadth_first_route(const t_router_opts& router_opts) {
         else
             rip_up_local_opins = true;
 
-        reserve_locally_used_opins(&heap, pres_fac, router_opts.acc_fac, rip_up_local_opins);
+        reserve_locally_used_opins(&heap, pres_fac, router_opts.acc_fac, router_opts.global_occ_factor, rip_up_local_opins);
 
         success = feasible_routing();
         if (success) {
@@ -430,7 +430,8 @@ static float evaluate_node_cost(const float prev_path_cost, const float bend_cos
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
 
-    float tot_cost = prev_path_cost + get_rr_cong_cost(to_node, pres_fac);
+    float global_occ_factor = 0.0; //hard coding the value as we will not need it for bfs
+    float tot_cost = prev_path_cost + get_rr_cong_cost(to_node, pres_fac, global_occ_factor);
 
     if (bend_cost != 0.) {
         t_rr_type from_type = rr_graph.node_type(RRNodeId(from_node));
@@ -452,7 +453,8 @@ static void breadth_first_add_source_to_heap(BinaryHeap& heap, ClusterNetId net_
     auto& route_ctx = g_vpr_ctx.routing();
 
     inode = route_ctx.net_rr_terminals[net_id][0]; /* SOURCE */
-    cost = get_rr_cong_cost(inode, pres_fac);
+    float global_occ_factor = 0.0; //hard coding the value as we will not need it for bfs
+    cost = get_rr_cong_cost(inode, pres_fac, global_occ_factor);
 
 #ifdef ROUTER_DEBUG
     VTR_LOG("  Adding Source node %d to heap\n", inode);

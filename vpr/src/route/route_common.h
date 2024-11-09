@@ -1,6 +1,7 @@
 /************ Defines and types shared by all route files ********************/
 #pragma once
 #include <vector>
+#include <cmath>
 #include "clustered_netlist.h"
 #include "vtr_vector.h"
 #include "heap_type.h"
@@ -30,7 +31,7 @@ t_trace* update_traceback(t_heap* hptr, int target_net_pin_index, ClusterNetId n
 
 void reset_path_costs(const std::vector<int>& visited_rr_nodes);
 
-float get_rr_cong_cost(int inode, float pres_fac);
+float get_rr_cong_cost(int inode, float pres_fac, float global_occ_factor);
 
 /* Returns the base cost of using this rr_node */
 inline float get_single_rr_cong_base_cost(int inode) {
@@ -65,7 +66,7 @@ inline float get_single_rr_cong_pres_cost(int inode, float pres_fac) {
 
 /* Returns the congestion cost of using this rr_node,
  * *ignoring* non-configurable edges */
-inline float get_single_rr_cong_cost(int inode, float pres_fac) {
+inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ_factor) {
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
@@ -73,18 +74,30 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac) {
     float pres_cost;
     int capacity = rr_graph.node_capacity(RRNodeId(inode));
     int occupancy = route_ctx.rr_node_route_inf[inode].occ();
+    int g_occupancy = route_ctx.rr_node_route_inf[inode].g_occ();
     int overuse = occupancy - capacity;
 
+    auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
+    float base_cost = device_ctx.rr_indexed_data[cost_index].base_cost;
+
+    int g_capacity = 8;
+    if (base_cost == 12.0)
+    {
+	g_capacity = 4;
+    }
+    float g_occupancy_factor = g_occupancy/g_capacity;
     if (overuse >= 0) {
-        pres_cost = (1. + pres_fac * (overuse + 1));
+        pres_cost = (1. + pres_fac * static_cast<float>(std::pow(g_occupancy, global_occ_factor)) *  (overuse + 1));
+        //pres_cost = (1. + pres_fac * (overuse + 1));
 	
     } else {
         pres_cost = 1.;// + (occupancy) * (pres_fac/capacity);
     }
 
-    auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
-    float legal_benefit;
-    float cost = device_ctx.rr_indexed_data[cost_index].base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;// * (route_ctx.rr_node_route_inf[inode].legal * 1.2);
+    float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;
+    //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
+
+    //VTR_LOGV_DEBUG("bc: %s acc_cost: (%s) pres_cost: (%s) g_occ: %d overuse: %d\n", device_ctx.rr_indexed_data[cost_index].base_cost, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
 
     VTR_ASSERT_DEBUG_MSG(
         cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac),
@@ -110,7 +123,7 @@ void reset_rr_node_route_structs();
 
 void free_trace_structs();
 
-void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_fac, bool rip_up_local_opins);
+void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_fac, float global_occ_factor, bool rip_up_local_opins);
 
 void free_chunk_memory_trace();
 

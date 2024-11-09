@@ -62,7 +62,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
     	found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     }
     else {
-	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
+	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     }
     heap_.build_heap(); // via sifting down everything
 
@@ -129,7 +129,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
             found = add_only_branch_node_of_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
     	}
     	else {
-	    add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node);
+	    add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     	}
         heap_.build_heap(); // via sifting down everything
 
@@ -181,7 +181,9 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
     else {
-    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
+    	//high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
+	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
+    	high_fanout_bb = net_bounding_box;
     }
 
     heap_.build_heap();
@@ -294,8 +296,8 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	
 	}*/	
 
-	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) (%s)\n",
-                       inode, cheapest->cost, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
+	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
+                       inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
         //Have we found the target?
         if (inode == sink_node) {
@@ -347,7 +349,7 @@ std::vector<t_heap> ConnectionRouter<Heap>::timing_driven_find_all_shortest_path
 
     //Add the route tree to the heap with no specific target node
     int target_node = OPEN;
-    add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
+    add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     //bool found = add_only_branch_node_of_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
     heap_.build_heap(); // via sifting down everything
 
@@ -607,13 +609,13 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
 	int hop;
-	if (itry == 2) {
+	if (itry > cost_params.relax_hop_order) {
 		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
 	}
-	else if (itry > 2) {
+	/*else if (itry > 2) {
 		offpath_penalty = 1.0;
-	}
+	}*/
 	else {
 		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
 		offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
@@ -674,7 +676,6 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
 
     next.R_upstream = current->R_upstream;
 
-    VTR_LOGV_DEBUG(router_debug_, "      Expanding to node %d (%s)\n", to_node, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, to_node, is_flat_).c_str());
 
     evaluate_timing_driven_node_costs(&next,
                                       cost_params,
@@ -689,7 +690,8 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
 
     float new_total_cost = next.cost;
     float new_back_cost = next.backward_path_cost;
-
+    
+    VTR_LOGV_DEBUG(router_debug_, "      Expanding to node %d cost: (%f) back_cost: (%f) hist: (%f) pres_cost: (%f) (%s)\n", to_node, new_total_cost, new_back_cost, get_single_rr_cong_acc_cost(to_node),  get_single_rr_cong_pres_cost(to_node, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, to_node, is_flat_).c_str());
     if (new_total_cost < best_total_cost && ((rcv_path_manager.is_enabled()) || (new_back_cost < best_back_cost))) {
         //Add node to the heap only if the cost via the current partial path is less than the
         //best known cost, since there is no reason for the router to expand more expensive paths.
@@ -866,7 +868,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     float cong_cost = 0.;
     if (reached_configurably) {
-        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac);
+        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
     } else {
         //Reached by a non-configurable edge.
         //Therefore the from_node and to_node are part of the same non-configurable node set.
@@ -897,7 +899,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     if (rcv_path_manager.is_enabled() && to->path_data != nullptr) {
         to->path_data->backward_delay += cost_params.criticality * Tdel;
-        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac);
+        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
 
         total_cost = compute_node_cost_using_rcv(cost_params, to_node, target_node, to->path_data->backward_delay, to->path_data->backward_cong, to->R_upstream);
     } else {
@@ -910,7 +912,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
                        rr_node_arch_name(target_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, target_node, is_flat_).c_str(),
                        expected_cost, to->R_upstream);
         
-	total_cost += to->backward_path_cost + cost_params.astar_fac * expected_cost;
+	total_cost += to->backward_path_cost;// + cost_params.astar_fac * expected_cost;
     }
     to->cost = total_cost;
 }
@@ -991,7 +993,8 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     t_rt_node* rt_node,
     int target_node,
     const t_conn_cost_params cost_params,
-    std::set<int> branch_nodes, int seg_index_branch_node) {
+    std::set<int> branch_nodes, int seg_index_branch_node,
+    ClusterNetId net_id, int sink_id) {
 
     /* Puts the entire partial routing below and including rt_node onto the heap *
      * (except for those parts marked as not to be expanded) by calling itself   *
@@ -1003,9 +1006,19 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     /* Pre-order depth-first traversal */
     // IPINs and SINKS are not re_expanded
     if (rt_node->re_expand) {
-	add_route_tree_node_to_heap(rt_node,
+	int to_node = rt_node->inode;
+	int hop = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(to_node), net_id, sink_id);
+	if ((hop != -1) && cost_params.detailed_router == 1) {
+	    add_route_tree_node_to_heap_with_zero_cost(rt_node,
                                     target_node,
                                     cost_params);
+	}
+	else if (cost_params.detailed_router == 0){
+	    add_route_tree_node_to_heap(rt_node,
+                                    target_node,
+                                    cost_params);
+	
+	}
     }
 
     linked_rt_edge = rt_node->u.child_list;
@@ -1013,7 +1026,7 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     while (linked_rt_edge != nullptr) {
         child_node = linked_rt_edge->child;
         add_route_tree_to_heap(child_node, target_node,
-                               cost_params, branch_nodes, seg_index_branch_node);
+                               cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
         linked_rt_edge = linked_rt_edge->next;
     }
 }
@@ -1231,7 +1244,8 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     const t_conn_cost_params cost_params,
     const SpatialRouteTreeLookup& spatial_rt_lookup,
     t_bb net_bounding_box,
-    std::set<int> branch_nodes, int seg_index_branch_node) {
+    std::set<int> branch_nodes, int seg_index_branch_node,
+    ClusterNetId net_id, int sink_id) {
     //For high fanout nets we only add those route tree nodes which are spatially close
     //to the sink.
     //
@@ -1304,7 +1318,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     t_bb bounding_box = net_bounding_box;
 
     if (nodes_added == 0) { //If the target bin and it's surrounding bins were empty, just add the full route tree
-        add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node);
+        add_route_tree_to_heap(rt_root, target_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     } else {
         //We found nearby routing, replace original bounding box to be localized around that routing
         bounding_box = adjust_highfanout_bounding_box(highfanout_bb);
