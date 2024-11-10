@@ -157,7 +157,7 @@ static bool check_hold(const t_router_opts& router_opts, float worst_neg_slack);
 struct more_sinks_than {
     inline bool operator()(const ClusterNetId net_index1, const ClusterNetId net_index2) {
         auto& cluster_ctx = g_vpr_ctx.clustering();
-        return cluster_ctx.clb_nlist.net_sinks(net_index1).size() < cluster_ctx.clb_nlist.net_sinks(net_index2).size();
+        return cluster_ctx.clb_nlist.net_sinks(net_index1).size() > cluster_ctx.clb_nlist.net_sinks(net_index2).size();
     }
 };
 

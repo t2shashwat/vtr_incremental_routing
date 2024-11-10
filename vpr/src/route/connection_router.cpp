@@ -981,12 +981,14 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     /* Pre-order depth-first traversal */
     // IPINs and SINKS are not re_expanded
     if (rt_node->re_expand) {
-	int to_node = rt_node->inode;
-	int hop = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(to_node), net_id, sink_id);
-	if ((hop != -1) && cost_params.detailed_router == 1) {
-	    add_route_tree_node_to_heap_with_zero_cost(rt_node,
-                                    target_node,
-                                    cost_params);
+	if (cost_params.detailed_router == 1){	
+		int to_node = rt_node->inode;
+		int hop = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(to_node), net_id, sink_id);
+		if (hop != -1) {
+	    		add_route_tree_node_to_heap_with_zero_cost(rt_node,
+                                   				   target_node,
+                                    				   cost_params);
+		}
 	}
 	else if (cost_params.detailed_router == 0){
 	    add_route_tree_node_to_heap(rt_node,
