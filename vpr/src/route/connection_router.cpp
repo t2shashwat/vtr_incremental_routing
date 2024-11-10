@@ -172,9 +172,12 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     if (itry < 1 && cost_params.detailed_router == 1) {
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
-    else {
+    else if (cost_params.detailed_router == 1){
 	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
     	high_fanout_bb = net_bounding_box;
+    }
+    else {
+    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box);
     }
 
     heap_.build_heap();
