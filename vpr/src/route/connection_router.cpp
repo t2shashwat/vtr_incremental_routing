@@ -177,7 +177,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     	high_fanout_bb = net_bounding_box;
     }
     else {
-    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box);
+    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node, net_id, sink_id);
     }
 
     heap_.build_heap();
