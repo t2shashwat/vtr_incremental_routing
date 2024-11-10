@@ -360,7 +360,7 @@ struct ParseBaseCost {
     }
 
     std::vector<std::string> default_choices() {
-        return {"demand_only", "demand_only_normalized_length", "delay_normalized", "delay_normalized_length", "delay_normalized_length_bounded", "delay_normalized_frequency", "delay_normalized_length_frequency"};
+        return {"demand_only", "demand_only_normalized_length", "delay_normalized", "delay_normalized_length", "delay_normalized_length_bounded", "delay_normalized_frequency", "delay_normalized_length_frequency", "frequency_only", "utrascale_plus"};
     }
 };
 

@@ -953,7 +953,7 @@ VPR uses a negotiated congestion algorithm (based on Pathfinder) to perform rout
 
     **Default:** ``3``
 
-.. option:: --base_cost_type {demand_only | delay_normalized | delay_normalized_length | delay_normalized_frequency | delay_normalized_length_frequency}
+.. option:: --base_cost_type {demand_only | delay_normalized | delay_normalized_length | delay_normalized_frequency | delay_normalized_length_frequency | frequency_only | ultrascale_plus}
 
     Sets the basic cost of using a routing node (resource).
 

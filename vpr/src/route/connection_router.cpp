@@ -985,7 +985,7 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
                                     target_node,
                                     cost_params);
 	}
-	else if (cost_params.detailed_router == 0){
+	else if (cost_params.detailed_router == 0 || (cost_params.detailed_router == 1 && cost_params.relax_hop_order == 0)){
 	    add_route_tree_node_to_heap(rt_node,
                                     target_node,
                                     cost_params);
