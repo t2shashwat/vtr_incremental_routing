@@ -81,12 +81,14 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ
     float base_cost = device_ctx.rr_indexed_data[cost_index].base_cost;
 
     if (overuse >= 0) {
-        pres_cost = (1. + pres_fac * (overuse + 1));
+        pres_cost = 1. + pres_fac * (overuse + 1);
     } else {
-        pres_cost = 1.;// + (occupancy) * (pres_fac/capacity);
+        pres_cost = 1.;
     }
 
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;
+    
+    //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
     //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
 
     //VTR_LOGV_DEBUG("bc: %s acc_cost: (%s) pres_cost: (%s) g_occ: %d overuse: %d\n", device_ctx.rr_indexed_data[cost_index].base_cost, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);

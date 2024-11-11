@@ -844,6 +844,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     float cong_cost = 0.;
     if (reached_configurably) {
         cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
+	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.
         //Therefore the from_node and to_node are part of the same non-configurable node set.
@@ -861,6 +862,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     //Update the backward cost (upstream already included)
     to->backward_path_cost += (1. - cost_params.criticality) * cong_cost * offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
+    //VTR_LOG("back_cost: %f\n  (cost_params.criticality = %f) (cong_cost = %f) (offpath = %f)\n", to->backward_path_cost, cost_params.criticality, cong_cost, offpath_penalty);
 
     if (cost_params.bend_cost != 0.) {
         t_rr_type from_type = rr_graph_->node_type(RRNodeId(from_node));
@@ -887,6 +889,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
                        rr_node_arch_name(target_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, target_node, is_flat_).c_str(),
                        expected_cost, to->R_upstream);
         
+	//VTR_LOG("A*: %f\n", cost_params.astar_fac * expected_cost);
 	total_cost += to->backward_path_cost + cost_params.astar_fac * expected_cost;
     }
     to->cost = total_cost;

@@ -71,7 +71,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
         RouterStats& router_stats,
-        ClusterNetId net_id, int sink_idi,
+        ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
 	int itry) final;
 

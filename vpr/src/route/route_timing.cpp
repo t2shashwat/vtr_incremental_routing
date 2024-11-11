@@ -1253,7 +1253,7 @@ static bool timing_driven_pre_route_to_clock_root(
     auto& m_route_ctx = g_vpr_ctx.mutable_routing();
 
     bool high_fanout = is_high_fanout(cluster_ctx.clb_nlist.net_sinks(net_id).size(), high_fanout_threshold);
-
+    VTR_LOG("[SHA] Routing pre route to clock root\n");
     VTR_LOGV_DEBUG(f_router_debug, "Net %zu pre-route to (%s)\n", size_t(net_id), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, sink_node, is_flat).c_str());
 
     profiling::sink_criticality_start();
@@ -2903,35 +2903,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    }
 
         } else if (router_opts.incr_route == 0 && itry > 1){
-	    //if (itry < 84) {
             	pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
-	    /*}
-	    else {
-	        size_t overused_nodes = 0, total_overuse = 0, worst_overuse = 0;
-    		for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
-        	    int overuse = route_ctx.rr_node_route_inf[(size_t)rr_id].occ() - device_ctx.rr_graph.node_capacity(rr_id);
-
-        	    // If overused, update the acc_cost and add this node to the overuse info
-                    // If not, do nothing
-        	    if (overuse > 0) {
-            		route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost += overuse * router_opts.acc_fac;
-            		++overused_nodes;
-            		total_overuse += overuse;
-            		worst_overuse = std::max(worst_overuse, size_t(overuse));
-			
-			//setting other sibling detailed nodes occupancy equal to that of congested node
-			size_t gNode_id = node_id_map[size_t(rr_id)];
-			std::set<size_t> dNode_ids = get_detailed_nodes[gNode_id];
-			for (size_t dNode_id : dNode_ids){
-			    route_ctx.rr_node_route_inf[dNode_id].set_occ(route_ctx.rr_node_route_inf[(size_t)rr_id].occ());
-			}
-        	     }
-    		}
-    		// Update overuse info
-    		overuse_info.overused_nodes = overused_nodes;
-    		overuse_info.total_overuse = total_overuse;
-    		overuse_info.worst_overuse = worst_overuse; 
-	    }*/
         }
 
         wirelength_info = calculate_wirelength_info(available_wirelength);

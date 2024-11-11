@@ -340,7 +340,7 @@ static void load_rr_indexed_data_base_costs(const RRGraphView& rr_graph,
     float delay_normalization_fac;
     size_t index;
 
-    if (base_cost_type == DEMAND_ONLY || base_cost_type == DEMAND_ONLY_NORMALIZED_LENGTH) {
+    if (base_cost_type == DEMAND_ONLY || base_cost_type == DEMAND_ONLY_NORMALIZED_LENGTH || base_cost_type == FREQUENCY_ONLY || base_cost_type == ULTRASCALE_PLUS) {
         delay_normalization_fac = 1.;
     } else {
         delay_normalization_fac = get_delay_normalization_fac(rr_indexed_data, echo_enabled, echo_file_name);
