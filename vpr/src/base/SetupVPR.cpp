@@ -382,6 +382,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->icr_iter = Options.icr_iter;
     RouterOpts->sbNode_lookahead_factor = Options.sbNode_lookahead_factor;
     RouterOpts->detailed_router = Options.detailed_router;
+    RouterOpts->nets_to_skip = Options.nets_to_skip;
     RouterOpts->preorder_sink_order = Options.preorder_sink_order;
     RouterOpts->relax_hop_order = Options.relax_hop_order;
     RouterOpts->global_occ_factor = Options.global_occ_factor;

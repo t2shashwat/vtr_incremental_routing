@@ -2422,6 +2422,24 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     std::set<size_t> nets_to_skip;
     std::set<size_t> congested_nets;
+    if(router_opts.detailed_router == 1 && router_opts.nets_to_skip == 1) {
+    	//reading file with nets to skip
+    	std::ifstream nets_skip_fp;
+    	std::string nets_skip_filename = "reconvergent_nets.txt";
+    	nets_skip_fp.open(nets_skip_filename);
+    	int lineno = 0;
+    	if (!nets_skip_fp.is_open()) {
+    	    vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+    	        "Cannot open reconvergent_nets.txt file");
+    	}
+    	int net_id;
+    	while (nets_skip_fp >> net_id)
+    	{
+    	     nets_to_skip.insert(net_id);
+    	}
+    }
+
+
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";

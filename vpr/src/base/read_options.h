@@ -191,6 +191,7 @@ struct t_options {
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
     argparse::ArgValue<int> detailed_router;
+    argparse::ArgValue<int> nets_to_skip;
     argparse::ArgValue<int> preorder_sink_order;
     argparse::ArgValue<int> relax_hop_order;
     argparse::ArgValue<float> global_occ_factor;

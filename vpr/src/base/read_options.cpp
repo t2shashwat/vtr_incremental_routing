@@ -2200,6 +2200,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.nets_to_skip, "--nets_to_skip")
+        .help(
+            "Set to skip nets")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.preorder_sink_order, "--preorder_sink_order")
         .help(
             "Sort the sinks in pre-order traversal of global router tree on")
