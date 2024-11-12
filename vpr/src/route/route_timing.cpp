@@ -2745,8 +2745,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    	continue;
 	    }
 
-	    if (router_opts.shuffle_net_order == 1){ 
+	    if (router_opts.shuffle_net_order == 1 && itry > 1){ 
 	    	//route only congested nets
+    		connections_inf.prepare_routing_for_net(net_id);
 	    	if (i == 0) {
 	    	    // if not congested, do not route
 	    	    if (should_route_net(net_id, connections_inf, true) == false){
