@@ -2422,7 +2422,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     std::set<size_t> nets_to_skip;
     std::set<size_t> congested_nets;
-    if(router_opts.detailed_router == 1 && router_opts.nets_to_skip == 1) {
+    if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
     	//reading file with nets to skip
     	std::ifstream nets_skip_fp;
     	std::string nets_skip_filename = "reconvergent_nets.txt";
@@ -2739,10 +2739,28 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	//size_t num_elements_to_copy = 100;
 	//first_100_nets.reserve(num_elements_to_copy);
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
+	for (int i = 0; i < 2; i++){
 	for (auto net_id : sorted_nets) {
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
-	    } 
+	    }
+
+	    if (router_opts.shuffle_net_order == 1){ 
+	    	//route only congested nets
+	    	if (i == 0) {
+	    	    // if not congested, do not route
+	    	    if (should_route_net(net_id, connections_inf, true) == false){
+	    	         continue;
+	    	    }	
+	    	}
+	    	// route only uncongested nets
+	    	else if (i == 1){
+	    	    // if congested, do not route
+	    	    if (should_route_net(net_id, connections_inf, true) == true){
+	    	         continue;
+	    	    }	
+	    	}
+	    }
 	    
 	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	    	continue;
@@ -2788,6 +2806,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 #endif
             }
         }
+	}
         //std::unordered_map<size_t, float> history_cost_map;
         //std::unordered_map<size_t, float> iib_history_cost_map;
         //std::unordered_map<size_t, size_t> node_id_map;
@@ -3355,7 +3374,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
         is_routed = true;
     } else if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) { /* Skip ignored nets. */
         is_routed = true;
-    } else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false) {
+    } else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
         is_routed = true;
     } 
     else {

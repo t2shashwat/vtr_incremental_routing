@@ -2200,6 +2200,18 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.ripup_all_nets, "--ripup_all_nets")
+        .help(
+            "Set to rip up all nets")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.shuffle_net_order, "--shuffle_net_order")
+        .help(
+            "Set to shuffle net order")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.nets_to_skip, "--nets_to_skip")
         .help(
             "Set to skip nets")
