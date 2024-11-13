@@ -2744,15 +2744,19 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
+	    if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
+	    	continue;
+	    }
 
 	    if (router_opts.shuffle_net_order == 1 && itry > 1){ 
 	    	//route only congested nets
     		connections_inf.prepare_routing_for_net(net_id);
 	    	if (i == 0) {
-	    	    // if not congested, do not route
+	    	    // if congested, do route
 	    	    if (should_route_net(net_id, connections_inf, true) == false){
 	    	         continue;
-	    	    }	
+	    	    }
+	    	    //VTR_LOG("[i = 0] Net: %d %d\n", net_id, i);	    
 	    	}
 	    	// route only uncongested nets
 	    	else if (i == 1){
@@ -2760,6 +2764,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    	    if (should_route_net(net_id, connections_inf, true) == true){
 	    	         continue;
 	    	    }	
+	    	    //VTR_LOG("    [i = 1] Net: %d %d\n", net_id, i);	    
 	    	}
 	    }
 	    
