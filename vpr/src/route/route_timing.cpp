@@ -3125,7 +3125,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
             /* Avoid overflow for high iteration counts, even if acc_cost is big */
             //pres_fac = update_pres_fac(std::min(pres_fac, static_cast<float>(HUGE_POSITIVE_FLOAT / 1e5)));
-            pres_fac = update_pres_fac(std::min(pres_fac, 1000));
+            pres_fac = update_pres_fac(std::min(pres_fac, static_cast<float>(1000)));
             VTR_LOG("pres fac: %f\n", pres_fac);
             // Increase short path criticality if it's having a hard time resolving hold violations due to congestion
             if (budgeting_inf.if_set()) {
