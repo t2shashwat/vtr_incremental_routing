@@ -2993,6 +2993,17 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string filename = vtr::string_fmt("iteration_%03d.route", itry);
             print_route(nullptr, filename.c_str());
         }
+
+	if (router_opts.save_history_cost_per_iteration){
+            std::string hist_filename = vtr::string_fmt("history_cost_iteration_%03d.hcost", itry);
+            std::ofstream hist_file(hist_filename);
+            for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+                auto& node_inf = route_ctx.rr_node_route_inf[(size_t)rr_id];
+                float history_cost = node_inf.acc_cost;
+                hist_file << (size_t)rr_id << " " << history_cost << "\n";
+            }
+            hist_file.close();
+	}
         if (itry == 1){
             connections_routed_first_iteration = router_iteration_stats.connections_routed;
             nets_routed_first_iteration = router_iteration_stats.nets_routed;
