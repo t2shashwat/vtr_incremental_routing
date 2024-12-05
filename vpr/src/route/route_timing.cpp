@@ -2438,6 +2438,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	     nets_to_skip.insert(net_id);
     	}
     }
+    std::string net_order_filename = "net_order_per_iteration.txt";
+    std::ofstream net_order_file(net_order_filename);
 
 
     if(router_opts.detailed_router == 1) {
@@ -3254,8 +3256,14 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         if (router_opts.congestion_analysis) profiling::congestion_analysis();
         if (router_opts.fanout_analysis) profiling::time_on_fanout_analysis();
         // profiling::time_on_criticality_analysis();
+	
+    	if (router_opts.detailed_router == 0) {
+            net_order_file << "\n";
+    	}
     }
-
+    
+    net_order_file.close();
+    
     if (routing_is_successful) {
         VTR_LOG("Restoring best routing\n");
 
@@ -3466,7 +3474,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
 
     VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
-
+    
+    if (router_opts.detailed_router == 0) {
+        net_order_file << (size_t)net_id << " ";
+    }
     t_rt_node* rt_root;
     rt_root = setup_routing_resources_incr_route(filename_opts,
                                       itry,
