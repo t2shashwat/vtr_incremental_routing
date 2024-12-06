@@ -2421,6 +2421,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<size_t, std::unordered_map<int, int>> net_id_to_sink_order_map;
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     std::set<size_t> nets_to_skip;
+    std::vector<ClusterNetId> golden_net_order;
     std::set<size_t> congested_nets;
     if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
     	//reading file with nets to skip
@@ -2440,8 +2441,23 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     }
     std::string net_order_filename = "net_order_per_iteration.txt";
     std::ofstream net_order_file(net_order_filename);
-
-
+    //reading file with net order
+    std::ifstream net_order_fp;
+    std::string golden_net_order_filename = "golden_net_order.txt";
+    net_order_fp.open(golden_net_order_filename);
+    int lineno = 0;
+    if (!net_order_fp.is_open()) {
+        vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+            "Cannot open golden_net_order.txt file");
+    }
+    int net_id1;
+    while (net_order_fp >> net_id1)
+    {
+         golden_net_order.push_back(ClusterNetId(net_id1));
+    }
+    net_order_fp.close();
+    sorted_nets = golden_net_order;
+    std::reverse(sorted_nets.begin(), sorted_nets.end());
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";
@@ -2801,7 +2817,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                                                            was_rerouted,
                                                            worst_negative_slack,
                                                            routing_predictor,
-                                                           is_flat);
+                                                           is_flat,
+							   net_order_file);
             
             if (!is_routable) {
                 return (false); //Impossible to route
@@ -3382,7 +3399,8 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  bool& was_rerouted,
                                  float worst_negative_slack,
                                  const RoutingPredictor& routing_predictor,
-                                 bool is_flat) {
+                                 bool is_flat,
+				 std::ofstream& net_order_file) {
     auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
@@ -3426,7 +3444,8 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                             budgeting_inf,
                                             worst_negative_slack,
                                             routing_predictor,
-                                            is_flat);
+                                            is_flat,
+					    net_order_file);
 
         profiling::net_fanout_end(cluster_ctx.clb_nlist.net_sinks(net_id).size());
 
@@ -3461,7 +3480,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              route_budgets& budgeting_inf,
                              float worst_neg_slack,
                              const RoutingPredictor& routing_predictor,
-                             bool is_flat) {
+                             bool is_flat,
+			     std::ofstream& net_order_file) {
     /* Returns true as long as found some way to hook up this net, even if that *
      * way resulted in overuse of resources (congestion).  If there is no way   *
      * to route this net, even ignoring congestion, it returns false.  In this  *

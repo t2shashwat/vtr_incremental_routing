@@ -77,7 +77,8 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  bool& was_rerouted,
                                  float worst_neg_slack,
                                  const RoutingPredictor& routing_predictor,
-                                 bool is_flat);
+                                 bool is_flat,
+				 std::ofstream& net_order_file);
 
 template<typename ConnectionRouter>
 bool timing_driven_route_net(ConnectionRouter& router,
@@ -117,7 +118,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              route_budgets& budgeting_inf,
                              float worst_neg_slack,
                              const RoutingPredictor& routing_predictor,
-                             bool is_flat);
+                             bool is_flat,
+			     std::ofstream& net_order_file);
 
 void alloc_timing_driven_route_structs(float** pin_criticality_ptr,
                                        int** sink_order_ptr,

@@ -544,7 +544,7 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
         // If not, do nothing
         if (overuse > 0) {
             route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost += overuse * acc_fac;// * g_occupancy;
-	    route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost = std::min(route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost, 10.0f);
+	    //route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost = std::min(route_ctx.rr_node_route_inf[(size_t)rr_id].acc_cost, 10.0f);
 
             ++overused_nodes;
             total_overuse += overuse;
