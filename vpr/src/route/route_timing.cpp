@@ -2456,8 +2456,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
          golden_net_order.push_back(ClusterNetId(net_id1));
     }
     net_order_fp.close();
-    sorted_nets = golden_net_order;
-    std::reverse(sorted_nets.begin(), sorted_nets.end());
+    //sorted_nets = golden_net_order;
+    //std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    //std::reverse(sorted_nets.begin(), sorted_nets.end());
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";
@@ -2757,16 +2758,22 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	//size_t num_elements_to_copy = 100;
 	//first_100_nets.reserve(num_elements_to_copy);
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
-	for (int i = 0; i < 2; i++){
+	if(router_opts.shuffle_net_order == 1 && itry > 100){
+	  std::random_device rd;  // Seed for random number generator
+          std::mt19937 g(rd());   // Standard Mersenne Twister engine
+          std::shuffle(begin(sorted_nets), end(sorted_nets), g);
+	}
+	
+	//for (int i = 0; i < 2; i++){
 	for (auto net_id : sorted_nets) {
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
-	    if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
-	    	continue;
-	    }
+	    //if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
+	    //	continue;
+	    //}
 
-	    if (router_opts.shuffle_net_order == 1 && itry > 1){ 
+	    /*if (router_opts.shuffle_net_order == 1 && itry > 1){ 
 	    	//route only congested nets
     		connections_inf.prepare_routing_for_net(net_id);
 	    	if (i == 0) {
@@ -2784,7 +2791,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    	    }	
 	    	    //VTR_LOG("    [i = 1] Net: %d %d\n", net_id, i);	    
 	    	}
-	    }
+	    }*/
 	    
 	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	    	continue;
@@ -2831,7 +2838,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 #endif
             }
         }
-	}
+	//}
         //std::unordered_map<size_t, float> history_cost_map;
         //std::unordered_map<size_t, float> iib_history_cost_map;
         //std::unordered_map<size_t, size_t> node_id_map;
@@ -3559,11 +3566,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     }
 
     // compare the criticality of different sink nodes
-    //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality}); 
+    std::random_device rd;  // Seed for random number generator
+    std::mt19937 g(rd());   // Standard Mersenne Twister engine
     if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
-    	sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
-        	return sink_order_index[a] < sink_order_index[b];
-    	});
+    //	sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
+    //    	return sink_order_index[a] < sink_order_index[b];
+    //	});
+        std::shuffle(begin(remaining_targets), end(remaining_targets), g);
     }
     else {
     	sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
