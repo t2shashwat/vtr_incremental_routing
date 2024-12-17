@@ -2456,8 +2456,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
          golden_net_order.push_back(ClusterNetId(net_id1));
     }
     net_order_fp.close();
-    //sorted_nets = golden_net_order;
-    //std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    sorted_nets = golden_net_order;
+    std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
     //std::reverse(sorted_nets.begin(), sorted_nets.end());
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
@@ -2769,6 +2769,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
+	    if (congested_nets.find(size_t(net_id)) != congested_nets.end()){
+	        continue;
+	    }
 	    //if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
 	    //	continue;
 	    //}
@@ -2838,6 +2841,16 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 #endif
             }
         }
+
+	// For locking and loading branch changing nets
+        /*if (itry == 1) {
+            std::string suffix = "_ssr_wo_reconv_nets.route";
+            std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
+            std::string route_file_to_legalise =  prefix + suffix;
+            VTR_LOG("******* route_file_to load after concatenation %s\n", route_file_to_legalise);
+            read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
+            VTR_LOG("******* Successfully loaded route file\n");
+	}*/
 	//}
         //std::unordered_map<size_t, float> history_cost_map;
         //std::unordered_map<size_t, float> iib_history_cost_map;
@@ -2919,6 +2932,10 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         bool rip_up_local_opins = (itry == 1 ? false : true);
         reserve_locally_used_opins(&small_heap, pres_fac,
                                    router_opts.acc_fac, router_opts.global_occ_factor, rip_up_local_opins);
+        if (itry == 1) {
+	    recompute_occupancy_from_scratch();            
+	}
+
         if(router_opts.incr_route == 1 && router_opts.icr_iter >= 1 && itry == 1){
             recompute_occupancy_from_scratch();            
             pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); 
@@ -3050,6 +3067,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         /*
          * Are we finished?
          */
+	// For locking and loading branch changing nets
+        //if (itry > 1 && is_iteration_complete(routing_is_feasible, router_opts, itry, timing_info, rcv_finished_count == 0)) {
         if (is_iteration_complete(routing_is_feasible, router_opts, itry, timing_info, rcv_finished_count == 0)) {
             auto& router_ctx = g_vpr_ctx.routing();
             if (is_better_quality_routing(best_routing, best_routing_metrics, wirelength_info, timing_info)) {
@@ -3425,7 +3444,10 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
         is_routed = true;
     } else if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) { /* Skip ignored nets. */
         is_routed = true;
-    } else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
+    } 
+    // For locking and loading branch changing nets
+    else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
+    //else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0 && itry > 2) {
         is_routed = true;
     } 
     else {
@@ -3733,7 +3755,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
+    // For locking and loading branch changing nets
     if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
+    //if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets || itry == 2) {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
             ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
 	        if (net_id == debug_net){
