@@ -482,6 +482,37 @@ std::vector<std::set<ClusterNetId>> collect_rr_node_nets() {
     return rr_node_nets;
 }
 
+/*Below function calculates the cost of the tree
+ * For now, the cost is total detailed nodes used by the net
+ */
+std::pair<int, float> get_tree_cost(t_trace* route_segment_start){
+    int total_detailed_nodes = 0;
+    float cong_cost = 0;
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
+    t_trace* tptr;
+
+    tptr = route_segment_start;
+    if (tptr == nullptr) /* No routing yet. */
+        return {0,0.};
+
+    for (;;) {
+        total_detailed_nodes++;	
+	float acc_cost = route_ctx.rr_node_route_inf[tptr->index].acc_cost;
+	cong_cost += acc_cost; 
+	//VTR_LOG("(%d) cong_cost: %f \n", tptr->index, cong_cost);
+        if (tptr->iswitch == OPEN) { //End of branch
+            tptr = tptr->next;       /* Skip next segment. */
+            if (tptr == nullptr)
+                break;
+        }
+
+        tptr = tptr->next;
+    } /* End while loop -- did an entire traceback. */
+    return {total_detailed_nodes, cong_cost};
+
+}
+
+
 void pathfinder_update_path_occupancy(t_trace* route_segment_start, int add_or_sub) {
     /* This routine updates the occupancy of the rr_nodes that are affected by
      * the portion of the routing of one net that starts at route_segment_start.

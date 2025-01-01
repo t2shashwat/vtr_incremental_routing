@@ -14,7 +14,7 @@
 vtr::vector<ClusterNetId, t_bb> load_route_bb(int bb_factor);
 
 t_bb load_net_route_bb(ClusterNetId net_id, int bb_factor);
-
+std::pair<int, float> get_tree_cost(t_trace* route_segment_start);
 void pathfinder_update_path_occupancy(t_trace* route_segment_start, int add_or_sub);
 
 void pathfinder_update_single_node_occupancy(int inode, int add_or_sub);

@@ -58,6 +58,8 @@ class Connection_based_routing_resources {
     // determined after the first routing iteration when only optimizing for timing delay
     vtr::vector<ClusterNetId, std::vector<float>> lower_bound_connection_delay;
 
+    // store the minimum number of detailed nodes used by the nets in iteration one--given first pfac = 0 to ignore congestion 
+    std::unordered_map<ClusterNetId, int> minimum_detailed_nodes;
     // the current net that's being routed
     ClusterNetId current_inet;
 
@@ -118,6 +120,9 @@ class Connection_based_routing_resources {
                                       std::shared_ptr<const SetupTimingInfo> timing_info,
                                       const ClusteredPinAtomPinsLookup& netlist_pin_lookup,
                                       ClbNetPinsMatrix<float>& net_delay);
+    
+    void set_minimum_detailed_nodes(int minimum_detailed_nodes);
+    int get_minimum_detailed_nodes();
 };
 
 using CBRR = Connection_based_routing_resources; // shorthand

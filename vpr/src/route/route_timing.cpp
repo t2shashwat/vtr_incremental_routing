@@ -2456,8 +2456,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
          golden_net_order.push_back(ClusterNetId(net_id1));
     }
     net_order_fp.close();
-    sorted_nets = golden_net_order;
-    std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    //sorted_nets = golden_net_order;
+    //std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
     //std::reverse(sorted_nets.begin(), sorted_nets.end());
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
@@ -3527,6 +3527,19 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     if (router_opts.detailed_router == 0) {
         net_order_file << (size_t)net_id << " ";
     }
+    std::vector<unsigned int> factorials = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
+    int min_detailed_nodes;
+    int max_tries = 1000;
+    int max_sub_iterations = (num_sinks < 7) ? factorials[num_sinks] : max_tries;
+    if (itry == 1 || (int)num_sinks >= router_opts.min_incremental_reroute_fanout) {
+    	max_sub_iterations = 0;
+    }
+    if (itry > 1) {
+        min_detailed_nodes = connections_inf.get_minimum_detailed_nodes();	
+    }
+    //std::vector<int> remaining_targets;
+    std::map<std::tuple<int, float>, std::vector<int>> tree_cost_sink_order_map;
+    for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + 1; sink_order_itr++) {
     t_rt_node* rt_root;
     rt_root = setup_routing_resources_incr_route(filename_opts,
                                       itry,
@@ -3547,8 +3560,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     // after this point the route tree is correct
     // remaining_targets from this point on are the **pin indices** that have yet to be routed
+    //if (sink_order_itr == 0){
     auto& remaining_targets = connections_inf.get_remaining_targets();
-
+    //}
     // calculate criticality of remaining target pins
     for (int ipin : remaining_targets) {
         if (timing_info) {
@@ -3587,19 +3601,39 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         }
     }
 
+    int min_total_detailed_nodes;
+    float min_total_cong_cost;
     // compare the criticality of different sink nodes
     //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality}); 
-    std::random_device rd;  // Seed for random number generator
-    std::mt19937 g(rd());   // Standard Mersenne Twister engine
     if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
     //	sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
     //    	return sink_order_index[a] < sink_order_index[b];
     //	});
+    	std::random_device rd;  // Seed for random number generator
+    	std::mt19937 g(rd());   // Standard Mersenne Twister engine
         std::shuffle(begin(remaining_targets), end(remaining_targets), g);
     }
-    else {
+    else if (sink_order_itr == 0) {
     	sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
     }
+    else if (sink_order_itr == max_sub_iterations){
+   	auto it = tree_cost_sink_order_map.begin();
+	std::tuple<int, float> minKey = it->first;
+        min_total_detailed_nodes = std::get<0>(minKey);
+        min_total_cong_cost = std::get<1>(minKey);
+        remaining_targets = it->second; 
+    }
+    else {
+	if (num_sinks < 9){
+           std::next_permutation(remaining_targets.begin(), remaining_targets.end()); 
+	}
+	else {
+           std::random_device rd;  // Seed for random number generator
+    	   std::mt19937 g(rd());   // Standard Mersenne Twister engine
+           std::shuffle(begin(remaining_targets), end(remaining_targets), g);
+	}
+    }
+    
 
     /* Update base costs according to fanout and criticality rules */
     update_rr_base_costs(num_sinks);
@@ -3703,6 +3737,18 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         ++router_stats.connections_routed;
     } // finished all sinks
 
+    std::pair<int, float> cost = get_tree_cost(route_ctx.trace[net_id].head);
+    int total_detailed_nodes = cost.first;
+    float total_cong_cost = cost.second;
+    tree_cost_sink_order_map[std::make_tuple(total_detailed_nodes, total_cong_cost)] = remaining_targets;
+    if (sink_order_itr == max_sub_iterations && max_sub_iterations > 0) {
+     	VTR_ASSERT(total_detailed_nodes == min_total_detailed_nodes);
+     	VTR_ASSERT(total_cong_cost == min_total_cong_cost);
+    }
+
+    if (itry == 1) {
+        connections_inf.set_minimum_detailed_nodes(total_detailed_nodes);	
+    }
     ++router_stats.nets_routed;
     profiling::net_finish();
 
@@ -3731,6 +3777,22 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     free_route_tree(rt_root);
     router.empty_rcv_route_tree_set();
+    /*if (num_sinks < 9 && itry == 2){
+       VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
+       VTR_LOG("  order:"); 
+       for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
+           int target_pin = remaining_targets[itarget];
+       	   VTR_LOG(" %d", target_pin);
+       }
+       VTR_LOG("\n"); 
+    }
+    else if (itry == 2){
+       VTR_LOG(" -- itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
+    }*/
+    if (total_detailed_nodes == min_detailed_nodes && total_cong_cost == min_detailed_nodes){
+    	break;
+    }
+    }
     return (true);
 }
 static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& filename_opts,
