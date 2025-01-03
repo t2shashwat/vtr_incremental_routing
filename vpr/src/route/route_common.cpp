@@ -497,8 +497,9 @@ std::pair<int, float> get_tree_cost(t_trace* route_segment_start){
 
     for (;;) {
         total_detailed_nodes++;	
-	float acc_cost = route_ctx.rr_node_route_inf[tptr->index].acc_cost;
-	cong_cost += acc_cost; 
+	//float acc_cost = route_ctx.rr_node_route_inf[tptr->index].acc_cost;
+	float cost = get_rr_cong_cost(tptr->index, 5.0, 1.0);
+	cong_cost += cost; 
 	//VTR_LOG("(%d) cong_cost: %f \n", tptr->index, cong_cost);
         if (tptr->iswitch == OPEN) { //End of branch
             tptr = tptr->next;       /* Skip next segment. */

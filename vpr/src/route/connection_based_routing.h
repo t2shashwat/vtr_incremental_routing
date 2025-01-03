@@ -60,6 +60,9 @@ class Connection_based_routing_resources {
 
     // store the minimum number of detailed nodes used by the nets in iteration one--given first pfac = 0 to ignore congestion 
     std::unordered_map<ClusterNetId, int> minimum_detailed_nodes;
+    
+    // store the best sink orders for each net
+    std::unordered_map<ClusterNetId, std::vector<std::vector<int>>> sink_order_pool;
     // the current net that's being routed
     ClusterNetId current_inet;
 
@@ -123,6 +126,9 @@ class Connection_based_routing_resources {
     
     void set_minimum_detailed_nodes(int minimum_detailed_nodes);
     int get_minimum_detailed_nodes();
+
+    void add_best_sink_order(std::vector<int> remaining_targets);
+    std::vector<std::vector<int>> get_best_sink_orders();
 };
 
 using CBRR = Connection_based_routing_resources; // shorthand

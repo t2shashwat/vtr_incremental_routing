@@ -33,7 +33,8 @@ Connection_based_routing_resources::Connection_based_routing_resources()
     forcible_reroute_connection_flag.resize(routing_num_nets);
     // resize the minimum_detailed_nodes
     //minimum_detailed_nodes.resize(routing_num_nets);
-
+    sink_order_pool.reserve(routing_num_nets);
+	
     for (auto net_id : cluster_ctx.clb_nlist.nets()) {
         auto& net_lower_bound_connection_delay = lower_bound_connection_delay[net_id];
         auto& net_forcible_reroute_connection_flag = forcible_reroute_connection_flag[net_id];
@@ -57,7 +58,12 @@ void Connection_based_routing_resources::set_minimum_detailed_nodes(int minimum_
 int Connection_based_routing_resources::get_minimum_detailed_nodes() {
 	return minimum_detailed_nodes[current_inet];
 }
-
+void Connection_based_routing_resources::add_best_sink_order(std::vector<int> remaining_targets){
+	sink_order_pool[current_inet].push_back(remaining_targets);
+}
+std::vector<std::vector<int>> Connection_based_routing_resources::get_best_sink_orders(){
+	return sink_order_pool[current_inet];
+}
 	
 void Connection_based_routing_resources::set_lower_bound_connection_delays(ClbNetPinsMatrix<float>& net_delay) {
     /* Set the lower bound connection delays after first iteration, which only optimizes for timing delay.
