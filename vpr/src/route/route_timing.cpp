@@ -161,6 +161,13 @@ struct more_sinks_than {
     }
 };
 
+struct less_sinks_than {
+    inline bool operator()(const ClusterNetId net_index1, const ClusterNetId net_index2) {
+        auto& cluster_ctx = g_vpr_ctx.clustering();
+        return cluster_ctx.clb_nlist.net_sinks(net_index1).size() < cluster_ctx.clb_nlist.net_sinks(net_index2).size();
+    }
+};
+
 static size_t calculate_wirelength_available();
 static WirelengthInfo calculate_wirelength_info(size_t available_wirelength);
 
@@ -2441,29 +2448,29 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     }
     std::string net_order_filename = "net_order_per_iteration.txt";
     std::ofstream net_order_file(net_order_filename);
-    //reading file with net order
-    std::ifstream net_order_fp;
-    std::string golden_net_order_filename = "golden_net_order.txt";
-    net_order_fp.open(golden_net_order_filename);
-    int lineno = 0;
-    if (!net_order_fp.is_open()) {
-        vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
-            "Cannot open golden_net_order.txt file");
-    }
-    int net_id1;
-    while (net_order_fp >> net_id1)
-    {
-         golden_net_order.push_back(ClusterNetId(net_id1));
-    }
-    net_order_fp.close();
-    //sorted_nets = golden_net_order;
-    //std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
-    //std::reverse(sorted_nets.begin(), sorted_nets.end());
     if(router_opts.detailed_router == 1) {
+    	//reading file with net order
+    	std::ifstream net_order_fp;
+    	std::string golden_net_order_filename = "golden_net_order.txt";
+    	net_order_fp.open(golden_net_order_filename);
+    	int lineno = 0;
+    	if (!net_order_fp.is_open()) {
+    	    vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+    	        "Cannot open golden_net_order.txt file");
+    	}
+    	int net_id1;
+    	while (net_order_fp >> net_id1)
+    	{
+    	     golden_net_order.push_back(ClusterNetId(net_id1));
+    	}
+    	net_order_fp.close();
+    	//sorted_nets = golden_net_order;
+    	//std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    	//std::reverse(sorted_nets.begin(), sorted_nets.end());
         std::ifstream sink_order_fp;
         std::string sink_order_filename = "sink_order.txt";
         sink_order_fp.open(sink_order_filename);
-        int lineno = 0;
+        lineno = 0;
         VTR_LOG("[SHA] Reading sink_order.txt file\n");
         if (!sink_order_fp.is_open()) {
             vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
@@ -2758,10 +2765,11 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	//size_t num_elements_to_copy = 100;
 	//first_100_nets.reserve(num_elements_to_copy);
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
-	if(router_opts.shuffle_net_order == 1 && itry > 100){
-	  std::random_device rd;  // Seed for random number generator
-          std::mt19937 g(rd());   // Standard Mersenne Twister engine
-          std::shuffle(begin(sorted_nets), end(sorted_nets), g);
+	if(router_opts.shuffle_net_order == 1){
+	  //std::random_device rd;  // Seed for random number generator
+          //std::mt19937 g(rd());   // Standard Mersenne Twister engine
+          //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
+          std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
 	
 	//for (int i = 0; i < 2; i++){
@@ -2769,9 +2777,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
-	    if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
+	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	        continue;
-	    }
+	    }*/
 	    //if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
 	    //	continue;
 	    //}
@@ -2843,7 +2851,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         }
 
 	// For locking and loading branch changing nets
-        if (itry == 1) {
+        if (router_opts.detailed_router == 1 && itry == 1) {
             std::string suffix = "_ssr_to_load.route";
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
             std::string route_file_to_legalise =  prefix + suffix;
@@ -3447,7 +3455,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
     } 
     // For locking and loading branch changing nets
     //else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
-    else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0 && itry > 2) {
+    else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0 && (itry > 2 || router_opts.detailed_router == 0)) {
         is_routed = true;
     } 
     else {
@@ -3532,100 +3540,23 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int max_tries = 48;
     int all_permutation_max_fanout = 5;
     int max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : max_tries;
-    int t_min_incremental_reroute_fanout = 1000000;
-    /*if (itry == 1) {
-    	max_sub_iterations = 0;
-	t_min_incremental_reroute_fanout = 32;
-    }
-    else if (itry < 13 && (int)num_sinks >= router_opts.min_incremental_reroute_fanout) {
-    //if (itry < 76) {
-    	max_sub_iterations = 0;
-	t_min_incremental_reroute_fanout = 32;
-    }
-    else {
-    	if (num_sinks < 5){
-    	    max_sub_iterations = factorials[num_sinks];
-	}
-	else if (num_sinks >=5 && num_sinks < 9){
-    	    max_sub_iterations = 100;
-	}	
-	else if (num_sinks >=9 && num_sinks < 16){
-    	    max_sub_iterations = 100;
-	}	
-	else if (num_sinks >=16 && num_sinks < 32){
-    	    max_sub_iterations = 250;
-	}	
-	else if (num_sinks >=32 && num_sinks < 64){
-    	    max_sub_iterations = 500;
-	}	
-	else if (num_sinks >=64){
-    	    max_sub_iterations = 1000;
-	}	
-    }*/
+    int t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
     if (itry == 1) {
     	max_sub_iterations = 0;
-	t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
     }
     else if (itry > 1 && itry < 10){
-    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : 48;
-	t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
+    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : 500;
     }
     else if (itry >= 10) {
     	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : 200;
-	t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
     }
-    /*
-    else if (itry > 1 && (int)num_sinks >= router_opts.min_incremental_reroute_fanout){
-    	max_sub_iterations = 0;
-	t_min_incremental_reroute_fanout = 32;
-    }
-    else{
-    	max_sub_iterations = 48;
-    }
-
-    if (itry > 45) {
-    	t_min_incremental_reroute_fanout = 1000000;
-    	if (num_sinks < 5){
-    	    max_sub_iterations = factorials[num_sinks];
-	}
-	else {
-	    max_sub_iterations = 48; 
-	    if (itry > 100){
-	    	max_sub_iterations = 100; 
-	    }
-	    if (itry > 200){
-	    	max_sub_iterations = 200; 
-	    }
-	    if (itry > 300){
-	    	max_sub_iterations = 300; 
-	    }
-	    if (itry > 400){
-	    	max_sub_iterations = 400; 
-	    }
-	    if (itry > 500){
-	    	max_sub_iterations = 600; 
-	    }
-	    if (itry > 600){
-	    	max_sub_iterations = 800; 
-	    }
-	    if (itry > 700){
-	    	max_sub_iterations = 1200; 
-	    }
-	    if (itry > 800){
-	    	max_sub_iterations = 2000; 
-	    }
-	    if (itry > 900){
-	    	max_sub_iterations = 2800; 
-	    }
-	}
-    }*/
 	    
     if (itry > 1) {
         min_detailed_nodes = connections_inf.get_minimum_detailed_nodes();	
     }
     std::vector<int> remaining_targets;
     std::map<std::tuple<int, float>, std::vector<int>> tree_cost_sink_order_map;
-    const std::vector<std::vector<int>>& sink_orders_from_prev_iterations = connections_inf.get_best_sink_orders();
+    const std::set<std::vector<int>>& sink_orders_from_prev_iterations = connections_inf.get_best_sink_orders();
     int additional_sub_iterations;
     if (num_sinks < t_min_incremental_reroute_fanout) {
     	// complete rip up
@@ -3634,8 +3565,26 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     else {
 	additional_sub_iterations = 0;
     }
+    t_rt_node* base_rt_root;
     for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + additional_sub_iterations + 1; sink_order_itr++) {
     t_rt_node* rt_root;
+    //VTR_LOG("sub itr: %d\n", sink_order_itr);
+    if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) {
+    	// store the traceback of net 
+	//base_trace = route_ctx.trace[net_id];
+	// get the tree from traceback and save it
+	base_rt_root = traceback_to_route_tree(net_id);
+    }
+    else if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && num_sinks >= t_min_incremental_reroute_fanout){
+    	// use the stored traceback from sink_order_itr = 0
+	//initialize_traceback_with_base_trace(base_trace);
+	// load the tree in traceback
+        pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
+        traceback_from_route_tree(net_id, base_rt_root, num_sinks);
+        pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
+        connections_inf.prepare_routing_for_net(net_id);
+        //VTR_LOG("done this sub itr: %d\n", sink_order_itr);
+    }
     rt_root = setup_routing_resources_incr_route(filename_opts,
                                       itry,
                                       net_id,
@@ -3715,6 +3664,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     }
     else if (sink_order_itr == 0) {
     	sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+	/*if (size_t(net_id) == 6366) {
+       		VTR_LOG("  order:"); 
+       		for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
+           		int target_pin = remaining_targets[itarget];
+       	   		VTR_LOG(" %d", target_pin);
+       		}
+       		VTR_LOG("\n"); 
+	}*/
     }
     else if (sink_order_itr < max_sub_iterations){
 	if (remaining_targets.size() < all_permutation_max_fanout){
@@ -3735,7 +3692,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         connections_inf.add_best_sink_order(remaining_targets);	
     }
     else if ((sink_order_itr >= max_sub_iterations && sink_order_itr < max_sub_iterations + additional_sub_iterations) && additional_sub_iterations != 0){
-	 remaining_targets = sink_orders_from_prev_iterations[sink_order_itr - max_sub_iterations];
+	 auto it = std::next(sink_orders_from_prev_iterations.begin(), sink_order_itr - max_sub_iterations);
+	 remaining_targets = *it;
+	 //remaining_targets = sink_orders_from_prev_iterations[sink_order_itr - max_sub_iterations];
     }
     
 
@@ -3881,7 +3840,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     free_route_tree(rt_root);
     router.empty_rcv_route_tree_set();
-    if ((itry == 10 || itry == 11 || itry == 12 || itry == 20 || itry == 21 || itry == 22 || itry > 50) && remaining_targets.size() >= all_permutation_max_fanout){
+    if ((itry == 50 || itry == 51 || itry == 52) && remaining_targets.size() >= all_permutation_max_fanout){
        VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
        VTR_LOG("  order:"); 
        for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -3923,7 +3882,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     // convert the previous iteration's traceback into the starting route tree for this iteration
     // For locking and loading branch changing nets
     //if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
-    if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets || itry == 2) {
+    if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets || (itry == 2 && router_opts.detailed_router == 1)) {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
             ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
 	        if (net_id == debug_net){
@@ -4008,6 +3967,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 
             //Initialize only to source
             rt_root = init_route_tree_to_source(net_id);
+            //pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
 
             //NOTE: We leave the traceback uninitialized, so update_traceback()
             //      will correctly add the SOURCE node when the branch to

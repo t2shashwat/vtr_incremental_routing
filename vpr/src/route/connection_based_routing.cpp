@@ -59,9 +59,9 @@ int Connection_based_routing_resources::get_minimum_detailed_nodes() {
 	return minimum_detailed_nodes[current_inet];
 }
 void Connection_based_routing_resources::add_best_sink_order(std::vector<int> remaining_targets){
-	sink_order_pool[current_inet].push_back(remaining_targets);
+	sink_order_pool[current_inet].insert(remaining_targets);
 }
-std::vector<std::vector<int>> Connection_based_routing_resources::get_best_sink_orders(){
+std::set<std::vector<int>> Connection_based_routing_resources::get_best_sink_orders(){
 	return sink_order_pool[current_inet];
 }
 	
