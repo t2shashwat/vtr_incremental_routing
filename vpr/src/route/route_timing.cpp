@@ -3562,7 +3562,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     std::map<std::tuple<int, float>, std::vector<int>> tree_cost_sink_order_map;
     const std::set<std::vector<int>>& sink_orders_from_prev_iterations = connections_inf.get_best_sink_orders();
     int additional_sub_iterations;
-    if (num_sinks < t_min_incremental_reroute_fanout) {
+    if (num_sinks < t_min_incremental_reroute_fanout && router_opts.shuffle1 > 0 && router_opts.shuffle2 > 0) {
     	// complete rip up
 	additional_sub_iterations = sink_orders_from_prev_iterations.size();
     } 
@@ -3574,6 +3574,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     std::vector<size_t> net_heap_pushes;
     std::vector<size_t> net_heap_pops;
 
+
+    size_t min_heap_pushes;
+    size_t min_heap_pops;
     for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + additional_sub_iterations + 1; sink_order_itr++) {
     size_t heap_pushes_before = router_stats.heap_pushes;
     size_t heap_pops_before = router_stats.heap_pops;
@@ -3689,8 +3692,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
            std::next_permutation(remaining_targets.begin(), remaining_targets.end()); 
 	}
 	else {
-           std::random_device rd;  // Seed for random number generator
-    	   std::mt19937 g(rd());   // Standard Mersenne Twister engine
+	   // nondeterministic shuffling
+           //std::random_device rd;  // Seed for random number generator
+    	   //std::mt19937 g(rd());   // Standard Mersenne Twister engine
+    	   // deterministic shuffling across different instances of VTR
+	   std::mt19937 g(itry * 100 + size_t(net_id));   // Standard Mersenne Twister engine
            std::shuffle(begin(remaining_targets), end(remaining_targets), g);
 	}
     }
@@ -3880,15 +3886,26 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     net_heap_pushes.push_back(sub_iter_heap_pushes);
     net_heap_pops.push_back(sub_iter_heap_pops);
 
+
+    if (sink_order_itr == max_sub_iterations + additional_sub_iterations){
+    	min_heap_pushes = sub_iter_heap_pushes;
+	min_heap_pops = sub_iter_heap_pops;	
     }
+    }
+
     auto [min_heap_pushes_it, max_heap_pushes_it] = std::minmax_element(net_heap_pushes.begin(), net_heap_pushes.end());
     auto [min_heap_pops_it, max_heap_pops_it] = std::minmax_element(net_heap_pops.begin(), net_heap_pops.end());
-   
-    router_stats.min_heap_pushes += *min_heap_pushes_it; 
+    int max_index = std::distance(net_heap_pushes.begin(), max_heap_pushes_it);
+    size_t corresponding_heap_pops = net_heap_pops[max_index];	
+
+    VTR_ASSERT (*min_heap_pushes_it == min_heap_pushes);
+    //ASSERT (*min_heap_pops_it == min_heap_pops);
+    router_stats.min_heap_pushes += min_heap_pushes; 
     router_stats.max_heap_pushes += *max_heap_pushes_it; 
     
-    router_stats.min_heap_pops += *min_heap_pops_it; 
-    router_stats.max_heap_pops += *max_heap_pops_it; 
+    router_stats.min_heap_pops += min_heap_pops; 
+    //router_stats.max_heap_pops += *max_heap_pops_it; 
+    router_stats.max_heap_pops += corresponding_heap_pops; 
     return (true);
 }
 static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& filename_opts,
