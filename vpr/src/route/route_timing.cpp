@@ -3071,7 +3071,11 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	router_stats.wire_heap_pushes += router_iteration_stats.wire_heap_pushes;
 	router_stats.wire_heap_pops += router_iteration_stats.wire_heap_pops;
 
+	router_stats.min_heap_pushes += router_iteration_stats.min_heap_pushes;
+	router_stats.min_heap_pops += router_iteration_stats.min_heap_pops;
 
+	router_stats.max_heap_pushes += router_iteration_stats.max_heap_pushes;
+	router_stats.max_heap_pops += router_iteration_stats.max_heap_pops;
         /*
          * Are we finished?
          */
@@ -3405,8 +3409,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     }
     else {
         VTR_LOG("Stats for one-stage routing\n");
-        VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu total_wire_heap_pushes: %zu total_wire_heap_pops: %zu\n",
-                router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops, router_stats.wire_heap_pushes, router_stats.wire_heap_pops);
+        VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu total_wire_heap_pushes: %zu total_wire_heap_pops: %zu min_heap_pushes: %zu min_heap_pops: %zu max_heap_pushes: %zu max_heap_pops: %zu\n",
+                router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops, router_stats.wire_heap_pushes, router_stats.wire_heap_pops, router_stats.min_heap_pushes, router_stats.min_heap_pops, router_stats.max_heap_pushes, router_stats.max_heap_pops);
     }
 
     return routing_is_successful;
@@ -3545,10 +3549,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     	max_sub_iterations = 0;
     }
     else if (itry > 1 && itry < 10){
-    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : 500;
+    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
     }
     else if (itry >= 10) {
-    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : 200;
+    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle2;
     }
 	    
     if (itry > 1) {
@@ -3565,8 +3569,15 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     else {
 	additional_sub_iterations = 0;
     }
+    max_sub_iterations -= additional_sub_iterations;
     t_rt_node* base_rt_root;
+    std::vector<size_t> net_heap_pushes;
+    std::vector<size_t> net_heap_pops;
+
     for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + additional_sub_iterations + 1; sink_order_itr++) {
+    size_t heap_pushes_before = router_stats.heap_pushes;
+    size_t heap_pops_before = router_stats.heap_pops;
+
     t_rt_node* rt_root;
     //VTR_LOG("sub itr: %d\n", sink_order_itr);
     if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) {
@@ -3812,7 +3823,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     if (itry == 1) {
         connections_inf.set_minimum_detailed_nodes(total_detailed_nodes);	
     }
-    ++router_stats.nets_routed;
+    if (sink_order_itr == 0){
+        ++router_stats.nets_routed;
+    }
     profiling::net_finish();
 
     /* For later timing analysis. */
@@ -3840,7 +3853,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     free_route_tree(rt_root);
     router.empty_rcv_route_tree_set();
-    if ((itry == 50 || itry == 51 || itry == 52) && remaining_targets.size() >= all_permutation_max_fanout){
+    /*if ((itry == 50 || itry == 51 || itry == 52) && remaining_targets.size() >= all_permutation_max_fanout){
        VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
        VTR_LOG("  order:"); 
        for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -3848,14 +3861,34 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
        	   VTR_LOG(" %d", target_pin);
        }
        VTR_LOG("\n"); 
-    }
+    }*/
     /*else if (itry == 2){
        VTR_LOG(" -- itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
     }*/
     /*if (total_detailed_nodes == min_detailed_nodes && total_cong_cost == min_detailed_nodes){
     	break;
     }*/
+    // net_id <heap pushes for each permutation> <min> <max>
+    // min_heap_pushes += 
+    // max_heap_pushes += 
+
+    size_t heap_pushes_after = router_stats.heap_pushes;
+    size_t heap_pops_after = router_stats.heap_pops;
+
+    size_t sub_iter_heap_pushes = heap_pushes_after - heap_pushes_before;
+    size_t sub_iter_heap_pops = heap_pops_after - heap_pops_before;
+    net_heap_pushes.push_back(sub_iter_heap_pushes);
+    net_heap_pops.push_back(sub_iter_heap_pops);
+
     }
+    auto [min_heap_pushes_it, max_heap_pushes_it] = std::minmax_element(net_heap_pushes.begin(), net_heap_pushes.end());
+    auto [min_heap_pops_it, max_heap_pops_it] = std::minmax_element(net_heap_pops.begin(), net_heap_pops.end());
+   
+    router_stats.min_heap_pushes += *min_heap_pushes_it; 
+    router_stats.max_heap_pushes += *max_heap_pushes_it; 
+    
+    router_stats.min_heap_pops += *min_heap_pops_it; 
+    router_stats.max_heap_pops += *max_heap_pops_it; 
     return (true);
 }
 static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& filename_opts,

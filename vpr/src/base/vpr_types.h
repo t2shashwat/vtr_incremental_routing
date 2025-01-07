@@ -1246,6 +1246,8 @@ struct t_router_opts {
     int icr_iter = 0;
     float sbNode_lookahead_factor = 0.0;
     int detailed_router = 0;
+    int shuffle1 = 0;
+    int shuffle2 = 0;
     int save_history_cost_per_iteration = 0; 
     int ripup_all_nets = 0;
     int shuffle_net_order = 0;

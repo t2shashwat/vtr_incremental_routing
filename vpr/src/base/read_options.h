@@ -191,6 +191,8 @@ struct t_options {
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
     argparse::ArgValue<int> detailed_router;
+    argparse::ArgValue<int> shuffle1;
+    argparse::ArgValue<int> shuffle2;
     argparse::ArgValue<int> save_history_cost_per_iteration;
     argparse::ArgValue<int> ripup_all_nets;
     argparse::ArgValue<int> shuffle_net_order;

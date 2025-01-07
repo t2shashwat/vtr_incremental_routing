@@ -2200,6 +2200,18 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.detailed_router, "--shuffle1")
+        .help(
+            "Set shuffle for first ten iterations")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.detailed_router, "--shuffle2")
+        .help(
+            "Set shuffle for after ten iterations")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.save_history_cost_per_iteration, "--save_history_cost_per_iteration")
         .help(
             "Controls whether VPR saves the current routing's history cost to a file after each routing iteration."

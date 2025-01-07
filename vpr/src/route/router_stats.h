@@ -7,6 +7,10 @@ struct RouterStats {
     size_t heap_pops = 0;
     size_t wire_heap_pushes = 0;
     size_t wire_heap_pops = 0;
+    size_t min_heap_pushes = 0;
+    size_t min_heap_pops = 0;
+    size_t max_heap_pushes = 0;
+    size_t max_heap_pops = 0;
 };
 
 class WirelengthInfo {
