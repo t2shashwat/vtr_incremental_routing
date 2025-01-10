@@ -364,6 +364,40 @@ struct ParseBaseCost {
     }
 };
 
+struct ParseTreeType {
+    ConvertedValue<e_tree_type> from_str(std::string str) {
+        ConvertedValue<e_tree_type> conv_value;
+        if (str == "min_total_nodes")
+            conv_value.set_value(MIN_TOTAL_NODES);
+        else if (str == "min_cong_cost")
+            conv_value.set_value(MIN_CONG_COST);
+        else if (str == "min_heap_pushes")
+            conv_value.set_value(MIN_HEAP_PUSHES);
+        else {
+            std::stringstream msg;
+            msg << "Invalid conversion from '" << str << "' to e_tree_type (expected one of: " << argparse::join(default_choices(), ", ") << ")";
+            conv_value.set_error(msg.str());
+        }
+        return conv_value;
+    }
+
+    ConvertedValue<std::string> to_str(e_tree_type val) {
+        ConvertedValue<std::string> conv_value;
+        if (val == MIN_TOTAL_NODES)
+            conv_value.set_value("min_total_nodes");
+	else if (val == MIN_CONG_COST)
+            conv_value.set_value("min_cong_cost");
+        else {
+            VTR_ASSERT(val == MIN_HEAP_PUSHES);
+            conv_value.set_value("min_heap_pushes");
+        }
+        return conv_value;
+    }
+
+    std::vector<std::string> default_choices() {
+        return {"min_total_nodes", "min_cong_cost", "min_heap_pushes"};
+    }
+};
 struct ParsePlaceDeltaDelayAlgorithm {
     ConvertedValue<e_place_delta_delay_algorithm> from_str(std::string str) {
         ConvertedValue<e_place_delta_delay_algorithm> conv_value;
@@ -2200,13 +2234,19 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
-    route_grp.add_argument(args.detailed_router, "--shuffle1")
+    route_grp.add_argument<e_tree_type, ParseTreeType>(args.tree_type, "--tree_type")
+        .help("Specifies which tree to use during routing.")
+        .default_value("min_total_nodes")
+        .choices({"min_total_nodes", "min_cong_cost", "min_heap_pushes"})
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.shuffle1, "--shuffle1")
         .help(
             "Set shuffle for first ten iterations")
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
-    route_grp.add_argument(args.detailed_router, "--shuffle2")
+    route_grp.add_argument(args.shuffle2, "--shuffle2")
         .help(
             "Set shuffle for after ten iterations")
         .default_value("0")

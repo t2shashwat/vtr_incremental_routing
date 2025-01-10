@@ -1246,6 +1246,7 @@ struct t_router_opts {
     int icr_iter = 0;
     float sbNode_lookahead_factor = 0.0;
     int detailed_router = 0;
+    enum e_tree_type tree_type;
     int shuffle1 = 0;
     int shuffle2 = 0;
     int save_history_cost_per_iteration = 0; 

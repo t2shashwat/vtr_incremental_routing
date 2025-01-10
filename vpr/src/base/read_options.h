@@ -191,6 +191,7 @@ struct t_options {
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
     argparse::ArgValue<int> detailed_router;
+    argparse::ArgValue<e_tree_type> tree_type;
     argparse::ArgValue<int> shuffle1;
     argparse::ArgValue<int> shuffle2;
     argparse::ArgValue<int> save_history_cost_per_iteration;

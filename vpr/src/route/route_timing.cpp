@@ -2772,7 +2772,6 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
           std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
 	
-	//for (int i = 0; i < 2; i++){
 	for (auto net_id : sorted_nets) {
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
@@ -2780,33 +2779,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	        continue;
 	    }*/
-	    //if ((router_opts.shuffle_net_order == 0 && i == 1) || (i == 1 && itry == 1)){
-	    //	continue;
-	    //}
 
-	    /*if (router_opts.shuffle_net_order == 1 && itry > 1){ 
-	    	//route only congested nets
-    		connections_inf.prepare_routing_for_net(net_id);
-	    	if (i == 0) {
-	    	    // if congested, do route
-	    	    if (should_route_net(net_id, connections_inf, true) == false){
-	    	         continue;
-	    	    }
-	    	    //VTR_LOG("[i = 0] Net: %d %d\n", net_id, i);	    
-	    	}
-	    	// route only uncongested nets
-	    	else if (i == 1){
-	    	    // if congested, do not route
-	    	    if (should_route_net(net_id, connections_inf, true) == true){
-	    	         continue;
-	    	    }	
-	    	    //VTR_LOG("    [i = 1] Net: %d %d\n", net_id, i);	    
-	    	}
-	    }*/
-	    
-	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
-	    	continue;
-	    } */
             temp_net_id = net_id;
 	    std::unordered_map<int, int> sink_order_index;
 	    if (router_opts.detailed_router == 1){
@@ -3536,23 +3509,20 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
     
-    if (router_opts.detailed_router == 0) {
-        net_order_file << (size_t)net_id << " ";
-    }
     std::vector<unsigned int> factorials = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
     int min_detailed_nodes;
     int max_tries = 48;
     int all_permutation_max_fanout = 5;
-    int max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : max_tries;
+    int max_sub_iterations; 
     int t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
     if (itry == 1) {
     	max_sub_iterations = 0;
     }
     else if (itry > 1 && itry < 10){
-    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
+    	max_sub_iterations = (router_opts.shuffle1 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
     }
     else if (itry >= 10) {
-    	max_sub_iterations = (num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle2;
+    	max_sub_iterations = (router_opts.shuffle2 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle2;
     }
 	    
     if (itry > 1) {
@@ -3560,6 +3530,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     }
     std::vector<int> remaining_targets;
     std::map<std::tuple<int, float>, std::vector<int>> tree_cost_sink_order_map;
+    std::map<std::tuple<float, int>, std::vector<int>> tree_cost_first_sink_order_map;
+    std::map<std::tuple<int, float, int>, std::vector<int>> tree_ops_sink_order_map;
+
     const std::set<std::vector<int>>& sink_orders_from_prev_iterations = connections_inf.get_best_sink_orders();
     int additional_sub_iterations;
     if (num_sinks < t_min_incremental_reroute_fanout && router_opts.shuffle1 > 0 && router_opts.shuffle2 > 0) {
@@ -3570,19 +3543,22 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	additional_sub_iterations = 0;
     }
     max_sub_iterations -= additional_sub_iterations;
+    VTR_ASSERT(max_sub_iterations >= 0);
+    VTR_ASSERT(max_sub_iterations + additional_sub_iterations <= router_opts.shuffle1 || max_sub_iterations + additional_sub_iterations <= router_opts.shuffle2);
     t_rt_node* base_rt_root;
     std::vector<size_t> net_heap_pushes;
     std::vector<size_t> net_heap_pops;
 
-
     size_t min_heap_pushes;
     size_t min_heap_pops;
     for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + additional_sub_iterations + 1; sink_order_itr++) {
+    // assert to check only one sub iteration when no shuffling
+    VTR_ASSERT(!(router_opts.shuffle1 == 0 && sink_order_itr > 0));
     size_t heap_pushes_before = router_stats.heap_pushes;
     size_t heap_pops_before = router_stats.heap_pops;
 
     t_rt_node* rt_root;
-    //VTR_LOG("sub itr: %d\n", sink_order_itr);
+    //VTR_LOG("itry: %d sub itr: %d net_id: %zu\n", itry, sink_order_itr, size_t(net_id));
     if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) {
     	// store the traceback of net 
 	//base_trace = route_ctx.trace[net_id];
@@ -3597,7 +3573,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         traceback_from_route_tree(net_id, base_rt_root, num_sinks);
         pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
         connections_inf.prepare_routing_for_net(net_id);
-        //VTR_LOG("done this sub itr: %d\n", sink_order_itr);
+        if (itry >=10 && itry <13) { 
+	VTR_LOG("done this sub itr: %d\n", sink_order_itr);
+	}
     }
     rt_root = setup_routing_resources_incr_route(filename_opts,
                                       itry,
@@ -3622,8 +3600,12 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     //if (sink_order_itr == 0){
     auto& ref_remaining_targets = connections_inf.get_remaining_targets();
     
+
+    if (router_opts.detailed_router == 0 && sink_order_itr == 0) {
+        net_order_file << (size_t)net_id << " " << ref_remaining_targets.size() << "/" << num_sinks << " ";
+    }
     //}
-    if (sink_order_itr == 0){
+    if (sink_order_itr == 0){// need to fix remaining targets so that a new permutation  is produced in subsequent iterations
     	remaining_targets = ref_remaining_targets;
     }
     // calculate criticality of remaining target pins
@@ -3696,18 +3678,45 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
            //std::random_device rd;  // Seed for random number generator
     	   //std::mt19937 g(rd());   // Standard Mersenne Twister engine
     	   // deterministic shuffling across different instances of VTR
-	   std::mt19937 g(itry * 100 + size_t(net_id));   // Standard Mersenne Twister engine
+	   std::mt19937 g(itry * 100 + size_t(net_id)); 
            std::shuffle(begin(remaining_targets), end(remaining_targets), g);
 	}
     }
     else if (sink_order_itr == max_sub_iterations + additional_sub_iterations){
-   	auto it = tree_cost_sink_order_map.begin();
-	std::tuple<int, float> minKey = it->first;
-        min_total_detailed_nodes = std::get<0>(minKey);
-        min_total_cong_cost = std::get<1>(minKey);
-        remaining_targets = it->second;
+  	if (router_opts.tree_type == MIN_TOTAL_NODES){ 
+    	    auto it = tree_cost_sink_order_map.begin();
+	    std::tuple<int, float> minKey = it->first;
+            min_total_detailed_nodes = std::get<0>(minKey);
+            min_total_cong_cost = std::get<1>(minKey);
+            remaining_targets = it->second;
+   	}
+	else if (router_opts.tree_type == MIN_CONG_COST){
+    	    auto it = tree_cost_first_sink_order_map.begin();
+	    std::tuple<float, int> minKey = it->first;
+            min_total_detailed_nodes = std::get<1>(minKey);
+            min_total_cong_cost = std::get<0>(minKey);
+            remaining_targets = it->second;
+	}
+	else if (router_opts.tree_type == MIN_HEAP_PUSHES){
+    	    auto it = tree_ops_sink_order_map.begin();
+	    std::tuple<int, float, int> minKey = it->first;
+            int total_detailed_nodes_min_ops = std::get<2>(minKey);
+            remaining_targets = it->second;
+    	    
+	    auto it2 = tree_cost_sink_order_map.begin();
+	    std::tuple<int, float> minKey_t = it2->first;
+            min_total_detailed_nodes = std::get<0>(minKey_t);
+	    if(min_total_detailed_nodes < total_detailed_nodes_min_ops) {
+	        VTR_LOG("[FOUND] A tree with minimum heap operations but not minimum possible total nodes that could be achieved with sampled sink orders. Net: %zu total_nodes: %d (min_possible: %d). This implies we cannot do early stopping to find the tree with minimum nodes\n", size_t(net_id), total_detailed_nodes_min_ops, min_total_detailed_nodes);
+	    }
+	}
+	else {
+		VTR_ASSERT("Wrong flag for argument tree\n");
+	}
         connections_inf.add_best_sink_order(remaining_targets);	
+   
     }
+
     else if ((sink_order_itr >= max_sub_iterations && sink_order_itr < max_sub_iterations + additional_sub_iterations) && additional_sub_iterations != 0){
 	 auto it = std::next(sink_orders_from_prev_iterations.begin(), sink_order_itr - max_sub_iterations);
 	 remaining_targets = *it;
@@ -3821,10 +3830,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int total_detailed_nodes = cost.first;
     float total_cong_cost = cost.second;
     tree_cost_sink_order_map[std::make_tuple(total_detailed_nodes, total_cong_cost)] = remaining_targets;
-    /*if (sink_order_itr == max_sub_iterations && max_sub_iterations > 0) {
-     	VTR_ASSERT(total_detailed_nodes == min_total_detailed_nodes);
-     	VTR_ASSERT(total_cong_cost == min_total_cong_cost);
-    }*/
+    tree_cost_first_sink_order_map[std::make_tuple(total_cong_cost, total_detailed_nodes)] = remaining_targets;
+
 
     if (itry == 1) {
         connections_inf.set_minimum_detailed_nodes(total_detailed_nodes);	
@@ -3859,7 +3866,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     free_route_tree(rt_root);
     router.empty_rcv_route_tree_set();
-    /*if ((itry == 50 || itry == 51 || itry == 52) && remaining_targets.size() >= all_permutation_max_fanout){
+    if ((itry == 10 || itry == 11 || itry == 12) && remaining_targets.size() >= all_permutation_max_fanout){
        VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
        VTR_LOG("  order:"); 
        for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -3867,7 +3874,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
        	   VTR_LOG(" %d", target_pin);
        }
        VTR_LOG("\n"); 
-    }*/
+    }
     /*else if (itry == 2){
        VTR_LOG(" -- itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
     }*/
@@ -3878,6 +3885,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     // min_heap_pushes += 
     // max_heap_pushes += 
 
+    	
+
     size_t heap_pushes_after = router_stats.heap_pushes;
     size_t heap_pops_after = router_stats.heap_pops;
 
@@ -3886,8 +3895,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     net_heap_pushes.push_back(sub_iter_heap_pushes);
     net_heap_pops.push_back(sub_iter_heap_pops);
 
+    tree_ops_sink_order_map[std::make_tuple(sub_iter_heap_pushes, total_cong_cost, total_detailed_nodes)] = remaining_targets;
 
-    if (sink_order_itr == max_sub_iterations + additional_sub_iterations){
+    if (sink_order_itr == max_sub_iterations + additional_sub_iterations){// whichever tree_type is used, operations corresponding to that will be reported
     	min_heap_pushes = sub_iter_heap_pushes;
 	min_heap_pops = sub_iter_heap_pops;	
     }
@@ -3898,7 +3908,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int max_index = std::distance(net_heap_pushes.begin(), max_heap_pushes_it);
     size_t corresponding_heap_pops = net_heap_pops[max_index];	
 
-    VTR_ASSERT (*min_heap_pushes_it == min_heap_pushes);
+    //VTR_ASSERT (*min_heap_pushes_it == min_heap_pushes);
     //ASSERT (*min_heap_pops_it == min_heap_pops);
     router_stats.min_heap_pushes += min_heap_pushes; 
     router_stats.max_heap_pushes += *max_heap_pushes_it; 
@@ -3939,6 +3949,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 	    	    VTR_LOG("[COMPLETE RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
 	        }
         }*/    
+	//VTR_LOG("[COMPLETE RIP UP] NET: %zu SINK: %d\n", size_t(net_id), num_sinks);
         complete_rip_up_net_count++;
         profiling::net_rerouted();
 

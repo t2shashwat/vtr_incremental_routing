@@ -382,6 +382,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->icr_iter = Options.icr_iter;
     RouterOpts->sbNode_lookahead_factor = Options.sbNode_lookahead_factor;
     RouterOpts->detailed_router = Options.detailed_router;
+    RouterOpts->tree_type= Options.tree_type;
     RouterOpts->shuffle1 = Options.shuffle1;
     RouterOpts->shuffle2 = Options.shuffle2;
     RouterOpts->save_history_cost_per_iteration= Options.save_history_cost_per_iteration;

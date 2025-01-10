@@ -19,6 +19,12 @@ enum e_route_type {
     DETAILED
 };
 
+enum e_tree_type {
+    MIN_TOTAL_NODES,
+    MIN_CONG_COST,
+    MIN_HEAP_PUSHES
+};
+
 enum e_graph_type {
     GRAPH_GLOBAL, /* One node per channel with wire capacity > 1 and full connectivity */
     GRAPH_BIDIR,  /* Detailed bidirectional graph */
