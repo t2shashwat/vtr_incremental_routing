@@ -72,6 +72,13 @@ void Connection_based_routing_resources::update_lower_bound_connection_delay(Clu
     }
 }
 
+
+void Connection_based_routing_resources::force_ripup_sink(ClusterNetId net_id, int target_pin) {
+	forcible_reroute_connection_flag[net_id][target_pin] = true;
+}
+void Connection_based_routing_resources::clear_force_reroute(ClusterNetId net_id, int rr_sink_node) {
+    forcible_reroute_connection_flag[net_id][rr_sink_node] = false;
+}
 /* Run through all non-congested connections of all nets and see if any need to be forcibly rerouted.
  * The connection must satisfy all following criteria:
  * 1. the connection is critical enough

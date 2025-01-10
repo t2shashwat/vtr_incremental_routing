@@ -197,6 +197,8 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     t_heap* cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                                 cost_params,
                                                                 high_fanout_bb, net_id, sink_id, itry);
+	
+    VTR_LOG("FInished heap finding\n");
 
     if (cheapest == nullptr) {
         //Found no path, that may be due to an unlucky choice of existing route tree sub-set,
@@ -225,13 +227,17 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
         return std::make_pair(false, t_heap());
     }
 
+    //VTR_LOG("FInished heap finding 2\n");
     rcv_path_manager.update_route_tree_set(cheapest->path_data);
+    //VTR_LOG("FInished heap finding 3\n");
     update_cheapest(cheapest);
+    //VTR_LOG("FInished heap finding 4\n");
 
     t_heap out = *cheapest;
     heap_.free(cheapest);
     heap_.empty_heap();
     rcv_path_manager.empty_heap();
+    //VTR_LOG("FInished heap finding 5\n");
 
     return std::make_pair(true, out);
 }
@@ -1038,6 +1044,8 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap_with_zero_cost(
         //                 + cost_params.astar_fac
         //                       * router_lookahead_.get_expected_cost(RRNodeId(inode), RRNodeId(target_node), cost_params, R_upstream);
         float tot_cost = 0.;
+        //float cong_cost = get_rr_cong_cost(inode, cost_params.pres_fac, cost_params.global_occ_factor);
+        //float tot_cost = cong_cost;
         VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s)\n", inode, tot_cost,
                        describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 

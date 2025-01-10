@@ -2200,6 +2200,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.sink_by_sink, "--sink_by_sink")
+        .help(
+            "To perform routing sink by sink")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.save_history_cost_per_iteration, "--save_history_cost_per_iteration")
         .help(
             "Controls whether VPR saves the current routing's history cost to a file after each routing iteration."

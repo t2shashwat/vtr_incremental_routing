@@ -88,6 +88,10 @@ class Connection_based_routing_resources {
         remaining_targets.clear();
         reached_rt_sinks.clear();
     }
+    void clear_remaining_and_reached_sink(ClusterNetId inet){
+        remaining_targets.clear();
+        reached_rt_sinks.clear();
+    }
 
     // get a handle on the resources
     ClusterNetId get_current_inet() const { return current_inet; }
@@ -118,6 +122,8 @@ class Connection_based_routing_resources {
                                       std::shared_ptr<const SetupTimingInfo> timing_info,
                                       const ClusteredPinAtomPinsLookup& netlist_pin_lookup,
                                       ClbNetPinsMatrix<float>& net_delay);
+    void force_ripup_sink(ClusterNetId net_id, int target_pin);
+    void clear_force_reroute(ClusterNetId net_id, int rr_sink_node);
 };
 
 using CBRR = Connection_based_routing_resources; // shorthand

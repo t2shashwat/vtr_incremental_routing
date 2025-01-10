@@ -63,6 +63,8 @@ bool verify_route_tree_recurr(t_rt_node* node, std::set<int>& seen_nodes);
 
 static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf, bool congested, std::vector<int>* non_config_node_set_usage);
 
+static t_rt_node* prune_sink_recurr(t_rt_node* node, CBRR& connections_inf, bool congested, std::vector<int>* non_config_node_set_usage);
+
 static t_trace* traceback_to_route_tree_branch(t_trace* trace, std::map<int, t_rt_node*>& rr_node_to_rt, std::vector<int>* non_config_node_set_usage);
 
 static std::pair<t_trace*, t_trace*> traceback_from_route_tree_recurr(t_trace* head, t_trace* tail, const t_rt_node* node);
@@ -222,6 +224,7 @@ t_rt_node* update_route_tree(t_heap* hptr, int target_net_pin_index, SpatialRout
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     //Create a new subtree from the target in hptr to existing routing
+    //VTR_LOG("[Update route tree] Calling add subtree to route tree\n");
     start_of_new_subtree_rt_node = add_subtree_to_route_tree(hptr, target_net_pin_index, &sink_rt_node);
 
     //Propagate R_upstream down into the new subtree
@@ -235,6 +238,7 @@ t_rt_node* update_route_tree(t_heap* hptr, int target_net_pin_index, SpatialRout
 
     subtree_parent_rt_node = unbuffered_subtree_rt_root->parent_node;
 
+    //VTR_LOG("[Update route tree] check 1\n");
     if (subtree_parent_rt_node != nullptr) { /* Parent exists. */
         Tdel_start = subtree_parent_rt_node->Tdel;
         iswitch = unbuffered_subtree_rt_root->parent_switch;
@@ -245,12 +249,15 @@ t_rt_node* update_route_tree(t_heap* hptr, int target_net_pin_index, SpatialRout
     } else { /* Subtree starts at SOURCE */
         Tdel_start = 0.;
     }
+    //VTR_LOG("[Update route tree] check 2\n");
 
     load_route_tree_Tdel(unbuffered_subtree_rt_root, Tdel_start);
+    //VTR_LOG("[Update route tree] check 3\n");
 
     if (spatial_rt_lookup) {
         update_route_tree_spatial_lookup_recur(start_of_new_subtree_rt_node, *spatial_rt_lookup);
     }
+    //VTR_LOG("[Update route tree] After update spatial lookup\n");
 
     return (sink_rt_node);
 }
@@ -274,7 +281,8 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
         if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
             VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode]->inode == node->inode);
         } else {
-            VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode] == node);
+	    // Shashwat: commented out this check
+            //VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode] == node);
         }
 
         rr_node_to_rt_node[node->inode] = node;
@@ -1165,6 +1173,7 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
     }
 }
 
+
 t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf) {
     return prune_route_tree(rt_root, connections_inf, nullptr);
 }
@@ -1189,6 +1198,211 @@ t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, std::vect
                    "Route tree root/SOURCE should never be congested");
 
     return prune_route_tree_recurr(rt_root, connections_inf, false, non_config_node_set_usage);
+}
+
+static t_rt_node* prune_sink_recurr(t_rt_node* node, CBRR& connections_inf, bool force_prune, std::vector<int>* non_config_node_set_usage) {
+    //Recursively traverse the route tree rooted at node and remove any congested
+    //sub-trees
+
+    VTR_ASSERT(node);
+
+    auto& device_ctx = g_vpr_ctx.device();
+    const auto& rr_graph = device_ctx.rr_graph;
+    auto& route_ctx = g_vpr_ctx.routing();
+    //bool congested = (route_ctx.rr_node_route_inf[node->inode].occ() > rr_graph.node_capacity(RRNodeId(node->inode)));
+    int node_set = -1;
+    auto itr = device_ctx.rr_node_to_non_config_node_set.find(node->inode);
+    if (itr != device_ctx.rr_node_to_non_config_node_set.end()) {
+        node_set = itr->second;
+    }
+
+    //if (congested) {
+        //This connection is congested -- prune it
+    //    force_prune = true;
+    //}
+
+    if (connections_inf.should_force_reroute_connection(node->inode)) {
+        //Forcibly re-route (e.g. to improve delay)
+        force_prune = true;
+    }
+
+    //Recursively prune children
+    bool all_children_pruned = true;
+    t_linked_rt_edge* prev_edge = nullptr;
+    t_linked_rt_edge* edge = node->u.child_list;
+    while (edge) {
+        t_rt_node* child = prune_sink_recurr(edge->child,
+                                                   connections_inf, force_prune, non_config_node_set_usage);
+
+        if (!child) { //Child was pruned
+
+            //Remove the edge
+            if (edge == node->u.child_list) { //Was Head
+                node->u.child_list = edge->next;
+            } else { //Was intermediate
+                VTR_ASSERT(prev_edge);
+                prev_edge->next = edge->next;
+            }
+
+            t_linked_rt_edge* old_edge = edge;
+            edge = edge->next;
+
+            // After removing an edge, check if non_config_node_set_usage
+            // needs an update.
+            if (non_config_node_set_usage != nullptr && node_set != -1 && rr_graph.rr_switch_inf(RRSwitchId(old_edge->iswitch)).configurable()) {
+                (*non_config_node_set_usage)[node_set] -= 1;
+                VTR_ASSERT((*non_config_node_set_usage)[node_set] >= 0);
+            }
+
+            free_linked_rt_edge(old_edge);
+
+            //Note prev_edge is unchanged
+
+        } else { //Child not pruned
+            all_children_pruned = false;
+
+            //Edge not removed
+            prev_edge = edge;
+            edge = edge->next;
+        }
+    }
+
+    if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
+        if (!force_prune) {
+            //Valid path to sink
+
+            //Record sink as reachable
+            connections_inf.reached_rt_sink(node);
+
+            return node; //Not pruned
+        } else {
+            VTR_ASSERT(force_prune);
+
+            //Record as not reached
+            connections_inf.toreach_rr_sink(node->net_pin_index);
+
+            free_rt_node(&node);
+            return nullptr; //Pruned
+        }
+    } else if (all_children_pruned) {
+        //This node has no children
+        //
+        // This can happen in three scenarios:
+        //   1) This node is being pruned. As a result any child nodes
+        //      (subtrees) will have been pruned.
+        //
+        //   2) This node was reached by a non-configurable edge but
+        //      was otherwise unused (forming a 'stub' off the main
+        //      branch).
+        //
+        //   3) This node is uncongested, but all its connected sub-trees
+        //      have been pruned.
+        //
+        // We take the corresponding actions:
+        //   1) Prune the node.
+        //
+        //   2) Prune the node only if the node set is unused or if force_prune
+        //      is set.
+        //
+        //   3) Prune the node.
+        //
+        //      This avoid the creation of unused 'stubs'. (For example if
+        //      we left the stubs in and they were subsequently not used
+        //      they would uselessly consume routing resources).
+        VTR_ASSERT(node->u.child_list == nullptr);
+
+        bool reached_non_configurably = false;
+        if (node->parent_node) {
+            reached_non_configurably = !rr_graph.rr_switch_inf(RRSwitchId(node->parent_switch)).configurable();
+
+            if (reached_non_configurably) {
+                // Check if this non-configurable node set is in use.
+                VTR_ASSERT(node_set != -1);
+                if (non_config_node_set_usage != nullptr && (*non_config_node_set_usage)[node_set] == 0) {
+                    force_prune = true;
+                }
+            }
+        }
+
+        if (reached_non_configurably && !force_prune) {
+            return node; //Not pruned
+        } else{
+            free_rt_node(&node);
+            return nullptr; //Pruned
+        }
+
+    } else {
+        // If this node is:
+        //   1. Part of a non-configurable node set
+        //   2. The first node in the tree that is part of the non-configurable
+        //      node set
+        //
+        //      -- and --
+        //
+        //   3. The node set is not active
+        //
+        //  Then prune this node.
+        //
+        if (non_config_node_set_usage != nullptr && node_set != -1 && rr_graph.rr_switch_inf(RRSwitchId(node->parent_switch)).configurable() && (*non_config_node_set_usage)[node_set] == 0) {
+            // This node should be pruned, re-prune edges once more.
+            //
+            // If the following is true:
+            //
+            //  - The node set is unused
+            //    (e.g. (*non_config_node_set_usage)[node_set] == 0)
+            //  - This particular node still had children
+            //    (which is true by virtue of being in this else statement)
+            //
+            // Then that indicates that the node set became unused during the
+            // pruning. One or more of the children of this node will be
+            // pruned if prune_route_tree_recurr is called again, and
+            // eventually the whole node will be prunable.
+            //
+            //  Consider the following graph:
+            //
+            //  1 -> 2
+            //  2 -> 3 [non-configurable]
+            //  2 -> 4 [non-configurable]
+            //  3 -> 5
+            //  4 -> 6
+            //
+            //  Assume that nodes 5 and 6 do not connect to a sink, so they
+            //  will be pruned (as normal). When prune_route_tree_recurr
+            //  visits 2 for the first time, node 3 or 4 will remain. This is
+            //  because when prune_route_tree_recurr visits 3 or 4, it will
+            //  not have visited 4 or 3 (respectively). As a result, either
+            //  node 3 or 4 will not be pruned on the first pass, because the
+            //  node set usage count will be > 0. However after
+            //  prune_route_tree_recurr visits 2, 3 and 4, the node set usage
+            //  will be 0, so everything can be pruned.
+            return prune_sink_recurr(node, connections_inf,
+                                           /*force_prune=*/false, non_config_node_set_usage);
+        }
+
+        //An unpruned intermediate node
+        VTR_ASSERT(!force_prune);
+
+        return node; //Not pruned
+    }
+}
+t_rt_node* prune_sink(t_rt_node* rt_root, CBRR& connections_inf) {
+    return prune_sink(rt_root, connections_inf, nullptr);
+}
+
+t_rt_node* prune_sink(t_rt_node* rt_root, CBRR& connections_inf, std::vector<int>* non_config_node_set_usage) {
+
+    VTR_ASSERT(rt_root);
+
+    auto& device_ctx = g_vpr_ctx.device();
+    const auto& rr_graph = device_ctx.rr_graph;
+    auto& route_ctx = g_vpr_ctx.routing();
+
+    VTR_ASSERT_MSG(rr_graph.node_type(RRNodeId(rt_root->inode)) == SOURCE, "Root of route tree must be SOURCE");
+
+    VTR_ASSERT_MSG(route_ctx.rr_node_route_inf[rt_root->inode].occ() <= rr_graph.node_capacity(RRNodeId(rt_root->inode)),
+                   "Route tree root/SOURCE should never be congested");
+
+    return prune_sink_recurr(rt_root, connections_inf, false, non_config_node_set_usage);
 }
 
 void pathfinder_update_cost_from_route_tree(const t_rt_node* rt_root, int add_or_sub) {

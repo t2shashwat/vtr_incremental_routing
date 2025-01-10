@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <iostream>
+#include <random>
 #include "vtr_assert.h"
 #include "vtr_log.h"
 #include "vtr_time.h"
@@ -140,7 +141,8 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
                                           CBRR& incremental_rerouting_res,
                                           t_rt_node** rt_node_of_sink,
                                           const t_router_opts& router_opts,
-                                          bool ripup_high_fanout_nets);
+                                          bool ripup_high_fanout_nets,
+					  int target_pin);
 
 //=================================
 static bool timing_driven_check_net_delays(ClbNetPinsMatrix<float>& net_delay);
@@ -1393,6 +1395,7 @@ static bool timing_driven_route_sink(
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
                                                                                                            router_stats, net_id, target_pin, branch_nodes, itry);
+    	//VTR_LOG("Checking right after high fnaout route\n");
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
@@ -1425,14 +1428,20 @@ static bool timing_driven_route_sink(
 
     int inode = cheapest.index;
     route_ctx.rr_node_route_inf[inode].target_flag--; /* Connected to this SINK. */
+   // VTR_LOG("Calling update traceback\n");
     t_trace* new_route_start_tptr = update_traceback(&cheapest, target_pin, net_id);
 
     VTR_ASSERT_DEBUG(validate_traceback(route_ctx.trace[net_id].head));
 
+    //VTR_LOG("Calling update route tree\n");
     rt_node_of_sink[target_pin] = update_route_tree(&cheapest, target_pin, ((high_fanout) ? &spatial_rt_lookup : nullptr));
+    //VTR_LOG("Before assert checks\n");
     VTR_ASSERT_DEBUG(verify_route_tree(rt_root));
+    //VTR_LOG("Before assert checks 2\n");
     VTR_ASSERT_DEBUG(verify_traceback_route_tree_equivalent(route_ctx.trace[net_id].head, rt_root));
+    //VTR_LOG("Before assert checks 3\n");
     VTR_ASSERT_DEBUG(!high_fanout || validate_route_tree_spatial_lookup(rt_root, spatial_rt_lookup));
+    //VTR_LOG("Before assert checks 4 \n");
     if (f_router_debug) {
         std::string msg = vtr::string_fmt("Routed Net %zu connection %d to RR node %d successfully", size_t(net_id), itarget, sink_node);
         update_screen(ScreenUpdatePriority::MAJOR, msg.c_str(), ROUTING, nullptr);
@@ -1443,6 +1452,7 @@ static bool timing_driven_route_sink(
             budgeting_inf.set_should_reroute(net_id, true);
         }
     }
+    //VTR_LOG("Calling update path occupancy\n");
 
     pathfinder_update_path_occupancy(new_route_start_tptr, 1);
 
@@ -2422,6 +2432,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     std::set<size_t> nets_to_skip;
     std::set<size_t> congested_nets;
+    std::vector<ClusterNetId> golden_net_order;
     if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
     	//reading file with nets to skip
     	std::ifstream nets_skip_fp;
@@ -2439,6 +2450,24 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	}
     }
 
+    //reading file with net order
+    std::ifstream net_order_fp;
+    std::string golden_net_order_filename = "golden_net_order.txt";
+    net_order_fp.open(golden_net_order_filename);
+    int lineno = 0;
+    if (!net_order_fp.is_open()) {
+        vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+            "Cannot open golden_net_order.txt file");
+    }
+    int net_id1;
+    while (net_order_fp >> net_id1)
+    {
+         golden_net_order.push_back(ClusterNetId(net_id1));
+    }
+    net_order_fp.close();
+    sorted_nets = golden_net_order;
+    //std::reverse(sorted_nets.begin(), sorted_nets.end());
+    std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
 
     if(router_opts.detailed_router == 1) {
         std::ifstream sink_order_fp;
@@ -2739,6 +2768,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	//size_t num_elements_to_copy = 100;
 	//first_100_nets.reserve(num_elements_to_copy);
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
+	
 	for (int i = 0; i < 2; i++){
 	for (auto net_id : sorted_nets) {
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
@@ -2989,12 +3019,12 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             update_screen(ScreenUpdatePriority::MINOR, "Routing...", ROUTING, timing_info);
         }
 
-        if (router_opts.save_routing_per_iteration) {
+        if (router_opts.save_routing_per_iteration && (itry < 10 || itry % 100 == 0 || itry > 980)) {
             std::string filename = vtr::string_fmt("iteration_%03d.route", itry);
             print_route(nullptr, filename.c_str());
         }
 
-	if (router_opts.save_history_cost_per_iteration){
+	if (router_opts.save_history_cost_per_iteration && (itry < 10 || itry % 100 == 0 || itry > 980)){
             std::string hist_filename = vtr::string_fmt("history_cost_iteration_%03d.hcost", itry);
             std::ofstream hist_file(hist_filename);
             for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
@@ -3468,7 +3498,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
 
     t_rt_node* rt_root;
-    rt_root = setup_routing_resources_incr_route(filename_opts,
+    bool high_fanout = false;
+    SpatialRouteTreeLookup spatial_route_tree_lookup;
+    if (itry == 1){
+	int dummy_target_pin = 1;
+    	rt_root = setup_routing_resources_incr_route(filename_opts,
                                       itry,
                                       net_id,
                                       num_sinks,
@@ -3476,18 +3510,38 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                       connections_inf,
                                       rt_node_of_sink,
                                       router_opts,
-                                      check_hold(router_opts, worst_neg_slack));
-
-    bool high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
-
-    SpatialRouteTreeLookup spatial_route_tree_lookup;
-    if (high_fanout) {
-        spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, rt_root);
+                                      check_hold(router_opts, worst_neg_slack),
+				      dummy_target_pin);
+    	high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
+    	if (high_fanout) {
+        	spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, rt_root);
+    	}
     }
-
+    else {
+	int partial_ripup = 1;
+    	rt_root = setup_routing_resources_incr_route(filename_opts,
+                                      itry,
+                                      net_id,
+                                      num_sinks,
+                                      router_opts.min_incremental_reroute_fanout,
+                                      connections_inf,
+                                      rt_node_of_sink,
+                                      router_opts,
+                                      check_hold(router_opts, worst_neg_slack),
+				      partial_ripup);
+    	high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
+    	if (high_fanout) {
+        	spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, rt_root);
+    	}
+	//code below for just per-sink rip up
+        for (unsigned int sink_pin = 1; sink_pin <= num_sinks; ++sink_pin)
+            connections_inf.toreach_rr_sink(sink_pin);
+        // since all connections will be rerouted for this net, clear all of net's forced reroute flags
+        connections_inf.clear_force_reroute_for_net();
+    }
     // after this point the route tree is correct
     // remaining_targets from this point on are the **pin indices** that have yet to be routed
-    auto& remaining_targets = connections_inf.get_remaining_targets();
+    auto remaining_targets = connections_inf.get_remaining_targets();
 
     // calculate criticality of remaining target pins
     for (int ipin : remaining_targets) {
@@ -3529,10 +3583,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     // compare the criticality of different sink nodes
     //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    std::random_device rd;  // Seed for random number generator
+    std::mt19937 g(rd());   // Standard Mersenne Twister engine
     if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
-    	sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
-        	return sink_order_index[a] < sink_order_index[b];
-    	});
+    	//sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {
+        //	return sink_order_index[a] < sink_order_index[b];
+    	//});
+	std::shuffle(begin(remaining_targets), end(remaining_targets), g);
     }
     else {
     	sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
@@ -3555,6 +3612,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
+	VTR_LOG("[AHHHH] Pre routing global net\n");
         //VTR_ASSERT(router_opts.clock_modeling == DEDICATED_NETWORK);
         int sink_node = device_ctx.virtual_clock_network_root_idx;
 
@@ -3583,12 +3641,32 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     if (budgeting_inf.if_set()) {
         budgeting_inf.set_should_reroute(net_id, false);
     }
-
     // explore in order of decreasing criticality (no longer need sink_order array)
     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
         int target_pin = remaining_targets[itarget];
 
-        std::set<int> branch_nodes;
+	int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+	if (itry > 1) {
+		VTR_LOG("Routing target_pin: %d %zu\n", target_pin, size_t(net_id));
+    		connections_inf.clear_remaining_and_reached_sink(net_id);
+		connections_inf.force_ripup_sink(net_id, sink_rr);
+		int partial_ripup = 0;
+    		rt_root = setup_routing_resources_incr_route(filename_opts,
+                                      		itry,
+                                      		net_id,
+                                      		num_sinks,
+                                      		router_opts.min_incremental_reroute_fanout,
+                                      		connections_inf,
+                                      		rt_node_of_sink,
+                                      		router_opts,
+                                      		check_hold(router_opts, worst_neg_slack),
+						partial_ripup);
+    		high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
+    		if (high_fanout) {
+        		spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, rt_root);
+		}
+	}
+       	std::set<int> branch_nodes;
 	if (router_opts.detailed_router == 1){
             branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
 	}
@@ -3597,7 +3675,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 		VTR_LOG("Branch nodes: %d\n", node);        		
 	
 	}*/
-	int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+	//int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
         enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 
@@ -3638,6 +3716,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                pin_criticality[target_pin]);
 
         ++router_stats.connections_routed;
+	connections_inf.clear_force_reroute(net_id, sink_rr);
     } // finished all sinks
 
     ++router_stats.nets_routed;
@@ -3678,7 +3757,8 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
                                           CBRR& connections_inf,
                                           t_rt_node** rt_node_of_sink,
                                           const t_router_opts& router_opts,
-                                          bool ripup_high_fanout_nets) {
+                                          bool ripup_high_fanout_nets,
+					  int target_pin) {
     /* Build and return a partial route tree from the legal connections from last iteration.
      * along the way do:
      * 	update pathfinder costs to be accurate to the partial route tree
@@ -3692,7 +3772,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
     // convert the previous iteration's traceback into the starting route tree for this iteration
-    if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
+    if (((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) && (router_opts.sink_by_sink == 0 || itry == 1)) {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
             ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
 	        if (net_id == debug_net){
@@ -3719,7 +3799,126 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         // of their versions that act on node indices directly like mark_remaining_ends
         mark_ends(net_id);
         
-    } else {
+    } else if (router_opts.sink_by_sink == 1 && itry > 1 && target_pin == 0){ //using target_pin as proxy for setting partial rip up or per-sink rip up
+        /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
+            ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
+	        if (net_id == debug_net){
+	    	    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+	        }
+        }*/
+	    //if (net_id == debug_net){
+        //    VTR_LOG("[PARTIAL RIP UP] NET: %d SINK: %d\n", net_id, num_sinks);
+        //}
+        partial_rip_up_net_count++;    
+        auto& reached_rt_sinks = connections_inf.get_reached_rt_sinks();
+        auto& remaining_targets = connections_inf.get_remaining_targets();
+	    if (itry > 1){
+                VTR_LOG("Reached sinks before pruning: %d\n", reached_rt_sinks.size());
+                VTR_LOG("Remaining sinks before pruning: %d\n", remaining_targets.size());
+	    }
+
+        profiling::net_rebuild_start();
+
+        // convert the previous iteration's traceback into a route tree
+        rt_root = traceback_to_route_tree(net_id);
+
+        //Sanity check that route tree and traceback are equivalent before pruning
+        VTR_ASSERT_DEBUG(verify_traceback_route_tree_equivalent(route_ctx.trace[net_id].head, rt_root));
+
+        // check for edge correctness
+        VTR_ASSERT_SAFE(is_valid_skeleton_tree(rt_root));
+
+        // Skip this check if RCV is enabled, as RCV can use another method to cause reroutes
+        //VTR_ASSERT_SAFE(should_route_net(net_id, connections_inf, true) || router_opts.routing_budgets_algorithm == YOYO);
+
+        //Prune the branches of the tree that don't legally lead to sinks
+	//VTR_LOG("Calling prune sink: %d\n", target_pin);
+        // just per-sink ripup
+	//rt_root = prune_sink(rt_root, connections_inf);
+
+        //Now that the tree has been pruned, we can free the old traceback
+        // NOTE: this must happen *after* pruning since it changes the
+        //       recorded congestion
+        // just per-sink ripup
+        //pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
+        // just per-sink ripup
+        //free_traceback(net_id);
+
+	if (rt_root) {
+	    rt_root = prune_sink(rt_root, connections_inf);
+	}
+        pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
+        free_traceback(net_id);
+        if (rt_root) { //Partially pruned
+            profiling::route_tree_preserved();
+
+            //Since we have a valid partial routing (to at least one SINK)
+            //we need to make sure the traceback is synchronized to the route tree
+	    if (itry > 1){
+                VTR_LOG("Reached sinks after pruning: %d\n", reached_rt_sinks.size());
+                VTR_LOG("Remaining sinks after pruning: %d\n", remaining_targets.size());
+	    }
+	    traceback_from_route_tree(net_id, rt_root, reached_rt_sinks.size());
+
+            //Sanity check the traceback for self-consistency
+            VTR_ASSERT_DEBUG(validate_traceback(route_ctx.trace[net_id].head));
+
+            //Sanity check that route tree and traceback are equivalent after pruning
+            VTR_ASSERT_DEBUG(verify_traceback_route_tree_equivalent(route_ctx.trace[net_id].head, rt_root));
+
+            // put the updated occupancies of the route tree nodes back into pathfinder
+            pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
+
+        } else { //Fully destroyed
+            profiling::route_tree_pruned();
+
+            //Initialize only to source
+            rt_root = init_route_tree_to_source(net_id);
+
+            //NOTE: We leave the traceback uninitialized, so update_traceback()
+            //      will correctly add the SOURCE node when the branch to
+            //      the first SINK is found.
+            VTR_ASSERT(route_ctx.trace[net_id].head == nullptr);
+            VTR_ASSERT(route_ctx.trace[net_id].tail == nullptr);
+            VTR_ASSERT(route_ctx.trace_nodes[net_id].empty());
+        }
+
+        //Update R/C
+        load_new_subtree_R_upstream(rt_root);
+        load_new_subtree_C_downstream(rt_root);
+
+        //VTR_ASSERT(reached_rt_sinks.size() + remaining_targets.size() == num_sinks);
+
+        //Record current routing
+	//VTR_LOG("Calling route tree to rr node lookup\n");
+        add_route_tree_to_rr_node_lookup(rt_root);
+
+        // give lookup on the reached sinks
+	//VTR_LOG("After route tree to rr node lookup\n");
+        for (t_rt_node* sink_node : reached_rt_sinks) {
+            rt_node_of_sink[sink_node->net_pin_index] = sink_node;
+        }
+
+        profiling::net_rebuild_end(num_sinks, remaining_targets.size());
+
+        // check for R_upstream C_downstream and edge correctness
+        VTR_ASSERT_SAFE(is_valid_route_tree(rt_root));
+        // congestion should've been pruned away
+        //VTR_ASSERT_SAFE(is_uncongested_route_tree(rt_root));
+
+	//VTR_LOG("Mark remaining ends\n");
+        // mark remaining ends
+        mark_remaining_ends(net_id, remaining_targets);
+	//VTR_LOG("After mark remaining ends\n");
+
+        // still need to calculate the tree's time delay (0 Tarrival means from SOURCE)
+        load_route_tree_Tdel(rt_root, 0);
+	//VTR_LOG("After load route tree Tdel\n");
+
+        // mark the lookup (rr_node_route_inf) for existing tree elements as NO_PREVIOUS so add_to_path stops when it reaches one of them
+        load_route_tree_rr_route_inf(rt_root);
+	//VTR_LOG("[SHA] After load route tree inf\n");
+    } else if (target_pin == 1){
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
             ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
 	        if (net_id == debug_net){
