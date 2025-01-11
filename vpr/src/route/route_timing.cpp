@@ -3515,14 +3515,16 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int all_permutation_max_fanout = 5;
     int max_sub_iterations; 
     int t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
-    if (itry == 1) {
+    if (itry == 1) { // just the loading of reconvergent nets for detailed router so no need to shuffle
     	max_sub_iterations = (router_opts.detailed_router == 1) ? 0 : router_opts.shuffle1;
     }
     else if (itry > 1 && itry < 10){
-    	max_sub_iterations = (router_opts.shuffle1 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
+    	max_sub_iterations = std::min(factorials[num_sinks], router_opts.shuffle1);
+	//)(router_opts.shuffle1 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
     }
     else if (itry >= 10) {
-    	max_sub_iterations = (router_opts.shuffle2 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle2;
+    	max_sub_iterations = std::min(factorials[num_sinks], router_opts.shuffle2);
+	//(router_opts.shuffle2 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle2;
     }
 	    
     if (itry > 1) {
@@ -3537,12 +3539,16 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int additional_sub_iterations;
     if (num_sinks < t_min_incremental_reroute_fanout && router_opts.shuffle1 > 0 && router_opts.shuffle2 > 0) {
     	// complete rip up
-	additional_sub_iterations = sink_orders_from_prev_iterations.size();
+	additional_sub_iterations = std::min(sink_orders_from_prev_iterations.size(), max_sub_iterations);
     } 
     else {
 	additional_sub_iterations = 0;
     }
     max_sub_iterations -= additional_sub_iterations;
+    // no need to check if max_sub_iterations can go below zero, as the max value of additional_sub_iterations is max_sub_iterations
+    /*if (max_sub_iterations < 0){
+	max_sub_iterations = 0;
+    }*/
     VTR_ASSERT(max_sub_iterations >= 0);
     VTR_ASSERT(max_sub_iterations + additional_sub_iterations <= router_opts.shuffle1 || max_sub_iterations + additional_sub_iterations <= router_opts.shuffle2);
     t_rt_node* base_rt_root;
