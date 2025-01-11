@@ -3516,7 +3516,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     int max_sub_iterations; 
     int t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
     if (itry == 1) {
-    	max_sub_iterations = 0;
+    	max_sub_iterations = router_opts.detailed_router ? 0 : router_opts.shuffle1;
     }
     else if (itry > 1 && itry < 10){
     	max_sub_iterations = (router_opts.shuffle1 != 0 && num_sinks < all_permutation_max_fanout) ? factorials[num_sinks] : router_opts.shuffle1;
@@ -3559,16 +3559,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     t_rt_node* rt_root;
     //VTR_LOG("itry: %d sub itr: %d net_id: %zu\n", itry, sink_order_itr, size_t(net_id));
-    if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) {
-    	// store the traceback of net 
-	//base_trace = route_ctx.trace[net_id];
-	// get the tree from traceback and save it
+    if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) { // for standard router: in itry 1, the tree is just OPIN. For detailed router: itry 2 is the first iteration
 	base_rt_root = traceback_to_route_tree(net_id);
     }
     else if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && num_sinks >= t_min_incremental_reroute_fanout){
-    	// use the stored traceback from sink_order_itr = 0
-	//initialize_traceback_with_base_trace(base_trace);
-	// load the tree in traceback
         pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
         traceback_from_route_tree(net_id, base_rt_root, num_sinks);
         pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
@@ -3678,7 +3672,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
            //std::random_device rd;  // Seed for random number generator
     	   //std::mt19937 g(rd());   // Standard Mersenne Twister engine
     	   // deterministic shuffling across different instances of VTR
-	   std::mt19937 g(itry * 100 + size_t(net_id)); 
+	   std::mt19937 g(itry * 100 + size_t(net_id) + 1000 * sink_order_itr); 
            std::shuffle(begin(remaining_targets), end(remaining_targets), g);
 	}
     }
@@ -3787,7 +3781,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
         enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 
-        VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
+        VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
 
         cost_params.criticality = pin_criticality[target_pin];
     	cost_params.bias = router_opts.sbNode_lookahead_factor;
@@ -3867,7 +3861,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     free_route_tree(rt_root);
     router.empty_rcv_route_tree_set();
     if ((itry == 10 || itry == 11 || itry == 12) && remaining_targets.size() >= all_permutation_max_fanout){
-       VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost); 
+       VTR_LOG("itry: %d (%d) net_id: %zu total_nodes: %d (min: %d) cost: %f pool_size: %d\n", itry, sink_order_itr, size_t(net_id), total_detailed_nodes, min_detailed_nodes, total_cong_cost, additional_sub_iterations); 
        VTR_LOG("  order:"); 
        for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
            int target_pin = remaining_targets[itarget];
