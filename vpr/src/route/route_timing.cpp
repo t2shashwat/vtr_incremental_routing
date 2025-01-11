@@ -3512,17 +3512,36 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     std::vector<int> factorials = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
     int min_detailed_nodes;
     int max_tries = 48;
-    int all_permutation_max_fanout = 5;
+    int all_permutation_max_fanout = 0;
     int max_sub_iterations; 
     int t_min_incremental_reroute_fanout = router_opts.min_incremental_reroute_fanout;
+    int t_num_sinks = num_sinks;
     if (itry == 1) { // just the loading of reconvergent nets for detailed router so no need to shuffle
     	max_sub_iterations = (router_opts.detailed_router == 1) ? 0 : router_opts.shuffle1;
     }
     else if (itry > 1 && itry < 10){
-    	max_sub_iterations = std::min(factorials[num_sinks], router_opts.shuffle1);
+	if (num_sinks >= factorials.size()){
+	     t_num_sinks = factorials.size() - 1; 
+	}
+    	max_sub_iterations = std::min(factorials[t_num_sinks], router_opts.shuffle1);
+	if (router_opts.shuffle1 > 120){
+    	    all_permutation_max_fanout = 5;
+	}
+	else if (router_opts.shuffle1 > 24){
+    	    all_permutation_max_fanout = 4;
+	}
     }
     else if (itry >= 10) {
-    	max_sub_iterations = std::min(factorials[num_sinks], router_opts.shuffle2);
+	if (num_sinks >= factorials.size()){
+	     t_num_sinks = factorials.size() - 1; 
+	}
+    	max_sub_iterations = std::min(factorials[t_num_sinks], router_opts.shuffle2);
+	if (router_opts.shuffle1 > 120){
+    	    all_permutation_max_fanout = 5;
+	}
+	else if (router_opts.shuffle1 > 24){
+    	    all_permutation_max_fanout = 4;
+	}
     }
 	    
     if (itry > 1) {
@@ -3668,7 +3687,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	}*/
     }
     else if (sink_order_itr < max_sub_iterations){
-	if (remaining_targets.size() < all_permutation_max_fanout){
+	if (remaining_targets.size() <= all_permutation_max_fanout){
            std::next_permutation(remaining_targets.begin(), remaining_targets.end()); 
 	}
 	else {
