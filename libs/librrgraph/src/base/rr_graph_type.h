@@ -22,7 +22,8 @@ enum e_route_type {
 enum e_tree_type {
     MIN_TOTAL_NODES,
     MIN_CONG_COST,
-    MIN_HEAP_PUSHES
+    MIN_HEAP_PUSHES,
+    MAX_TOTAL_NODES
 };
 
 enum e_graph_type {

@@ -236,3 +236,6 @@ void push_back_node_with_info(
 
     heap->push_back(hptr);
 }
+
+// (PARSA) Luka, 2025
+std::pair<ClusterNetId, int> get_netid_sinkid(std::string connection_id);

@@ -204,6 +204,13 @@ struct t_options {
     argparse::ArgValue<int> load_gr_history;
     argparse::ArgValue<float> offpath_penalty;
     //===========================
+    // (PARSA) Luka, 2025
+    argparse::ArgValue<bool> steiner_constraints;
+    argparse::ArgValue<bool> dependency_graph_sink_order;
+    argparse::ArgValue<bool> shuffle_first_iteration;
+    argparse::ArgValue<int> target_bracket;
+    //==========================================
+
     /* Timing-driven router options only */
     argparse::ArgValue<float> astar_fac;
     argparse::ArgValue<float> router_profiler_astar_fac;

@@ -555,6 +555,7 @@ bool read_route_incr_route(ClusterNetId inet_target, const char* route_file, con
                   "Cannot open %s routing file", route_file);
     }
 
+    // (PARSA) Luka, 2025: This is where the segfault most likely happens
     std::getline(fp, header_str);
     ++lineno;
 

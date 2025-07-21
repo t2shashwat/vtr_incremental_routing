@@ -632,12 +632,12 @@ class t_rr_graph_storage {
     }*/
     inline void assign_list_to_node(
         //std::set<std::string> net_list,
-	std::map<ClusterNetId, std::set<std::pair<int, int>>> net_list, 
+	    std::map<ClusterNetId, std::set<std::pair<int, int>>> net_list, 
         const RRNodeId& node_id){
-	//for (const auto& net_id : net_list) {
-        //	allowed_nets_per_node[id].insert(net_id);
-    	//}
-	for (const auto& [net_id, sink_ids] : net_list) {
+        //for (const auto& net_id : net_list) {
+            //	allowed_nets_per_node[id].insert(net_id);
+            //}
+        for (const auto& [net_id, sink_ids] : net_list) {
             // allowed_nets_per_node[id].insert(net_id);
             int max_sinkid = sink_ids.rbegin()->first;
             allowed_nets_per_node[node_id][net_id] = std::vector<int>(size_t(max_sinkid + 1), -1);
@@ -645,9 +645,9 @@ class t_rr_graph_storage {
             for (const auto& sinkid: sink_ids) {
                 //allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid.first)).insert(sinkid.second);//true;
                 allowed_nets_per_node[node_id].at(net_id).at(size_t(sinkid.first)) = sinkid.second;//true;
-		//printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
+            //printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
             }
-       }
+        }
     }
     /*inline void assign_list_to_node_v2(
         std::set<std::string> net_list,
@@ -666,12 +666,12 @@ class t_rr_graph_storage {
             //ClusterNetId netid; int sinkid;
             //std::tie(netid, sinkid) = get_netid_and_sinkid(connection_id);
 	    //std::set<int> empty_set;
-            if (not allowed_nets_per_node[id].count(netid)) {
+        if (not allowed_nets_per_node[id].count(netid)) {
 		//printf("Checking on node: %zu net_id: %zu sink_id: %d count:%d\n", size_t(id), size_t(netid), sinkid, allowed_nets_per_node[id].count(netid));
 	  	//return empty_set;
 	  	return -1;
 	    }
-            if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) {
+        if (size_t(sinkid) >= allowed_nets_per_node[id].at(netid).size()) {
 		//printf("Size of net array: %d sink: %d node_id: %zu net_id: %zu\n", allowed_nets_per_node[id].at(netid).size(), sinkid, size_t(id), size_t(netid));
 		//return empty_set;
 		return -1;

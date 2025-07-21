@@ -420,6 +420,31 @@ struct RoutingContext : public Context {
         cached_router_lookahead_;
 };
 
+// (PARSA) Luka, 2025
+/**
+ * @brief A mapping from RRNodeId to nets and sinks which are allowed to use them
+ */
+struct SteinerContext : public Context {
+    /*
+        Maps loaded from files used for RSMT constrained routing.
+    */
+    std::unordered_map<std::pair<int, int>, std::unordered_map<std::string, int>, vtr::hash_pair> loc_dir_len_to_gnode;
+    std::unordered_map<std::pair<int, int>, std::unordered_map<std::string, int>, vtr::hash_pair> loc_type_to_gnode;
+    std::unordered_map<int, std::vector<int>> gnode_to_dnodes;
+
+    /*
+        Instead of storing allowed connections per node, a more practical implementation
+        would store allowed connections per RSMT edge.
+    */
+    std::unordered_map<int, std::vector<std::pair<int, int>>> connections_per_dnode;
+
+    /*
+        A mapping from Net Pin Index to number denoting priority when routing (lower number, higher priority)
+        Used in the RSMT constrained routing setting, as well as when routing with the dependency graph sink order
+    */
+    std::unordered_map<size_t, std::unordered_map<int, int>> steiner_sink_orders;
+};
+
 /**
  * @brief State relating to VPR's floorplanning constraints
  *
@@ -565,6 +590,9 @@ class VprContext : public Context {
     const RoutingContext& routing() const { return routing_; }
     RoutingContext& mutable_routing() { return routing_; }
 
+    const SteinerContext& steiner() const { return steiner_; }
+    SteinerContext& mutable_steiner() { return steiner_; }
+
     const FloorplanningContext& floorplanning() const { return constraints_; }
     FloorplanningContext& mutable_floorplanning() { return constraints_; }
 
@@ -584,6 +612,9 @@ class VprContext : public Context {
 
     PlacementContext placement_;
     RoutingContext routing_;
+
+    SteinerContext steiner_;
+
     FloorplanningContext constraints_;
     NocContext noc_;
 };

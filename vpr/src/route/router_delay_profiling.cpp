@@ -249,7 +249,7 @@ void alloc_routing_structs(t_chan_width chan_width,
 
     alloc_and_load_rr_node_route_structs();
 
-    alloc_route_tree_timing_structs();
+    alloc_route_tree_timing_structs(false);
 }
 
 void free_routing_structs() {

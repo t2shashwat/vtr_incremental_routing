@@ -38,10 +38,13 @@
 
 #include "rr_types.h"
 #include "echo_files.h"
-
-//SHA
-#include <fstream>
-#include<string>
+/* 
+    (PARSA) Luka, 2025: These are no longer needed here, as the assignment of RR nodes to connections which can use them
+    was moved to try_route_incr_route().
+*/
+// //SHA
+// #include <fstream>
+// #include<string>
 //#define VERBOSE
 //used for getting the exact count of each edge type and printing it to std out.
 
@@ -409,17 +412,24 @@ static void build_rr_graph(const t_graph_type graph_type,
         int(std::stoi(connection_id.substr(loc))));
 };*/
 
-std::tuple<ClusterNetId, int, int> get_netid_sinkid_hop(std::string connection_id) {
-    // assume 'netid_sinkid_hop' format
-    int netId, sinkId, hop;
-    char delim;
-    std::stringstream ss(connection_id);
-    if (ss >> netId >> delim >> sinkId >> delim >> hop) {
-        return std::make_tuple(ClusterNetId(netId), sinkId, hop);  // Return the values as a tuple
-    } //else {
-      //  throw VTR_LOG_ERROR("Invalid string format");
-    //}
-};
+// std::tuple<ClusterNetId, int, int> get_netid_sinkid_hop(std::string connection_id) {
+//     /*(PARSA) Luka, 2025: Kept the functionality, changed the implementation to prevent segmentation faults*/
+//     std::stringstream ss(connection_id);
+//     std::string net_str, sink_str, hop_str;
+
+//     if (std::getline(ss, net_str, '_') &&
+//         std::getline(ss, sink_str, '_') &&
+//         std::getline(ss, hop_str)) {
+
+//         int netId = std::stoi(net_str);
+//         int sinkId = std::stoi(sink_str);
+//         int hop = std::stoi(hop_str);
+
+//         return std::make_tuple(ClusterNetId(netId), sinkId, hop);
+//     } else {
+//         throw std::runtime_error("Invalid connection_id format: " + connection_id);
+//     }
+// };
 
 /******************* Subroutine definitions *******************************/
 
@@ -470,48 +480,121 @@ void create_rr_graph(const t_graph_type graph_type,
                                                                   router_opts.reorder_rr_graph_nodes_threshold,
                                                                   router_opts.reorder_rr_graph_nodes_seed);
             }
-	    if(router_opts.detailed_router == 1){
-	    	size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
-            	VTR_LOG("[SHA] Total nodes in the RRG: %d\n", total_rr_nodes);
-            	mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
-            	
-            	std::ifstream nets_per_node_fp;
-            	std::string nets_per_node_filename = "connections_per_dnode.txt";
-            	nets_per_node_fp.open(nets_per_node_filename);
-            	
-	    	int lineno = 0;
-            	VTR_LOG("[SHA] Reading connectionss_per_dnode.txt file\n");
-            	if (!nets_per_node_fp.is_open()) {
-            	    vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
-            	        "Cannot open nets per node file");
-            	}
-		std::string line;
-            	while (getline(nets_per_node_fp, line)) {
-            	    std::istringstream iss(line);
-	    	    std::string connection_id;
-	    	    std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
-            	    int node_id;
-            	    iss >> node_id;  // First read the node ID
-            	    while (iss >> connection_id) {  // Then read all the following net IDs
-            	        // nets.insert(net_id);
-            	        ClusterNetId netid; int sinkid, hop;
-            	        std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
-	    	        //VTR_LOG("Reading file: %d ");
-            	        if (not nets.count(netid)) {
-            	            nets[netid] = std::set<std::pair<int,int>>();
-            	        }
-            	        nets.at(netid).insert(std::make_pair(sinkid, hop));
-            	        //VTR_LOG("%s ", net_id.c_str());
-            	     }
-	    	    //VTR_LOG("\n", net_id);
-            	    // Now assign this list of nets to the node using the provided function
-            	    mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
-            	    //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
-            	    //t_rr_graph_storage::assign_list_to_node(nets, node_id);
-            	}
-                nets_per_node_fp.close();
-	  }
-	}
+            /*
+                (PARSA) Luka, 2025: In "Guaranteed Yet Hard to Find", this part of code was used to read
+                "connections_per_dnode.txt" and establish which RR nodes could be used by which nets and connections.
+
+                When imposing rectilinear Steiner coarsened route tree based constraints, it is necessary to have VPR's routing structures initialized
+                before "assigning connections to RR nodes which they can RRNodeIds of the nets' sinks could be known
+            */
+
+	        // if(router_opts.detailed_router == 1 && !router_opts.steiner_constraints){
+            //     size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
+            //     VTR_LOG("[SHA] Total nodes in the RRG: %d\n", total_rr_nodes);
+            //     mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+                
+            //     std::ifstream nets_per_node_fp;
+            //     std::string nets_per_node_filename = "connections_per_dnode.txt";
+            //     nets_per_node_fp.open(nets_per_node_filename);
+                    
+            //     int lineno = 0;
+            //     VTR_LOG("[SHA] Reading connectionss_per_dnode.txt file\n");
+            //     if (!nets_per_node_fp.is_open()) {
+            //         vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+            //             "Cannot open nets per node file");
+            //     }
+            //     std::string line;
+            //     while (getline(nets_per_node_fp, line)) {
+            //         std::istringstream iss(line);
+            //         std::string connection_id;
+            //         std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
+            //         int node_id;
+            //         iss >> node_id;  // First read the node ID
+            //         while (iss >> connection_id) {  // Then read all the following net IDs
+            //             // nets.insert(net_id);
+            //             ClusterNetId netid; int sinkid, hop;
+            //             std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
+            //             //VTR_LOG("Reading file: %d ");
+            //             if (not nets.count(netid)) {
+            //                 nets[netid] = std::set<std::pair<int,int>>();
+            //             }
+            //             nets.at(netid).insert(std::make_pair(sinkid, hop));
+            //             //VTR_LOG("%s ", net_id.c_str());
+            //         }
+            //         //VTR_LOG("\n", net_id);
+            //         // Now assign this list of nets to the node using the provided function
+            //         mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+            //         //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
+            //         //t_rr_graph_storage::assign_list_to_node(nets, node_id);
+            //     }
+            //     nets_per_node_fp.close();
+            // } /* (PARSA) Luka, 2025: Since "sinkids" are collected pre-creation of the rr_graph, an additional step is necessary to map ClusterPinIds to actual sinkids*/
+            // else if (router_opts.detailed_router == 1 && router_opts.steiner_constraints) {
+            //     size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
+            //     VTR_LOG("[LUKA] Total nodes in the RRG: %d\n", total_rr_nodes);
+            //     mutable_device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+                
+            //     std::ifstream nets_per_node_fp;
+            //     std::string nets_per_node_filename = "connections_per_dnode.txt";
+            //     nets_per_node_fp.open(nets_per_node_filename);
+                    
+            //     int lineno = 0;
+            //     VTR_LOG("[LUKA] Reading connectionss_per_dnode.txt file\n");
+            //     if (!nets_per_node_fp.is_open()) {
+            //         vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+            //             "Cannot open nets per node file");
+            //     }
+            //     std::string line;
+            //     while (getline(nets_per_node_fp, line)) {
+            //         std::istringstream iss(line);
+
+            //         std::cout << line << std::endl;
+            //         std::string connection_id;
+            //         std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
+            //         int node_id;
+            //         iss >> node_id;  // First read the node ID
+            //         while (iss >> connection_id) {  // Then read all the following net IDs
+            //             // nets.insert(net_id);
+            //             std::cout << connection_id << std::endl;
+            //             ClusterNetId netid; 
+            //             int cluster_pin_id;
+            //             int hop;
+            //             std::tie(netid, cluster_pin_id, hop) = get_netid_sinkid_hop(connection_id);
+            //             //VTR_LOG("Reading file: %d ");
+
+            //             // (PARSA) Luka, 2025: Mapping ClusterPinIds to net pin indices
+            //             t_block_loc pin_block_loc = g_vpr_ctx.placement().block_locs[g_vpr_ctx.clustering().clb_nlist.pin_block(ClusterPinId(cluster_pin_id))];
+            //             std::cout << "Found pin_block_loc" << std::endl;
+            //             const RoutingContext& route_ctx = g_vpr_ctx.routing();
+            //             int sinkid, ptc = 0;
+            //             // (PARSA) Luka, 2025: The ptc of the RRNodeId is unknown. This implementation is inefficient, but has to suffice before an alternative aproach for getting net pin indices is implemented.
+            //             std::cout << "The size of net_rr_terminals: " << route_ctx.net_rr_terminals[netid].size() << std::endl;
+            //             std::cout << "Entering the sinkid search..." << std::endl;
+            //             do {
+            //                 RRNodeId rr_terminal_id = mutable_device_ctx.rr_graph.node_lookup().find_node(pin_block_loc.loc.x, pin_block_loc.loc.y, e_rr_type::SINK, ptc);
+                        
+            //                 for (sinkid = 0; sinkid < route_ctx.net_rr_terminals[netid].size(); sinkid++)
+            //                     if (rr_terminal_id != RRNodeId(route_ctx.net_rr_terminals[netid][sinkid]))
+            //                         break;
+            //             } while (sinkid == route_ctx.net_rr_terminals[ClusterNetId(netid)].size());
+            //             std::cout << "No error in sinkid search" << std::endl;
+
+            //             if (not nets.count(netid)) {
+            //                 nets[netid] = std::set<std::pair<int,int>>();
+            //             }
+            //             std::cout << node_id << ": sink -> " << sinkid << std::endl;
+            //             nets.at(netid).insert(std::make_pair(sinkid, hop));
+            //             //VTR_LOG("%s ", net_id.c_str());
+            //         }
+            //         //VTR_LOG("\n", net_id);
+            //         // Now assign this list of nets to the node using the provided function
+            //         mutable_device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+            //         //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
+            //         //t_rr_graph_storage::assign_list_to_node(nets, node_id);
+            //     }
+            //     nets_per_node_fp.close();
+            // }
+        }
     } else {
         if (channel_widths_unchanged(device_ctx.chan_width, nodes_per_chan) && !device_ctx.rr_graph.empty() && is_flat == false) {
             //No change in channel width, so skip re-building RR graph

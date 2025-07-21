@@ -260,26 +260,25 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
     while (!heap_.is_empty_heap()) {
         // cheapest t_heap in current route tree to be expanded on
         cheapest = heap_.get_heap_head();
-	
+        
         ++router_stats_->heap_pops;
 
         int inode = cheapest->index;
-        
-	t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
-	if (node_type == CHANX || node_type == CHANY){
-	    ++router_stats_->wire_heap_pops;
-	}
-	
-	if (cost_params.detailed_router == 1) {	
-	    current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
-	}
-	
-	if (current_hop_value == -1) {
-            VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Current hop value should not be negative");
-	}	
 
-	VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
-                       inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
+        t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+        if (node_type == CHANX || node_type == CHANY){
+            ++router_stats_->wire_heap_pops;
+        }
+        
+        if (cost_params.detailed_router == 1) {	
+            current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
+        }
+        
+        if (current_hop_value == -1) {
+            VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Current hop value should not be negative");
+        }	
+        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
+                        inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
         //Have we found the target?
         if (inode == sink_node) {
@@ -523,8 +522,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                                                             const t_bb bounding_box,
                                                             int target_node,
                                                             const t_bb target_bb, ClusterNetId net_id, int sink_id,
-							    int current_hop_value,
-							    int itry) {
+                                                            int current_hop_value,
+                                                            int itry) {
     RRNodeId to_node(to_node_int);
     int to_xlow = rr_graph_->node_xlow(to_node);
     int to_ylow = rr_graph_->node_ylow(to_node);
@@ -586,20 +585,27 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     
     float offpath_penalty = 1.0;
     if (cost_params.detailed_router == 1) {
-	int hop;
-	if (itry > cost_params.relax_hop_order) {
-		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-		offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
-	}
-	else {
-		hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-		offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
-	}
-	
-	if (offpath_penalty < 0){
-            return;
-	}
+        int hop;
 
+        /*
+            (PARSA), Luka: This was the original offpath penalty logic. 
+        */ 
+        if (itry > cost_params.relax_hop_order) {
+            hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
+            offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
+        }
+        else {
+            hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
+            offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
+        }
+        if (offpath_penalty < 0){
+                return;
+        }
+
+        /*
+            (PARSA), Luka: The new offpath penalty logic allows PathFinder to use nodes outside of the
+            constrained regions after the first iteration.
+        */ 
     }
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
@@ -632,7 +638,7 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
                                                        const int to_node,
                                                        const RREdgeId from_edge,
                                                        const int target_node,
-						       const float offpath_penalty) {
+                                                       const float offpath_penalty) {
     const auto& device_ctx = g_vpr_ctx.device();
     t_heap next;
 
@@ -658,7 +664,7 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
                                       to_node,
                                       from_edge,
                                       target_node,
-				      offpath_penalty);
+                                      offpath_penalty);
 
     float best_total_cost = rr_node_route_inf_[to_node].path_cost;
     float best_back_cost = rr_node_route_inf_[to_node].backward_path_cost;
@@ -695,11 +701,11 @@ void ConnectionRouter<Heap>::timing_driven_add_to_heap(const t_conn_cost_params 
 
         heap_.add_to_heap(next_ptr);
         ++router_stats_->heap_pushes;
-	//===
-	t_rr_type node_type = rr_graph_->node_type(RRNodeId(to_node));
-	if (node_type == CHANX || node_type == CHANY){
-	    ++router_stats_->wire_heap_pushes;
-	}
+        //===
+        t_rr_type node_type = rr_graph_->node_type(RRNodeId(to_node));
+        if (node_type == CHANX || node_type == CHANY){
+            ++router_stats_->wire_heap_pushes;
+        }
     }
 
     if (rcv_path_manager.is_enabled() && next.path_data != nullptr) {

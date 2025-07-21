@@ -40,6 +40,10 @@
 #include "bucket.h"
 #include "draw_global.h"
 
+// (PARSA) Luka, 2025
+#include <fstream>
+#include <string>
+
 /**************** Types local to route_common.c ******************/
 struct t_trace_branch {
     t_trace* head;
@@ -235,7 +239,28 @@ void try_graph(int width_fac, const t_router_opts& router_opts, t_det_routing_ar
                     directs, num_directs,
                     &warning_count);
 }
-//mycode ========================================
+//mycode ======================================== (SHASHWAT)
+/* (PARSA) Luka, 2025 */ 
+// ===================
+std::tuple<ClusterNetId, int, int> get_netid_sinkid_hop(std::string connection_id) {
+    /*(PARSA) Luka, 2025: Kept the functionality, changed the implementation to prevent segmentation faults*/
+    std::stringstream ss(connection_id);
+    std::string net_str, sink_str, hop_str;
+
+    if (std::getline(ss, net_str, '_') &&
+        std::getline(ss, sink_str, '_') &&
+        std::getline(ss, hop_str)) {
+
+        int netId = std::stoi(net_str);
+        int sinkId = std::stoi(sink_str);
+        int hop = std::stoi(hop_str);
+
+        return std::make_tuple(ClusterNetId(netId), sinkId, hop);
+    } else {
+        throw std::runtime_error("Invalid connection_id format: " + connection_id);
+    }
+};
+// ===================
 bool try_route_incr_route(int width_fac,
                const t_file_name_opts& filename_opts,
                const t_router_opts& router_opts,
@@ -299,6 +324,100 @@ bool try_route_incr_route(int width_fac,
 
     init_route_structs(router_opts.bb_factor);
 
+    /*
+        (PARSA) Luka, 2025: This creates 'vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node', used during routing
+        to limit PathFinder's solutions to coarsened regions created during "global routing".
+
+        For the "Guaranteed Yet Hard to Find" paper's experiments, this code was in 'create_rr_graph()'. It got moved here because
+        Steiner tree global routing requires routing structures to be initialized in order for the Steiner global router's solutions
+        to be converted into a format that fits into the rest of the pipeline.
+    */
+   
+    if(router_opts.detailed_router == 1 && !router_opts.steiner_constraints){
+        size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
+        VTR_LOG("[SHA] Total nodes in the RRG: %d\n", total_rr_nodes);
+        device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+        
+        std::ifstream nets_per_node_fp;
+        std::string nets_per_node_filename = "connections_per_dnode.txt";
+        nets_per_node_fp.open(nets_per_node_filename);
+            
+        int lineno = 0;
+        VTR_LOG("[SHA] Reading connectionss_per_dnode.txt file\n");
+        if (!nets_per_node_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open nets per node file");
+        }
+        std::string line;
+        while (getline(nets_per_node_fp, line)) {
+            std::istringstream iss(line);
+            std::string connection_id;
+            std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
+            int node_id;
+            iss >> node_id;  // First read the node ID
+            while (iss >> connection_id) {  // Then read all the following net IDs
+                // nets.insert(net_id);
+                ClusterNetId netid; int sinkid, hop;
+                std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
+                //VTR_LOG("Reading file: %d ");
+                if (not nets.count(netid)) {
+                    nets[netid] = std::set<std::pair<int,int>>();
+                }
+                nets.at(netid).insert(std::make_pair(sinkid, hop));
+                //VTR_LOG("%s ", net_id.c_str());
+            }
+            //VTR_LOG("\n", net_id);
+            // Now assign this list of nets to the node using the provided function
+            device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+            //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
+            //t_rr_graph_storage::assign_list_to_node(nets, node_id);
+        }
+        nets_per_node_fp.close();
+    } /* (PARSA) Luka, 2025: Since "sinkids" are collected pre-creation of the rr_graph, an additional step is necessary to map ClusterPinIds to actual sinkids*/
+    else if (router_opts.detailed_router == 1 && router_opts.steiner_constraints) {
+        size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
+        VTR_LOG("[LUKA] Total nodes in the RRG: %d\n", total_rr_nodes);
+        device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+        
+        std::ifstream nets_per_node_fp;
+        std::string nets_per_node_filename = "connections_per_dnode.txt";
+        nets_per_node_fp.open(nets_per_node_filename);
+            
+        int lineno = 0;
+        VTR_LOG("[LUKA] Reading connectionss_per_dnode.txt file\n");
+        if (!nets_per_node_fp.is_open()) {
+            vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+                "Cannot open nets per node file");
+        }
+        std::string line;
+        while (getline(nets_per_node_fp, line)) {
+            std::istringstream iss(line);
+
+            std::string connection_id;
+            std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
+            int node_id;
+            iss >> node_id;  // First read the node ID
+            while (iss >> connection_id) {  // Then read all the following net IDs
+                // nets.insert(net_id);
+                ClusterNetId netid; 
+                int sinkid, hop;
+                std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
+
+                if (not nets.count(netid)) {
+                    nets[netid] = std::set<std::pair<int,int>>();
+                }
+                nets.at(netid).insert(std::make_pair(sinkid, hop));
+                //VTR_LOG("%s ", net_id.c_str());
+            }
+            //VTR_LOG("\n", net_id);
+            // Now assign this list of nets to the node using the provided function
+            device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+            //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
+            //t_rr_graph_storage::assign_list_to_node(nets, node_id);
+        }
+        nets_per_node_fp.close();
+    }
+
     if (cluster_ctx.clb_nlist.nets().empty()) {
         VTR_LOG_WARN("No nets to route\n");
     }
@@ -330,7 +449,7 @@ bool try_route_incr_route(int width_fac,
 
     return (success);
 }
-//===========================
+// ===========================
 bool try_route(int width_fac,
                const t_router_opts& router_opts,
                const t_analysis_opts& analysis_opts,
@@ -513,6 +632,7 @@ std::pair<int, float> get_tree_cost(t_trace* route_segment_start){
 
 }
 
+// (SHA): End
 
 void pathfinder_update_path_occupancy(t_trace* route_segment_start, int add_or_sub) {
     /* This routine updates the occupancy of the rr_nodes that are affected by
@@ -706,6 +826,7 @@ static t_trace_branch traceback_branch(int node, int target_net_pin_index, std::
 
     auto rr_type = rr_graph.node_type(RRNodeId(node));
     if (rr_type != SINK) {
+        VTR_LOG("%d\n", node);
         VPR_FATAL_ERROR(VPR_ERROR_ROUTE,
                         "in traceback_branch: Expected type = SINK (%d).\n");
     }
@@ -1910,5 +2031,3 @@ std::string describe_unrouteable_connection(const int source_node, const int sin
 
     return msg;
 }
-
-//===============================================

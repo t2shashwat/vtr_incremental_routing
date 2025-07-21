@@ -460,6 +460,15 @@ enum class e_timing_update_type {
  * Placement and routing data types
  ****************************************************************************/
 
+ /* (PARSA) Luka, 2025 */
+// enum e_target_bracket {
+//     NONE,
+//     START_TO_5,
+//     START_TO_10,
+//     _100_TO_END,
+//     START_TO_END
+// };
+
 /* Values of number of placement available move types */
 #define NUM_PL_MOVE_TYPES 7
 #define NUM_PL_NONTIMING_MOVE_TYPES 3
@@ -1258,6 +1267,13 @@ struct t_router_opts {
     float global_occ_factor = 0;
     int load_gr_history = 0;
     float offpath_penalty = 1.0;
+    //==========================================
+
+    // (PARSA) Luka, 2025: Rectilinear steiner minimal tree constrained detailed routing in the global-detailed paradigm
+    bool steiner_constraints = false;
+    bool dependency_graph_sink_order = false;
+    bool shuffle_first_iteration = false;
+    int target_bracket = 0;
     //==========================================
 };
 

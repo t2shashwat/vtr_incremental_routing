@@ -96,6 +96,9 @@
 #include "log.h"
 #include "iostream"
 
+// (PARSA) Luka, 2025
+#include "steiner.h"
+
 #ifdef VPR_USE_TBB
 #    include <tbb/task_scheduler_init.h>
 
@@ -795,9 +798,20 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
 
         if (router_opts.doRouting == STAGE_DO) {
             //Do the actual routing
+
+            if (router_opts.steiner_constraints || router_opts.dependency_graph_sink_order) {
+                /*
+                    (PARSA) Luka, 2025: Given the netlist, create rectilinear Steiner minimal trees for all nets in the netlist, 
+                    and then use them to create coarse (constrained) routing regions and/or compute RSMT derived dependency graph
+                    sink orders.
+                */
+                VTR_LOG("Steiner pre-processing...\n");
+                steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order);
+            }
+            
             if (NO_FIXED_CHANNEL_WIDTH == chan_width) {
                 //Find minimum channel width
-                //route_status = vpr_route_min_W(vpr_setup, arch, timing_info, routing_delay_calc, net_delay, is_flat);
+                route_status = vpr_route_min_W(vpr_setup, arch, timing_info, routing_delay_calc, net_delay, is_flat);
             } else {
                 //Route at specified channel width
                 route_status = vpr_route_fixed_W(vpr_setup, arch, chan_width, timing_info, routing_delay_calc, net_delay, is_flat);
@@ -813,7 +827,6 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
         }
 
         //Post-implementation
-
         std::string graphics_msg;
         if (route_status.success()) {
             //Sanity check the routing

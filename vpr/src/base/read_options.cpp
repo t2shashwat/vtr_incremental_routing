@@ -373,6 +373,9 @@ struct ParseTreeType {
             conv_value.set_value(MIN_CONG_COST);
         else if (str == "min_heap_pushes")
             conv_value.set_value(MIN_HEAP_PUSHES);
+        else if (str == "max_total_nodes") {
+            conv_value.set_value(MAX_TOTAL_NODES);
+        }
         else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_tree_type (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -385,8 +388,11 @@ struct ParseTreeType {
         ConvertedValue<std::string> conv_value;
         if (val == MIN_TOTAL_NODES)
             conv_value.set_value("min_total_nodes");
-	else if (val == MIN_CONG_COST)
+	    else if (val == MIN_CONG_COST)
             conv_value.set_value("min_cong_cost");
+        else if (val == MAX_TOTAL_NODES) {
+            conv_value.set_value("max_total_nodes");
+        }
         else {
             VTR_ASSERT(val == MIN_HEAP_PUSHES);
             conv_value.set_value("min_heap_pushes");
@@ -395,7 +401,7 @@ struct ParseTreeType {
     }
 
     std::vector<std::string> default_choices() {
-        return {"min_total_nodes", "min_cong_cost", "min_heap_pushes"};
+        return {"min_total_nodes", "min_cong_cost", "min_heap_pushes", "max_total_nodes"};
     }
 };
 struct ParsePlaceDeltaDelayAlgorithm {
@@ -2237,7 +2243,7 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
     route_grp.add_argument<e_tree_type, ParseTreeType>(args.tree_type, "--tree_type")
         .help("Specifies which tree to use during routing.")
         .default_value("min_total_nodes")
-        .choices({"min_total_nodes", "min_cong_cost", "min_heap_pushes"})
+        .choices({"min_total_nodes", "min_cong_cost", "min_heap_pushes", "max_total_nodes"})
         .show_in(argparse::ShowIn::HELP_ONLY);
     
     route_grp.add_argument(args.shuffle1, "--shuffle1")
@@ -2308,6 +2314,30 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("1.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     //========================================
+
+    // (PARSA) Luka, 2025
+    route_grp.add_argument(args.steiner_constraints, "--steiner_constraints")
+        .help(
+            "Create RSMT constrained regions")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.dependency_graph_sink_order, "--dependency_graph_sink_order")
+            .help(
+                "Use RMST informed sink order")
+            .default_value("false")
+            .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.shuffle_first_iteration, "--shuffle_first_iteration")
+        .help(
+            "Shuffle only in the first iteration")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    route_grp.add_argument(args.target_bracket, "--target_bracket")
+        .help(
+            "Choose which category of sinks to optimize route trees for")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    //==========================================
+
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")
         .default_value("0.0")

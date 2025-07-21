@@ -395,6 +395,13 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->load_gr_history = Options.load_gr_history;
     RouterOpts->offpath_penalty = Options.offpath_penalty;
     //========================================
+    // (PARSA) Luka, 2025
+    RouterOpts->steiner_constraints = Options.steiner_constraints;
+    RouterOpts->dependency_graph_sink_order = Options.dependency_graph_sink_order;
+    RouterOpts->shuffle_first_iteration = Options.shuffle_first_iteration;
+    RouterOpts->target_bracket = Options.target_bracket;
+    //==========================================
+
     //TODO document these?
     RouterOpts->congestion_analysis = Options.full_stats;
     RouterOpts->fanout_analysis = Options.full_stats;
