@@ -27,6 +27,12 @@ class RoutingPredictor {
 
     float get_slope() const;
 
+    bool is_leaking_allowed() const;
+
+    void set_leak_flag(bool leak);
+    
+    bool get_leak_flag() const;
+
   private:
     size_t min_history_;
     float history_factor_;
@@ -34,6 +40,7 @@ class RoutingPredictor {
     std::vector<size_t> iterations_;
     std::vector<size_t> iteration_overused_rr_node_counts_;
     float slope_;
+    bool leak_;
 };
 
 #endif

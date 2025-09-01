@@ -627,6 +627,46 @@ void create_branch_node_map_file(SteinerContext& steiner_ctx) {
     free up memory.
 */
 
+
+std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_connection() const {
+    std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
+
+    // 1. Build reverse edge map: child → parent
+    std::unordered_map<std::string, std::string> child_to_parent;
+    for (const auto& [parent, children] : this->sb_edges.edge_map) {
+        for (const auto& [child, is_valid] : children) {
+            if (is_valid) {
+                child_to_parent[child] = parent;
+            }
+        }
+    }
+
+    // 2. Traverse from each sink SB up to the source
+    for (const auto& [str_id, sb] : this->sb_map) {
+        if (sb.pin_id <= 0) continue;  // Only terminal sinks
+
+        int sink_id = sb.pin_id;
+        std::string current = str_id;
+        std::vector<Corridor> corridor_path;
+
+        while (child_to_parent.count(current)) {
+            const std::string& parent = child_to_parent.at(current);
+            const SB& from_sb = this->sb_map.at(parent);
+            const SB& to_sb = this->sb_map.at(current);
+
+            corridor_path.emplace_back(from_sb.x, from_sb.y, to_sb.x, to_sb.y);
+            current = parent;
+        }
+
+        std::reverse(corridor_path.begin(), corridor_path.end());
+        corridor_list_per_connection[sink_id] = std::move(corridor_path);
+    }
+
+    return corridor_list_per_connection;
+}
+
+
+
 void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders) {
     // Initialize context refereces
     const ClusteringContext& cluster_ctx = g_vpr_ctx.clustering();
@@ -643,7 +683,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     // Nets belonging to the "global connecting nets" are not routed by the global router
     // net is global should replace this
-    std::set<size_t> nets_to_skip = load_nets_to_skip();
+    //std::set<size_t> nets_to_skip = load_nets_to_skip();
 
     // Create RSMT for each net in the clustered netlist (except for
     // "global connecting nets") and update the global Steiner context 
@@ -652,7 +692,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
         // Skip "global connecting nets"; this might also be done by checking clb_nlist.net_is_global(net_id), but I haven't been able to get that to work
-        if (cluster_ctx.clb_nlist.net_is_global(net_id) || nets_to_skip.count(size_t(net_id)) > 0) {
+        if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) {
             printf("Net ID: %d\n", size_t(net_id));
             continue;
         }
@@ -661,13 +701,18 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
         Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1);
 
         if (create_steiner_constraints) {
+	    // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
             // Create RSMT constrained regions for the net and
             // update the global Steiner context with the information 
-            steiner.create_coarsened_regions(make_str_id(steiner.source_x, steiner.source_y));
+            //steiner.create_coarsened_regions(make_str_id(steiner.source_x, steiner.source_y));
 
             // The RSMT is used to compute the nearest neighbour sink order;
             // by doing this, we reduce heap pops and redundant wires
-        }
+	    //
+	    // Below is the new implemenation driven to optimize runtime by reducing memory accesses
+	    auto net_corridors = steiner.build_corridor_list_per_connection();
+            steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+	}
         // Calculate Francois' dependency graph sink order
         if (compute_dependency_graph_sink_orders) {
             steiner.compute_dependency_graph_sink_order(make_str_id(steiner.source_x, steiner.source_y), steiner_ctx.steiner_sink_orders);
@@ -679,14 +724,14 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     }
     if (create_steiner_constraints) {
         // Create "connections_per_dnode.txt"
-        create_connections_per_dnode_file(steiner_ctx);
+        //create_connections_per_dnode_file(steiner_ctx);
 
         // Create "sink_order.txt" with default net pin orders
         // dummy file, not dumping dependacy graph algorithm
-        create_sink_order_file(cluster_ctx, blocks_locs);
+        //create_sink_order_file(cluster_ctx, blocks_locs);
 
         // Create "branch_node_map.txt"
-        create_branch_node_map_file(steiner_ctx);
+        //create_branch_node_map_file(steiner_ctx);
 
         // Remove the gnode maps from the global Steiner context to free up memory
         steiner_ctx.loc_dir_len_to_gnode.clear();

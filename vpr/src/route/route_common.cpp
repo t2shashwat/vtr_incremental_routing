@@ -377,7 +377,7 @@ bool try_route_incr_route(int width_fac,
     else if (router_opts.detailed_router == 1 && router_opts.steiner_constraints) {
         size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
         VTR_LOG("[LUKA] Total nodes in the RRG: %d\n", total_rr_nodes);
-        device_ctx.rr_graph_builder.resize_allowed_list_of_nodes(total_rr_nodes);
+        device_ctx.rr_graph_builder.resize_allowed_list_of_nodes_mem_opt(total_rr_nodes);
         
         std::ifstream nets_per_node_fp;
         std::string nets_per_node_filename = "connections_per_dnode.txt";
@@ -394,24 +394,26 @@ bool try_route_incr_route(int width_fac,
             std::istringstream iss(line);
 
             std::string connection_id;
-            std::map<ClusterNetId, std::set<std::pair<int, int>>> nets;
+            //std::map<ClusterNetId, std::set<std::pair<uint16_t, int8_t>>> nets;
+            std::map<ClusterNetId, std::set<uint16_t>> nets;
             int node_id;
             iss >> node_id;  // First read the node ID
             while (iss >> connection_id) {  // Then read all the following net IDs
                 // nets.insert(net_id);
                 ClusterNetId netid; 
-                int sinkid, hop;
+                uint16_t sinkid;
+	        int8_t hop;
                 std::tie(netid, sinkid, hop) = get_netid_sinkid_hop(connection_id);
 
                 if (not nets.count(netid)) {
-                    nets[netid] = std::set<std::pair<int,int>>();
+                    nets[netid] = std::set<uint16_t>();
                 }
-                nets.at(netid).insert(std::make_pair(sinkid, hop));
+                nets.at(netid).insert(sinkid);
                 //VTR_LOG("%s ", net_id.c_str());
             }
             //VTR_LOG("\n", net_id);
             // Now assign this list of nets to the node using the provided function
-            device_ctx.rr_graph_builder.assign_list_to_node(nets, RRNodeId(node_id));
+            device_ctx.rr_graph_builder.assign_list_to_node_mem_opt(nets, RRNodeId(node_id));
             //device_ctx.rr_graph.assign_list_to_node(nets, RRNodeId(node_id));
             //t_rr_graph_storage::assign_list_to_node(nets, node_id);
         }

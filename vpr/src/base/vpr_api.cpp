@@ -805,8 +805,10 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
                     and then use them to create coarse (constrained) routing regions and/or compute RSMT derived dependency graph
                     sink orders.
                 */
-                VTR_LOG("Steiner pre-processing...\n");
-                steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order);
+		if (router_opts.calculate_steiner_trees){
+                   VTR_LOG("Steiner pre-processing...\n");
+                   steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order);
+		}
             }
             
             if (NO_FIXED_CHANNEL_WIDTH == chan_width) {

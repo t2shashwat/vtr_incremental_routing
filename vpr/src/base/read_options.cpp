@@ -2240,6 +2240,18 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
     
+    route_grp.add_argument(args.leak_iteration, "--leak_iteration")
+        .help(
+            "Set iteration for router to leak outside coarse regions")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.leak_if_needed, "--leak_if_needed")
+        .help(
+            "Set true if leaking is accepted")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument<e_tree_type, ParseTreeType>(args.tree_type, "--tree_type")
         .help("Specifies which tree to use during routing.")
         .default_value("min_total_nodes")
@@ -2318,9 +2330,16 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
     // (PARSA) Luka, 2025
     route_grp.add_argument(args.steiner_constraints, "--steiner_constraints")
         .help(
+            "Run routing along RSMT constrained regions")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    route_grp.add_argument(args.calculate_steiner_trees, "--calculate_steiner_trees")
+        .help(
             "Create RSMT constrained regions")
         .default_value("false")
         .show_in(argparse::ShowIn::HELP_ONLY);
+    
     route_grp.add_argument(args.dependency_graph_sink_order, "--dependency_graph_sink_order")
             .help(
                 "Use RMST informed sink order")

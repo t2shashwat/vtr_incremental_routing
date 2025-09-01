@@ -1255,6 +1255,8 @@ struct t_router_opts {
     int icr_iter = 0;
     float sbNode_lookahead_factor = 0.0;
     int detailed_router = 0;
+    int leak_iteration = 0;
+    bool leak_if_needed = false;
     enum e_tree_type tree_type;
     int shuffle1 = 0;
     int shuffle2 = 0;
@@ -1271,6 +1273,7 @@ struct t_router_opts {
 
     // (PARSA) Luka, 2025: Rectilinear steiner minimal tree constrained detailed routing in the global-detailed paradigm
     bool steiner_constraints = false;
+    bool calculate_steiner_trees = false;
     bool dependency_graph_sink_order = false;
     bool shuffle_first_iteration = false;
     int target_bracket = 0;

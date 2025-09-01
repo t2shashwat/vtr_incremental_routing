@@ -209,3 +209,24 @@ void RoutingPredictor::add_iteration_overuse(size_t iteration, size_t overused_r
         slope_ = model.get_slope();
     }
 }
+
+bool RoutingPredictor::is_leaking_allowed() const {
+    if (iterations_.size() <= 1){
+        return false;
+    }
+    else {
+	double threshold = 0.1;    
+        size_t prev_iteration_overuse         = iteration_overused_rr_node_counts_.back();
+        size_t penultimate_iteration_overuse  = iteration_overused_rr_node_counts_[iterations_.size() - 2];
+	double rel = std::abs(double(penultimate_iteration_overuse - prev_iteration_overuse)) / penultimate_iteration_overuse;
+        return (rel <= threshold) ? true : false;
+    }
+}
+
+void RoutingPredictor::set_leak_flag(bool leak){
+    leak_ = leak;
+}
+
+bool RoutingPredictor::get_leak_flag() const{
+    return leak_;
+}

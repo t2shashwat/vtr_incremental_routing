@@ -48,8 +48,11 @@
 #include "check_route.h"
 #include "route_breadth_first.h"
 
+
+extern double g_check_conn_cumulative_time_ms;
 //=================================
 #define CONGESTED_SLOPE_VAL -0.04
+
 
 enum class RouterCongestionMode {
     NORMAL,
@@ -2516,7 +2519,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         }
         // reading branch node 
         // net, net_pin_index --> all branch dnode id
-        std::ifstream branch_dnode_map_fp;
+        /*std::ifstream branch_dnode_map_fp;
         std::string branch_dnode_map_filename = "branch_node_map.txt";
         branch_dnode_map_fp.open(branch_dnode_map_filename);
         lineno = 0;
@@ -2547,7 +2550,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             
             branch_node_map[net_id][sink_id] = dnode_ids;
         }
-        branch_dnode_map_fp.close();
+        branch_dnode_map_fp.close();*/
     	//reading file with nets to skip
     	std::ifstream nets_skip_fp;
     	std::string nets_skip_filename = "reconvergent_nets.txt";
@@ -2598,7 +2601,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         }
         node_map_fp.close();
 	// setting the initial cost of nodes equal to occupancy
-        for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+        /*for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
 	    int g_occupancy = device_ctx.rr_graph.get_global_occupancy(rr_id); 
             if (g_occupancy > 0) {
 		//route_ctx.rr_node_route_inf[size_t(rr_id)].acc_cost = g_occupancy;
@@ -2610,7 +2613,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             	route_ctx.rr_node_route_inf[size_t(rr_id)].set_g_occ(1);
 	    
 	    }
-	}
+	}*/
     }
     if(router_opts.detailed_router == 1 && router_opts.load_gr_history == 1){
         printf("####### BEGINING loading history files for detailed router: %d ######################\n", itry);
@@ -2738,6 +2741,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     float pres_fac_new;
     size_t connections_routed_first_iteration, nets_routed_first_iteration, heap_pushes_first_iteration, heap_pops_first_iteration; 
     print_route_status_header();
+    routing_predictor.set_leak_flag(false);
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
     	RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
@@ -2824,6 +2828,16 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 #endif
             }
         }
+	
+	if (router_opts.detailed_router == 1 && router_opts.leak_if_needed == true && routing_predictor.get_leak_flag() == false) { // last condition ensures that once leak is allowed, leak permission is not checked again in subsquent iterations or nets
+	    routing_predictor.set_leak_flag(routing_predictor.is_leaking_allowed());
+	    if (itry >= router_opts.leak_iteration){
+	        routing_predictor.set_leak_flag(true);
+	    }
+	    if (routing_predictor.get_leak_flag() == true) {
+	        VTR_LOG("[SHA] Leak allowed from this iteration.\n");
+	    }
+	}
 
         /*
             (PARSA) Luka, 2025: This has no use in the RSMT constrained setting, so && !steiner_constraints was added.
@@ -3371,6 +3385,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     VTR_LOG("Final Net Connection Criticality Histogram:\n");
     print_router_criticality_histogram(*route_timing_info, netlist_pin_lookup);
 
+
     if (router_opts.incr_route == 1){
         size_t nets_routed_wo_first_iteration = router_stats.nets_routed - nets_routed_first_iteration;
         size_t connections_routed_wo_first_iteration = router_stats.connections_routed - connections_routed_first_iteration;
@@ -3393,6 +3408,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         VTR_LOG("Stats for one-stage routing\n");
         VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu total_wire_heap_pushes: %zu total_wire_heap_pops: %zu min_heap_pushes: %zu min_heap_pops: %zu max_heap_pushes: %zu max_heap_pops: %zu\n",
                 router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops, router_stats.wire_heap_pushes, router_stats.wire_heap_pops, router_stats.min_heap_pushes, router_stats.min_heap_pops, router_stats.max_heap_pushes, router_stats.max_heap_pops);
+
+        std::cout << "[Timing] check_connection_allowed_to_use_node_mem_opt cumulative time: "
+          << g_check_conn_cumulative_time_ms << " ms" << std::endl;
     }
 
     return routing_is_successful;
@@ -3518,7 +3536,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
 
-    printf("Routing net %d\n", size_t(net_id));
 
     unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
 
@@ -3915,7 +3932,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.detailed_router = router_opts.detailed_router;
         cost_params.relax_hop_order = router_opts.relax_hop_order;
         cost_params.global_occ_factor = router_opts.global_occ_factor;
-
+	//cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
+	cost_params.leak = routing_predictor.get_leak_flag();
         // Pre-route to clock source for clock nets (marked as global nets)
         if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
             //VTR_ASSERT(router_opts.clock_modeling == DEDICATED_NETWORK);
@@ -3952,9 +3970,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             int target_pin = remaining_targets[itarget];
 
             std::set<int> branch_nodes;
-            if (router_opts.detailed_router == 1){
+            /*if (router_opts.detailed_router == 1){
                     branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
-            }
+            }*/
             /*VTR_LOG("target_pin: %d\n", target_pin);        		
             for (auto node : branch_nodes){
                 VTR_LOG("Branch nodes: %d\n", node);        		

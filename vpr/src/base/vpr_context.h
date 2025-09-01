@@ -30,7 +30,21 @@
 #include "noc_storage.h"
 #include "noc_traffic_flows.h"
 #include "noc_routing.h"
+struct Corridor {
+    short x1, y1, x2, y2;
 
+    Corridor(int a, int b, int c, int d)
+        : x1(std::min(a, c)), y1(std::min(b, d)),
+          x2(std::max(a, c)), y2(std::max(b, d)) {}
+
+    bool contains(int x, int y) const {
+        return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+    }
+
+    bool contains_box(int a1, int b1, int a2, int b2) const {
+        return a1 >= x1 && a2 <= x2 && b1 >= y1 && b2 <= y2;
+    }
+};
 /**
  * @brief A Context is collection of state relating to a particular part of VPR
  *
@@ -437,7 +451,7 @@ struct SteinerContext : public Context {
         would store allowed connections per RSMT edge.
     */
     std::unordered_map<int, std::vector<std::pair<int, int>>> connections_per_dnode;
-
+    std::unordered_map<ClusterNetId, std::unordered_map<int, std::vector<Corridor>>> all_corridors;
     /*
         A mapping from Net Pin Index to number denoting priority when routing (lower number, higher priority)
         Used in the RSMT constrained routing setting, as well as when routing with the dependency graph sink order

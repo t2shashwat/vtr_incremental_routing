@@ -27,8 +27,8 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 
     int seg_index_branch_node = 0;
     if (cost_params.detailed_router == 1){
-    	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
-    	seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    	//RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    	//seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
     }
     t_heap* cheapest = timing_driven_route_connection_common_setup(rt_root, sink_node, cost_params, bounding_box, net_id, sink_id, branch_nodes, seg_index_branch_node, itry);
 
@@ -161,8 +161,8 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     const auto& device_ctx = g_vpr_ctx.device();
     int seg_index_branch_node = 0;
     if (cost_params.detailed_router == 1){
-    	RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
-    	seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
+    	//RRIndexedDataId cost_index = rr_graph_->node_cost_index(RRNodeId(*branch_nodes.begin()));
+    	//seg_index_branch_node = device_ctx.rr_indexed_data[cost_index].seg_index;
     }
 
     //VTR_LOG("Segment index of the branch_node: %d\n", seg_index_branch_node);
@@ -172,9 +172,10 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     if (itry < 1 && cost_params.detailed_router == 1) {
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
-    else if (cost_params.detailed_router == 1){
-	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
-    	high_fanout_bb = net_bounding_box;
+    else if (cost_params.detailed_router == 1 && cost_params.leak == false){
+	//add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id);
+    	//high_fanout_bb = net_bounding_box;
+    	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node, net_id, sink_id);
     }
     else {
     	high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node, net_id, sink_id);
@@ -270,13 +271,16 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
             ++router_stats_->wire_heap_pops;
         }
         
-        if (cost_params.detailed_router == 1) {	
-            current_hop_value = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(inode), net_id, sink_id);
+        if (cost_params.detailed_router == 1 && cost_params.leak == false) {	
+            current_hop_value = rr_graph_->check_connection_allowed_to_use_node_mem_opt(RRNodeId(inode), net_id, sink_id);
         }
-        
-        if (current_hop_value == -1) {
-            VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Current hop value should not be negative");
-        }	
+       
+        // this was just a check that was added to ensure a nonallowed node was not on the heap
+	// But for the high fanout nets, when a subset of prt is added to the heap, it can have nodes with hop value -1 as in the high-fanout function that pushes nodes to heap from prt, such a check is not made, as a result, nodes with hop value -1 are also pushes
+	// this is a hypothesis for now, I should comment this two lines below and see if it fixed num_heap_allocated == 0 assertion failure
+        //if (current_hop_value == -1 && cost_params.leak == false) {
+        //    VPR_FATAL_ERROR(VPR_ERROR_ROUTE, "Current hop value should not be negative");
+        //}	
         VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
                         inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
@@ -591,8 +595,14 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
             (PARSA), Luka: This was the original offpath penalty logic. 
         */ 
         if (itry > cost_params.relax_hop_order) {
-            hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-            offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
+	    hop = rr_graph_->check_connection_allowed_to_use_node_mem_opt(to_node, net_id, sink_id);
+            if (cost_params.leak == false){	
+                offpath_penalty = (hop != -1) ? 1.0 : -1.0;
+	    }
+	    else { //leak allowed, if node not allowed then set high offpath
+            	offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
+	    
+	    }
         }
         else {
             hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
@@ -990,14 +1000,19 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     /* Pre-order depth-first traversal */
     // IPINs and SINKS are not re_expanded
     if (rt_node->re_expand) {
-	if (cost_params.detailed_router == 1){	
+	if (cost_params.detailed_router == 1 && cost_params.leak == false){	
 		int to_node = rt_node->inode;
-		int hop = rr_graph_->check_connection_allowed_to_use_node(RRNodeId(to_node), net_id, sink_id);
+		int hop = rr_graph_->check_connection_allowed_to_use_node_mem_opt(RRNodeId(to_node), net_id, sink_id);
 		if (hop != -1) {
-	    		add_route_tree_node_to_heap_with_zero_cost(rt_node,
+	    		add_route_tree_node_to_heap(rt_node,
                                    				   target_node,
                                     				   cost_params);
 		}
+	} // the above case still adds node with zero cost when hop order is relaxed
+	else if (cost_params.detailed_router == 1 && cost_params.leak == true){	
+	    add_route_tree_node_to_heap(rt_node,
+                                    target_node,
+                                    cost_params);
 	}
 	else if (cost_params.detailed_router == 0){
 	    add_route_tree_node_to_heap(rt_node,

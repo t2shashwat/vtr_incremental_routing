@@ -169,6 +169,10 @@ class RRGraphView {
             return node_storage_.check_connection_allowed_to_use_node(id, netid, sinkid);
         }
 
+    inline const int check_connection_allowed_to_use_node_mem_opt(
+        const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
+            return node_storage_.check_connection_allowed_to_use_node_mem_opt(id, netid, sinkid);
+        }
     inline const int get_global_occupancy(const RRNodeId& id) const {
         return node_storage_.get_global_occupancy(id);
     }

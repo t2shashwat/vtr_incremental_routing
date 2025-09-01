@@ -30,7 +30,7 @@ struct t_conn_cost_params {
     int detailed_router = 0;
     int relax_hop_order = 1000;
     float global_occ_factor = 0.0;
-
+    bool leak = false;
     //TODO: Eventually once delay budgets are working, t_conn_delay_budget
     //should be factoured out, and the delay budget parameters integrated
     //into this struct instead. For now left as a pointer to control whether

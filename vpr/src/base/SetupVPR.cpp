@@ -382,6 +382,8 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->icr_iter = Options.icr_iter;
     RouterOpts->sbNode_lookahead_factor = Options.sbNode_lookahead_factor;
     RouterOpts->detailed_router = Options.detailed_router;
+    RouterOpts->leak_iteration = Options.leak_iteration;
+    RouterOpts->leak_if_needed= Options.leak_if_needed;
     RouterOpts->tree_type= Options.tree_type;
     RouterOpts->shuffle1 = Options.shuffle1;
     RouterOpts->shuffle2 = Options.shuffle2;
@@ -397,6 +399,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     //========================================
     // (PARSA) Luka, 2025
     RouterOpts->steiner_constraints = Options.steiner_constraints;
+    RouterOpts->calculate_steiner_trees = Options.calculate_steiner_trees;
     RouterOpts->dependency_graph_sink_order = Options.dependency_graph_sink_order;
     RouterOpts->shuffle_first_iteration = Options.shuffle_first_iteration;
     RouterOpts->target_bracket = Options.target_bracket;

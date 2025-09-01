@@ -191,6 +191,8 @@ struct t_options {
     argparse::ArgValue<int> icr_iter;
     argparse::ArgValue<float> sbNode_lookahead_factor;
     argparse::ArgValue<int> detailed_router;
+    argparse::ArgValue<int> leak_iteration;
+    argparse::ArgValue<bool> leak_if_needed;
     argparse::ArgValue<e_tree_type> tree_type;
     argparse::ArgValue<int> shuffle1;
     argparse::ArgValue<int> shuffle2;
@@ -206,6 +208,7 @@ struct t_options {
     //===========================
     // (PARSA) Luka, 2025
     argparse::ArgValue<bool> steiner_constraints;
+    argparse::ArgValue<bool> calculate_steiner_trees;
     argparse::ArgValue<bool> dependency_graph_sink_order;
     argparse::ArgValue<bool> shuffle_first_iteration;
     argparse::ArgValue<int> target_bracket;

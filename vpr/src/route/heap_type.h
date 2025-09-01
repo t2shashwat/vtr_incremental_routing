@@ -43,6 +43,8 @@ struct t_heap {
 
     int index = OPEN;
 
+    //SHA
+    int corr_index;
     // Structure to handle extra RCV structures
     // Managed by PathManager class
     t_heap_path* path_data;

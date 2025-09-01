@@ -320,6 +320,13 @@ class RRGraphBuilder {
         node_storage_.assign_list_to_node(net_list, id);//allowed_nets_per_node[id] = net_list;
     }
     
+    inline void assign_list_to_node_mem_opt(
+	std::map<ClusterNetId, std::set<uint16_t>> net_list,
+        const RRNodeId& id){
+        node_storage_.assign_list_to_node_mem_opt(net_list, id);//allowed_nets_per_node[id] = net_list;
+    }
+    
+    
     /*inline void assign_list_to_node_v2(
         std::set<std::string> net_list,
         const RRNodeId& id){
@@ -329,6 +336,11 @@ class RRGraphBuilder {
     inline void resize_allowed_list_of_nodes(
         size_t size){
         node_storage_.resize_allowed_list_of_nodes(size);
+    }
+    
+    inline void resize_allowed_list_of_nodes_mem_opt(
+        size_t size){
+        node_storage_.resize_allowed_list_of_nodes_mem_opt(size);
     }
     
     /*inline void resize_allowed_list_of_nodes_v2(

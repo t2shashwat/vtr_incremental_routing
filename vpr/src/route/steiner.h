@@ -14,7 +14,6 @@
 #include "globals.h"
 
 #include "flute.h"
-
 // UTILS
 int calculate_manhattan_distance(std::string sb1_id, std::string sb2_id);
 
@@ -24,6 +23,7 @@ std::string make_str_id(int x, int y);
 
 std::string make_str_id(int x, int y, int pin_id);
 // end of UTILS
+
 
 struct CLB {
     int x;
@@ -151,6 +151,8 @@ public:
     std::vector<int> traverse_rsmt_build_paths(std::string source_sb_id);
     
     void map_net_sink_to_dnodes(int source_x, int source_y, int sink_x, int sink_y, std::vector<int>& sink_ids);
+
+    std::unordered_map<int, std::vector<Corridor>> build_corridor_list_per_connection() const;
 
     void compute_dependency_graph_sink_order(std::string source_sb_id, std::unordered_map<size_t, std::unordered_map<int, int>>& sink_order);
     

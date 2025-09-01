@@ -18,6 +18,10 @@
 //SHA includes
 #include "../../../../vpr/src/base/clustered_netlist_fwd.h"
 #include <set>
+#include <chrono>
+#include <iostream>
+#pragma once
+extern double g_check_conn_cumulative_time_ms; 
 
 /* Main structure describing one routing resource node.  Everything in       *
  * this structure should describe the graph -- information needed only       *
@@ -626,6 +630,11 @@ class t_rr_graph_storage {
         allowed_nets_per_node.resize(size);
     }
     
+    inline void resize_allowed_list_of_nodes_mem_opt(
+        size_t size){
+        allowed_nets_per_node_mem_opt.resize(size);
+    }
+    
     /*inline void resize_allowed_list_of_nodes_v2(
         size_t size){
         allowed_nets_per_node_v2.resize(size);
@@ -648,6 +657,27 @@ class t_rr_graph_storage {
             //printf("writing: node_id: %zu net: %zu sink: %zu\n", size_t(node_id), size_t(net_id), size_t(sinkid));
             }
         }
+    }
+    
+
+    inline void set_sink_allowed(
+		    std::vector<uint64_t>& bitvec, uint16_t sink_id) {
+        size_t word_idx = sink_id / 64;
+        size_t bit_idx = sink_id % 64;
+        if (bitvec.size() <= word_idx) {
+            bitvec.resize(word_idx + 1, 0ULL);
+        }
+        bitvec[word_idx] |= (1ULL << bit_idx);
+    }
+    inline void assign_list_to_node_mem_opt(
+	    std::map<ClusterNetId, std::set<uint16_t>> net_list, const RRNodeId& node_id){
+        for (const auto& [net_id, sink_ids] : net_list) {
+            auto& sink_bits = allowed_nets_per_node_mem_opt[node_id][net_id];
+
+            for (uint16_t sink_id : sink_ids) {
+                set_sink_allowed(sink_bits, sink_id);
+            }
+	}
     }
     /*inline void assign_list_to_node_v2(
         std::set<std::string> net_list,
@@ -680,7 +710,37 @@ class t_rr_graph_storage {
 	    //printf("Present: %d node_id: %zu net_id: %zu sinkid: %d\n", *my_set.begin(), size_t(id), size_t(netid), sinkid);
 
             return allowed_nets_per_node[id].at(netid).at(size_t(sinkid));
-        }
+    }
+    
+
+    inline const int check_connection_allowed_to_use_node_mem_opt(
+        const RRNodeId& id, ClusterNetId& netid, int& sinkid) const {
+ 	auto start_time = std::chrono::high_resolution_clock::now();
+
+    	const auto& node_map = allowed_nets_per_node_mem_opt[id];
+        auto net_it = node_map.find(netid);
+        if (net_it == node_map.end()) {
+	    g_check_conn_cumulative_time_ms += std::chrono::duration<double, std::milli>(
+			    std::chrono::high_resolution_clock::now() - start_time).count();
+            return -1;
+	}
+
+        const auto& bitvec = net_it->second;
+        size_t word_idx = sinkid / 64;
+        size_t bit_idx = sinkid % 64;
+
+        if (word_idx >= bitvec.size()) {
+	    g_check_conn_cumulative_time_ms += std::chrono::duration<double, std::milli>(
+			    std::chrono::high_resolution_clock::now() - start_time).count();
+            return -1;
+	}
+
+        // -1 represents not allowed to be used on this node
+	g_check_conn_cumulative_time_ms += std::chrono::duration<double, std::milli>(
+			std::chrono::high_resolution_clock::now() - start_time).count();
+	return (bitvec[word_idx] >> bit_idx) & 1U ? 1 : -1;
+
+    }
     
     inline const int get_global_occupancy(const RRNodeId& id) const {
     	return allowed_nets_per_node[id].size();
@@ -729,6 +789,7 @@ class t_rr_graph_storage {
     //vtr::vector<RRNodeId, std::set<std::string>> allowed_nets_per_node_v2;
     //vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<std::set<int>>>> allowed_nets_per_node;
     vtr::vector<RRNodeId, std::map<ClusterNetId, std::vector<int>>> allowed_nets_per_node;
+    vtr::vector<RRNodeId, std::unordered_map<ClusterNetId, std::vector<uint64_t>>> allowed_nets_per_node_mem_opt;
     // This array stores the first edge of each RRNodeId.  Not that the length
     // of this vector is always storage_.size() + 1, where the last value is
     // always equal to the number of edges in the final graph.

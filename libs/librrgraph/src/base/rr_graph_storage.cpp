@@ -3,7 +3,7 @@
 #include "rr_graph_storage.h"
 
 #include <algorithm>
-
+double g_check_conn_cumulative_time_ms = 0.0;
 void t_rr_graph_storage::reserve_edges(size_t num_edges) {
     edge_src_node_.reserve(num_edges);
     edge_dest_node_.reserve(num_edges);
