@@ -195,6 +195,8 @@ t_rt_node* init_route_tree_to_source(ClusterNetId inet) {
     rt_root->parent_node = nullptr;
     rt_root->parent_switch = OPEN;
     rt_root->re_expand = true;
+    //SHA: FLUTE+PF
+    rt_root->corridor_index = -2;
 
     inode = route_ctx.net_rr_terminals[inet][0]; /* Net source */
 
@@ -310,6 +312,9 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
     sink_rt_node->u.child_list = nullptr;
     sink_rt_node->inode = inode;
     sink_rt_node->net_pin_index = target_net_pin_index; //hptr is the heap pointer of the SINK that was reached, which corresponds to the target pin
+    
+    //SHA: FLUTE+PF
+    sink_rt_node->corridor_index = hptr->corridor_index; // assuming all nodes have a corridor index even if IPIN or SINK
     rr_node_to_rt_node[inode] = sink_rt_node;
 
     /* In the code below I'm marking SINKs and IPINs as not to be re-expanded.
@@ -327,6 +332,7 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
     inode = hptr->prev_node();
     RREdgeId edge = hptr->prev_edge();
     short iswitch = rr_graph.rr_nodes().edge_switch(edge);
+    //SHA: FLUTE+PF
 
     /* For all "new" nodes in the main path */
     // inode is node index of previous node
@@ -353,6 +359,8 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
         rt_node->u.child_list = linked_rt_edge;
         rt_node->inode = inode;
         rt_node->net_pin_index = OPEN; //net pin index is invalid for non-SINK nodes
+	//SHA: FLUTE+PF
+	rt_node->corridor_index = route_ctx.rr_node_route_inf[inode].corridor_index;
 
         rr_node_to_rt_node[inode] = rt_node;
 

@@ -9,6 +9,8 @@
 #include "vtr_time.h"
 #include "draw.h"
 
+//SHA
+#include "vpr_context.h"
 static t_rt_node* setup_routing_resources_no_net(int source_node);
 
 RouterDelayProfiler::RouterDelayProfiler(
@@ -72,6 +74,7 @@ bool RouterDelayProfiler::calculate_delay(int source_node, int sink_node, const 
     //std::string temp_net_id = "-1";
     int temp_sink_id = 0;
     std::set<int> temp_branch_nodes;
+    std::vector<Corridor> corridors_per_connections;
     int itry = 1;
     std::tie(found_path, cheapest) = router_.timing_driven_route_connection_from_route_tree(
         rt_root,
@@ -80,7 +83,7 @@ bool RouterDelayProfiler::calculate_delay(int source_node, int sink_node, const 
         bounding_box,
         router_stats,
         temp_net_id, temp_sink_id, temp_branch_nodes,
-	itry);
+	itry, corridors_per_connections);
 
     if (found_path) {
         VTR_ASSERT(cheapest.index == sink_node);

@@ -8,6 +8,8 @@
 #include "vpr_types.h"
 #include "router_stats.h"
 #include "spatial_route_tree_lookup.h"
+//SHA
+#include "vpr_context.h"
 
 //Delay budget information for a specific connection
 struct t_conn_delay_budget {
@@ -63,7 +65,8 @@ class ConnectionRouterInterface {
         RouterStats& router_stats,
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
-	int itry)
+	int itry,
+	std::vector<Corridor>& corridors_per_connection)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
@@ -80,7 +83,8 @@ class ConnectionRouterInterface {
         RouterStats& router_stats,
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
-	int itry)
+	int itry,
+	std::vector<Corridor>& corridors_per_connection)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to all sinks

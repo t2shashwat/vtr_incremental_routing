@@ -40,6 +40,8 @@
 #include "rr_graph2.h"
 #include "timing_place_lookup.h"
 
+//SHA
+#include "vpr_context.h"
 struct t_route_util_options {
     /* Router diag tool Options */
     argparse::ArgValue<int> source_rr_node;
@@ -118,8 +120,9 @@ static void do_one_route(int source_node,
     //std::string temp_net_id = "-1";
     int temp_sink_id = 0;
     std::set<int> temp_branch_nodes;
+    std::vector<Corridor> corridors_per_connections;
     int itry = 1;
-    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes, itry);
+    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes, itry, corridors_per_connections);
 
     if (found_path) {
         VTR_ASSERT(cheapest.index == sink_node);

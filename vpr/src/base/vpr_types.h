@@ -1552,6 +1552,8 @@ struct t_rr_node_route_inf {
 
     short target_flag;
     int legal;	
+    //SHA: FLUTE+PF
+    int corridor_index;
   public: //Accessors
     short occ() const { return occ_; }
   

@@ -628,7 +628,9 @@ void create_branch_node_map_file(SteinerContext& steiner_ctx) {
 */
 
 
+/*
 std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_connection() const {
+
     std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
 
     // 1. Build reverse edge map: child → parent
@@ -661,6 +663,73 @@ std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_
         std::reverse(corridor_path.begin(), corridor_path.end());
         corridor_list_per_connection[sink_id] = std::move(corridor_path);
     }
+
+    return corridor_list_per_connection;
+}
+*/
+std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_connection() const {
+
+    std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
+
+    // 1. Build reverse edge map: child → parent
+    std::unordered_map<std::string, std::string> child_to_parent;
+
+//    VTR_LOG("Building child_to_parent map from sb_edges:\n");
+    for (const auto& [parent, children] : this->sb_edges.edge_map) {
+        for (const auto& [child, is_valid] : children) {
+//            VTR_LOG("  Edge: %s -> %s = %d\n", parent.c_str(), child.c_str(), is_valid);
+            if (is_valid) {
+                child_to_parent[child] = parent;
+            }
+        }
+    }
+//    VTR_LOG("  Total valid edges in child_to_parent: %zu\n", child_to_parent.size());
+
+    // 2. Traverse from each sink SB up to the source
+    for (const auto& [str_id, sb] : this->sb_map) {
+//        VTR_LOG("Checking SB: %s, pin_id = %d\n", str_id.c_str(), sb.pin_id);
+        if (sb.pin_id <= 0) {
+//            VTR_LOG("  Skipping non-terminal SB.\n");
+            continue;
+        }
+
+        int sink_id = sb.pin_id;
+	std::string current = std::to_string(sb.x) + "_" + std::to_string(sb.y);
+        std::vector<Corridor> corridor_path;
+
+//        VTR_LOG("  Traversing back from sink %d (%s):\n", sink_id, current.c_str());
+
+        while (child_to_parent.count(current)) {
+            const std::string& parent = child_to_parent.at(current);
+//            VTR_LOG("    Parent of %s is %s\n", current.c_str(), parent.c_str());
+    	    // Unpack parent: "x_y"
+    	    int from_x, from_y;
+    	    char sep;
+    	    std::istringstream iss(parent);
+    	    iss >> from_x >> sep >> from_y;
+    	    
+	    int to_x, to_y;
+    	    std::istringstream iss2(current);
+    	    iss2 >> to_x >> sep >> to_y;
+
+            //const SB& from_sb = this->sb_map.at(parent);
+            //const SB& to_sb = this->sb_map.at(current);
+//            VTR_LOG("      from_sb: (%d, %d), to_sb: (%d, %d)\n", from_x, from_y, to_x, to_y);
+
+            corridor_path.emplace_back(from_x, from_y, to_x, to_y);
+            current = parent;
+        }
+
+//        if (corridor_path.empty()) {
+//            VTR_LOG("    Warning: No path found for sink_id %d\n", sink_id);
+//        } else {
+            std::reverse(corridor_path.begin(), corridor_path.end());
+            corridor_list_per_connection[sink_id] = std::move(corridor_path);
+//            VTR_LOG("    Added path of %zu corridors for sink_id %d\n", corridor_list_per_connection[sink_id].size(), sink_id);
+//        }
+    }
+
+//    VTR_LOG("Finished building corridor_list_per_connection. Total sinks: %zu\n", corridor_list_per_connection.size());
 
     return corridor_list_per_connection;
 }
@@ -712,6 +781,21 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 	    // Below is the new implemenation driven to optimize runtime by reducing memory accesses
 	    auto net_corridors = steiner.build_corridor_list_per_connection();
             steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+	    // Debug print: Dump corridors for this net
+	    if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1) {
+	    VTR_LOG("Corridors for Net %zu:\n", size_t(net_id));
+	    for (const auto& sink_entry : steiner_ctx.all_corridors[net_id]) {
+	        int sink_id = sink_entry.first;
+	        const std::vector<Corridor>& corridor_list = sink_entry.second;
+	    
+	        VTR_LOG("  Sink %d has %zu corridors:\n", sink_id, corridor_list.size());
+	        for (size_t i = 0; i < corridor_list.size(); ++i) {
+	            const Corridor& c = corridor_list[i];
+	            VTR_LOG("    Corridor %zu: (%d, %d) → (%d, %d)\n", i, c.from_x, c.from_y, c.to_x, c.to_y);
+	        }
+	    }
+	    VTR_LOG("\n");
+	    }
 	}
         // Calculate Francois' dependency graph sink order
         if (compute_dependency_graph_sink_orders) {

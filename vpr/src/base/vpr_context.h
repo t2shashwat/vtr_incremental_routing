@@ -31,18 +31,14 @@
 #include "noc_traffic_flows.h"
 #include "noc_routing.h"
 struct Corridor {
-    short x1, y1, x2, y2;
+    short from_x, from_y;
+    short to_x, to_y;
 
     Corridor(int a, int b, int c, int d)
-        : x1(std::min(a, c)), y1(std::min(b, d)),
-          x2(std::max(a, c)), y2(std::max(b, d)) {}
+        : from_x(a), from_y(b), to_x(c), to_y(d) {}
 
-    bool contains(int x, int y) const {
-        return x >= x1 && x <= x2 && y >= y1 && y <= y2;
-    }
-
-    bool contains_box(int a1, int b1, int a2, int b2) const {
-        return a1 >= x1 && a2 <= x2 && b1 >= y1 && b2 <= y2;
+    void print() const {
+        VTR_LOG("      (%d, %d) → (%d, %d)\n", from_x, from_y, to_x, to_y);
     }
 };
 /**

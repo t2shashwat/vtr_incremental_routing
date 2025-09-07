@@ -47,7 +47,7 @@
 #include "read_route.h"
 #include "check_route.h"
 #include "route_breadth_first.h"
-
+#include "vpr_context.h"
 
 extern double g_check_conn_cumulative_time_ms;
 //=================================
@@ -110,7 +110,8 @@ static bool timing_driven_route_sink(
     const RoutingPredictor& routing_predictor,
     bool is_flat,
     std::set<int> branch_nodes,
-    int itry);
+    int itry,
+    std::vector<Corridor>& corridors_per_connection);
 
 template<typename ConnectionRouter>
 static bool timing_driven_pre_route_to_clock_root(
@@ -1191,6 +1192,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
 
         profiling::conn_start();
 	std::set<int> branch_nodes;
+	std::vector<Corridor> corridors_per_connection;
         // build a branch in the route tree to the target
         if (!timing_driven_route_sink(router,
                                       net_id,
@@ -1205,7 +1207,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
                                       routing_predictor,
                                       is_flat,
 				      branch_nodes,
-				      itry))
+				      itry,
+				      corridors_per_connection))
             return false;
 
         profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
@@ -1280,13 +1283,14 @@ static bool timing_driven_pre_route_to_clock_root(
     int sink_id = 0;
     std::set<int> branch_nodes;
     int itry = 1;
+    std::vector<Corridor> corridors_per_connection;
     std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(
         rt_root,
         sink_node,
         cost_params,
         bounding_box,
         router_stats,
-        net_id, sink_id, branch_nodes, itry);
+        net_id, sink_id, branch_nodes, itry, corridors_per_connection);
 
     // TODO: Parts of the rest of this function are repetitive to code in timing_driven_route_sink. Should refactor.
     if (!found_path) {
@@ -1363,7 +1367,8 @@ static bool timing_driven_route_sink(
     const RoutingPredictor& routing_predictor,
     bool is_flat,
     std::set<int> branch_nodes,
-    int itry) {
+    int itry,
+    std::vector<Corridor>& corridors_per_connection) {
     /* Build a path from the existing route tree rooted at rt_root to the target_node
      * add this branch to the existing route tree and update pathfinder costs and rr_node_route_inf to reflect this */
     const auto& device_ctx = g_vpr_ctx.device();
@@ -1402,13 +1407,13 @@ static bool timing_driven_route_sink(
                                                                                                            cost_params,
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
-                                                                                                           router_stats, net_id, target_pin, branch_nodes, itry);
+                                                                                                           router_stats, net_id, target_pin, branch_nodes, itry, corridors_per_connection);
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
                                                                                                cost_params,
                                                                                                bounding_box,
-                                                                                               router_stats, net_id, target_pin, branch_nodes, itry);
+                                                                                               router_stats, net_id, target_pin, branch_nodes, itry, corridors_per_connection);
     }
 
     if (!found_path) {
@@ -3536,6 +3541,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
 
+    SteinerContext& steiner_ctx = g_vpr_ctx.mutable_steiner();
 
     unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
 
@@ -3970,6 +3976,16 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             int target_pin = remaining_targets[itarget];
 
             std::set<int> branch_nodes;
+	    std::vector<Corridor> corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
+	    if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
+            VTR_LOG("Corridors for Net %d, Sink Pin %d:\n", size_t(net_id), target_pin);
+            for (size_t i = 0; i < corridors_per_connection.size(); ++i) {
+                const Corridor& c = corridors_per_connection[i];
+                VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
+                    i, c.from_x, c.from_y, c.to_x, c.to_y);
+            }
+	    }
+
             /*if (router_opts.detailed_router == 1){
                     branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
             }*/
@@ -4011,7 +4027,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                             routing_predictor,
                                             is_flat,
                                             branch_nodes,
-                                            itry))
+                                            itry,
+					    corridors_per_connection))
                     return false;
 
                 profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
@@ -4140,7 +4157,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
     // convert the previous iteration's traceback into the starting route tree for this iteration
     // For locking and loading branch changing nets
     //if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
-    if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets || (itry == 2 && router_opts.detailed_router == 1)) {
+    //Below line was for FCCM paper, where in itry 2, the first routing iteration was performed, as in itry one, the reconvergent nets were loaded
+    //if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets || (itry == 2 && router_opts.detailed_router == 1)) {
+    if ((int)num_sinks < min_incremental_reroute_fanout || itry == 1 || ripup_high_fanout_nets) {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
             ClusterNetId debug_net = (ClusterNetId)illegal_net_list[illegal_net_i];
 	        if (net_id == debug_net){

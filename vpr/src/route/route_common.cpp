@@ -374,7 +374,7 @@ bool try_route_incr_route(int width_fac,
         }
         nets_per_node_fp.close();
     } /* (PARSA) Luka, 2025: Since "sinkids" are collected pre-creation of the rr_graph, an additional step is necessary to map ClusterPinIds to actual sinkids*/
-    else if (router_opts.detailed_router == 1 && router_opts.steiner_constraints) {
+    /*else if (router_opts.detailed_router == 1 && router_opts.steiner_constraints) {
         size_t total_rr_nodes = device_ctx.rr_graph.num_nodes();
         VTR_LOG("[LUKA] Total nodes in the RRG: %d\n", total_rr_nodes);
         device_ctx.rr_graph_builder.resize_allowed_list_of_nodes_mem_opt(total_rr_nodes);
@@ -418,7 +418,7 @@ bool try_route_incr_route(int width_fac,
             //t_rr_graph_storage::assign_list_to_node(nets, node_id);
         }
         nets_per_node_fp.close();
-    }
+    }*/
 
     if (cluster_ctx.clb_nlist.nets().empty()) {
         VTR_LOG_WARN("No nets to route\n");

@@ -57,4 +57,5 @@ struct t_rt_node {
     float C_downstream;
     float R_upstream;
     float Tdel;
+    int corridor_index;
 };
