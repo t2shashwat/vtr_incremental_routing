@@ -401,7 +401,11 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->shuffle_first_iteration = Options.shuffle_first_iteration;
     RouterOpts->target_bracket = Options.target_bracket;
     //==========================================
-
+    // (PARSA) Julien, 2025
+    RouterOpts->closest_to_farthest = Options.closest_to_farthest;
+    RouterOpts->farthest_to_closest = Options.farthest_to_closest;
+    //==========================================
+    
     //TODO document these?
     RouterOpts->congestion_analysis = Options.full_stats;
     RouterOpts->fanout_analysis = Options.full_stats;

@@ -210,6 +210,10 @@ struct t_options {
     argparse::ArgValue<bool> shuffle_first_iteration;
     argparse::ArgValue<int> target_bracket;
     //==========================================
+    // (PARSA) Julien, 2025
+    argparse::ArgValue<bool> closest_to_farthest;
+    argparse::ArgValue<bool> farthest_to_closest;
+    //==========================================
 
     /* Timing-driven router options only */
     argparse::ArgValue<float> astar_fac;

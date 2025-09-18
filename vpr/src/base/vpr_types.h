@@ -1275,6 +1275,10 @@ struct t_router_opts {
     bool shuffle_first_iteration = false;
     int target_bracket = 0;
     //==========================================
+    // (PARSA) Julien, 2025:
+    bool closest_to_farthest = false;
+    bool farthest_to_closest = false;
+    //==========================================
 };
 
 struct t_analysis_opts {

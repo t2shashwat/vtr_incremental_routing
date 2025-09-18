@@ -2776,21 +2776,21 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	}
 	
 	for (auto net_id : sorted_nets) {
-	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
+        if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
 	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	        continue;
 	    }*/
 
-            temp_net_id = net_id;
+        temp_net_id = net_id;
 	    std::unordered_map<int, int> sink_order_index;
 	    if (router_opts.detailed_router == 1){
 	    	sink_order_index = net_id_to_sink_order_map[size_t(net_id)];
 	    }
 
-            bool was_rerouted = false;
-            bool is_routable;
+        bool was_rerouted = false;
+        bool is_routable;
 	    is_routable = try_timing_driven_route_net_incr_route(filename_opts,
                                                            router,
                                                            net_id,
@@ -3517,7 +3517,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
-
+    
     printf("Routing net %d\n", size_t(net_id));
 
     unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
@@ -3796,6 +3796,25 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             else {
                 sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
             }
+        } else if (router_opts.closest_to_farthest || router_opts.farthest_to_closest) {
+            if (itry == 1) {
+                const int source_x = device_ctx.rr_graph.node_xlow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
+                const int source_y = device_ctx.rr_graph.node_ylow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
+            
+                auto distance_to_source = [&](int sink) {
+                    int terminal = route_ctx.net_rr_terminals[net_id][sink];
+                    int sink_x = device_ctx.rr_graph.node_xlow(RRNodeId(terminal));
+                    int sink_y = device_ctx.rr_graph.node_ylow(RRNodeId(terminal));
+                    return std::abs(sink_x - source_x) + std::abs(sink_y - source_y);
+                };
+        
+                std::sort(remaining_targets.begin(), remaining_targets.end(),
+                    [&](int a, int b) {
+                        int dist_a = distance_to_source(a);
+                        int dist_b = distance_to_source(b);
+                        return router_opts.closest_to_farthest ? dist_a < dist_b : dist_a > dist_b;
+                    });
+            }
         }
         else if (router_opts.dependency_graph_sink_order) {
             /*
@@ -3852,44 +3871,44 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     }
                 }
             else if (sink_order_itr == max_sub_iterations + additional_sub_iterations){
-            if (router_opts.tree_type == MIN_TOTAL_NODES){ 
-                    auto it = tree_cost_sink_order_map.begin();
-                std::tuple<int, float> minKey = it->first;
-                    min_total_detailed_nodes = std::get<0>(minKey);
-                    min_total_cong_cost = std::get<1>(minKey);
-                    remaining_targets = it->second;
-            }
-            else if (router_opts.tree_type == MIN_CONG_COST){
-                    auto it = tree_cost_first_sink_order_map.begin();
-                std::tuple<float, int> minKey = it->first;
-                    min_total_detailed_nodes = std::get<1>(minKey);
-                    min_total_cong_cost = std::get<0>(minKey);
-                    remaining_targets = it->second;
-            }
-            else if (router_opts.tree_type == MIN_HEAP_PUSHES){
-                    auto it = tree_ops_sink_order_map.begin();
-                std::tuple<int, float, int> minKey = it->first;
-                    int total_detailed_nodes_min_ops = std::get<2>(minKey);
-                    remaining_targets = it->second;
-                    
-                //auto it2 = tree_cost_sink_order_map.begin();
-                //std::tuple<int, float> minKey_t = it2->first;
-                    //min_total_detailed_nodes = std::get<0>(minKey_t);
-                /*if(min_total_detailed_nodes < total_detailed_nodes_min_ops) {
-                    VTR_LOG("[FOUND] A tree with minimum heap operations but not minimum possible total nodes that could be achieved with sampled sink orders. Net: %zu total_nodes: %d (min_possible: %d). This implies we cannot do early stopping to find the tree with minimum nodes\n", size_t(net_id), total_detailed_nodes_min_ops, min_total_detailed_nodes);
-                }*/
-            }
-            else {
-                VTR_ASSERT("Wrong flag for argument tree\n");
-            }
-                connections_inf.add_best_sink_order(remaining_targets);	
-        
+                if (router_opts.tree_type == MIN_TOTAL_NODES){ 
+                        auto it = tree_cost_sink_order_map.begin();
+                    std::tuple<int, float> minKey = it->first;
+                        min_total_detailed_nodes = std::get<0>(minKey);
+                        min_total_cong_cost = std::get<1>(minKey);
+                        remaining_targets = it->second;
+                }
+                else if (router_opts.tree_type == MIN_CONG_COST){
+                        auto it = tree_cost_first_sink_order_map.begin();
+                    std::tuple<float, int> minKey = it->first;
+                        min_total_detailed_nodes = std::get<1>(minKey);
+                        min_total_cong_cost = std::get<0>(minKey);
+                        remaining_targets = it->second;
+                }
+                else if (router_opts.tree_type == MIN_HEAP_PUSHES){
+                        auto it = tree_ops_sink_order_map.begin();
+                    std::tuple<int, float, int> minKey = it->first;
+                        int total_detailed_nodes_min_ops = std::get<2>(minKey);
+                        remaining_targets = it->second;
+                        
+                    //auto it2 = tree_cost_sink_order_map.begin();
+                    //std::tuple<int, float> minKey_t = it2->first;
+                        //min_total_detailed_nodes = std::get<0>(minKey_t);
+                    /*if(min_total_detailed_nodes < total_detailed_nodes_min_ops) {
+                        VTR_LOG("[FOUND] A tree with minimum heap operations but not minimum possible total nodes that could be achieved with sampled sink orders. Net: %zu total_nodes: %d (min_possible: %d). This implies we cannot do early stopping to find the tree with minimum nodes\n", size_t(net_id), total_detailed_nodes_min_ops, min_total_detailed_nodes);
+                    }*/
+                }
+                else {
+                    VTR_ASSERT("Wrong flag for argument tree\n");
+                }
+                    connections_inf.add_best_sink_order(remaining_targets);	
+            
             }
 
-            else if ((sink_order_itr >= max_sub_iterations && sink_order_itr < max_sub_iterations + additional_sub_iterations) && additional_sub_iterations != 0){
-            auto it = std::next(sink_orders_from_prev_iterations.begin(), sink_order_itr - max_sub_iterations);
-            remaining_targets = *it;
-            //remaining_targets = sink_orders_from_prev_iterations[sink_order_itr - max_sub_iterations];
+                else if ((sink_order_itr >= max_sub_iterations && sink_order_itr < max_sub_iterations + additional_sub_iterations) && additional_sub_iterations != 0){
+                auto it = std::next(sink_orders_from_prev_iterations.begin(), sink_order_itr - max_sub_iterations);
+                remaining_targets = *it;
+                //remaining_targets = sink_orders_from_prev_iterations[sink_order_itr - max_sub_iterations];
             }
         }
 
@@ -3962,49 +3981,49 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             }*/
             int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
-                enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
+            enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 
-                VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
+            VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
 
-                cost_params.criticality = pin_criticality[target_pin];
-                cost_params.bias = router_opts.sbNode_lookahead_factor;
+            cost_params.criticality = pin_criticality[target_pin];
+            cost_params.bias = router_opts.sbNode_lookahead_factor;
 
-                if (budgeting_inf.if_set()) {
-                    conn_delay_budget.max_delay = budgeting_inf.get_max_delay_budget(net_id, target_pin);
-                    conn_delay_budget.target_delay = budgeting_inf.get_delay_target(net_id, target_pin);
-                    conn_delay_budget.min_delay = budgeting_inf.get_min_delay_budget(net_id, target_pin);
-                    conn_delay_budget.short_path_criticality = budgeting_inf.get_crit_short_path(net_id, target_pin);
-                    conn_delay_budget.routing_budgets_algorithm = router_opts.routing_budgets_algorithm;
-                }
+            if (budgeting_inf.if_set()) {
+                conn_delay_budget.max_delay = budgeting_inf.get_max_delay_budget(net_id, target_pin);
+                conn_delay_budget.target_delay = budgeting_inf.get_delay_target(net_id, target_pin);
+                conn_delay_budget.min_delay = budgeting_inf.get_min_delay_budget(net_id, target_pin);
+                conn_delay_budget.short_path_criticality = budgeting_inf.get_crit_short_path(net_id, target_pin);
+                conn_delay_budget.routing_budgets_algorithm = router_opts.routing_budgets_algorithm;
+            }
 
-                profiling::conn_start();
+            profiling::conn_start();
 
-                // build a branch in the route tree to the target
-                if (!timing_driven_route_sink(router,
-                                            net_id,
-                                            itarget,
-                                            target_pin,
-                                            cost_params,
-                                            router_opts,
-                                            rt_root, rt_node_of_sink,
-                                            spatial_route_tree_lookup,
-                                            router_stats,
-                                            budgeting_inf,
-                                            routing_predictor,
-                                            is_flat,
-                                            branch_nodes,
-                                            itry))
-                    return false;
+            // build a branch in the route tree to the target
+            if (!timing_driven_route_sink(router,
+                                        net_id,
+                                        itarget,
+                                        target_pin,
+                                        cost_params,
+                                        router_opts,
+                                        rt_root, rt_node_of_sink,
+                                        spatial_route_tree_lookup,
+                                        router_stats,
+                                        budgeting_inf,
+                                        routing_predictor,
+                                        is_flat,
+                                        branch_nodes,
+                                        itry))
+                return false;
 
-                profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
-                                    sink_rr,
-                                    pin_criticality[target_pin]);
-
+            profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
+                                sink_rr,
+                                pin_criticality[target_pin]);
+            
             if (sink_order_itr == 0){
                 ++router_stats.connections_routed;
             }
         } // finished all sinks
-
+    
     std::pair<int, float> cost = get_tree_cost(route_ctx.trace[net_id].head);
     int total_detailed_nodes = cost.first;
     float total_cong_cost = cost.second;
