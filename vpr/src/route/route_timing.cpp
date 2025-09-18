@@ -2298,7 +2298,7 @@ std::pair<ClusterNetId, int> get_netid_and_sinkid(std::string connection_id) {
         if (c == '_') break;
     }
     if (loc == 1 or loc == connection_id.length()) {
-        VTR_LOG("connection id '%s' does not conform to the format.", connection_id);
+        VTR_LOG("connection id '%s' does not conform to the format.", connection_id.c_str());
         return std::pair<ClusterNetId, int>(ClusterNetId(-1), int(-1));
     }
     return std::pair<ClusterNetId, int>(
@@ -2835,7 +2835,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
             std::string route_file_to_legalise =  prefix + suffix;
             std::cout << prefix << " " << suffix << " " << route_file_to_legalise << std::endl;
-            VTR_LOG("******* route_file_to load after concatenation %s\n", route_file_to_legalise);
+            VTR_LOG("******* route_file_to load after concatenation %s\n", route_file_to_legalise.c_str());
             read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
             VTR_LOG("******* Successfully loaded route file\n");
 	    }
@@ -2847,7 +2847,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             std::string suffix = "_to_legalise.route";
             std::string prefix = filename_opts.RouteFile.substr(0,filename_opts.RouteFile.size()-6);
             std::string route_file_to_legalise =  prefix + suffix;
-            printf("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise);
+            printf("******* route_file_to_legalise after concatenation %s\n", route_file_to_legalise.c_str());
 
             read_route_incr_route(temp_net_id, route_file_to_legalise.c_str(), router_opts, filename_opts.verify_file_digests);
             VTR_LOG("******* Successfully loaded partial route file\n");
