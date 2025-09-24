@@ -272,12 +272,15 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	int next_corridor_index = 0;
 	int corridor_index = cheapest->corridor_index;
         t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
+        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
+                            inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 	// in case of pins being popped, pass an arbitrary next_corridor_index, as it will be anyway not used, given the detailed router is run in combination with CHANX and CHANY
 	if (cost_params.detailed_router == 1) {
-	    
+	
 	    if (node_type == OPIN || node_type == SOURCE || node_type == IPIN || node_type == SINK) {
                 next_corridor_index = corridor_index+1;
 	    }
+	    
 	    else { // corridor_index + 1 out of list
             
 	    // SHA: Optimized implementation for corridor routing
@@ -329,11 +332,9 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
     	    int inode_xhigh = rr_graph_->node_xhigh(RRNodeId(inode));
     	    int inode_yhigh = rr_graph_->node_yhigh(RRNodeId(inode));
 
-            VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
-                            inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
 
-	    VTR_LOG("    Popped from corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor_xfrom, corridor_yfrom, corridor_xto, corridor_yto);
-	    VTR_LOG("       pseg: low (%d, %d) high (%d, %d)\n", inode_xlow, inode_ylow, inode_xhigh, inode_yhigh);
+	    VTR_LOGV_DEBUG(router_debug_, "    Popped from corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor_xfrom, corridor_yfrom, corridor_xto, corridor_yto);
+	    VTR_LOGV_DEBUG(router_debug_, "       pseg: low (%d, %d) high (%d, %d)\n", inode_xlow, inode_ylow, inode_xhigh, inode_yhigh);
             //Have we found the target?
             if (node_type == CHANX) {	
 	        Direction direction = rr_graph_->node_direction(RRNodeId(inode));
@@ -384,7 +385,7 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	}
 	}
 	
-	VTR_LOG("   next corridor index: %d\n", next_corridor_index);	
+	VTR_LOGV_DEBUG(router_debug_, "   next corridor index: %d\n", next_corridor_index);	
 	if (node_type == CHANX || node_type == CHANY){
             ++router_stats_->wire_heap_pops;
         }
@@ -661,7 +662,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
          || to_xlow > bounding_box.xmax  //Strictly right of BB right-edge
          || to_yhigh < bounding_box.ymin //Strictly below BB bottom-edge
          || to_ylow > bounding_box.ymax) //Strictly above BB top-edge
-        && !rcv_path_manager.is_enabled()) {
+        && !rcv_path_manager.is_enabled() && cost_params.detailed_router != 1) {
         //VTR_LOGV_DEBUG(router_debug_,
         //               "      Pruned expansion of node %d edge %zu -> %d"
         //               " (to node location %d,%dx%d,%d outside of expanded"
@@ -716,6 +717,10 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 
 	    int eff_corridor_to_x = corridor.to_x;
 	    int eff_corridor_to_y = corridor.to_y;
+	    
+	    int eff_corridor_from_x = corridor.from_x;
+	    int eff_corridor_from_y = corridor.from_y;
+	    
 	    // determine corridor direction
 	    int dx = corridor.to_x - corridor.from_x;
 	    int dy = corridor.to_y - corridor.from_y;
@@ -736,22 +741,30 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 
             Direction node_direction = rr_graph_->node_direction(to_node);
 
+	    // why + 1 for DEC direction?
+	    // + 1 is actually shrinking the corridor for DEC direction 
             eff_corridor_to_x = (corridor_direction == Direction::DEC) ? eff_corridor_to_x + 1 : eff_corridor_to_x;
 	    eff_corridor_to_y = (corridor_direction == Direction::DEC) ? eff_corridor_to_y + 1 : eff_corridor_to_y;
+
+            eff_corridor_from_x = (corridor_direction == Direction::INC) ? eff_corridor_from_x + 1 : eff_corridor_from_x;
+	    eff_corridor_from_y = (corridor_direction == Direction::INC) ? eff_corridor_from_y + 1 : eff_corridor_from_y;
+
 	    int const_coord_corridor  = (dx == 0) ? corridor.to_x : corridor.to_y;
             int const_coord_node  = (dx == 0) ? to_xlow : to_ylow;
 	   
-	    //VTR_LOG(" Corridor info: type: %s \n", rr_node_typename(corridor_type));
-	    //VTR_LOG("    seg info: type: %s \n", rr_node_typename(node_type));
-	    VTR_LOG("   Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
-	    VTR_LOG("       seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
+	    VTR_LOGV_DEBUG(router_debug_, "   Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
+	    VTR_LOGV_DEBUG(router_debug_, "       seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
 	    if (corridor_type == node_type && corridor_direction == node_direction && const_coord_corridor == const_coord_node) {
-	        int node_comp_coord = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
-		//int corridor_comp_coord = (corridor_type == CHANX) ? corridor.to_x : corridor.to_y;
-		int corridor_comp_coord = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
+	        // node coord to compare against to coordinate of this corridor
+		int node_coord_comp_corr_to = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
+		
+		int node_coord_comp_corr_from = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xlow : to_xhigh) : (node_direction == Direction::INC ? to_ylow : to_yhigh); 
+		
+		int corridor_comp_coord_to = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
+		int corridor_comp_coord_from = (corridor_type == CHANX) ? eff_corridor_from_x : eff_corridor_from_y;
 
 		// same channel and direction, but node is either contained or not
-		offpath_penalty = (node_direction == Direction::INC) ? ((node_comp_coord <= corridor_comp_coord) ? 1.0 : -1.0) : ((node_comp_coord >= corridor_comp_coord) ? 1.0 : -1.0); 
+		offpath_penalty = (node_direction == Direction::INC) ? ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? 1.0 : -1.0) : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? 1.0 : -1.0); 
 
 	    }
 	    // outside the corridor
@@ -765,7 +778,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 		  offpath_penalty = cost_params.offpath_penalty; 
  	    }
 	    
-            VTR_LOG("   offpath: %f \n", offpath_penalty); 
+            //VTR_LOG("   offpath: %f \n", offpath_penalty); 
 	    if (offpath_penalty < 0){
                 return;
             }
@@ -1194,17 +1207,22 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     		
 		t_rr_type node_type = rr_graph_->node_type(RRNodeId(to_node));
 		int add_to_heap = 0;
-
-                if (node_type == CHANX || node_type == CHANY) {
+                if ((node_type == CHANX || node_type == CHANY) && corridor_index >=0 && corridor_index < corridors_per_connection.size()) {
     		    int to_xlow = rr_graph_->node_xlow(RRNodeId(to_node));
     		    int to_ylow = rr_graph_->node_ylow(RRNodeId(to_node));
     		    int to_xhigh = rr_graph_->node_xhigh(RRNodeId(to_node));
     		    int to_yhigh = rr_graph_->node_yhigh(RRNodeId(to_node));
                     
 		    Corridor corridor = corridors_per_connection[corridor_index];
+		    //VTR_LOG(" adding to heap from PRT: %d\n", corridor_index);
+	    	    //VTR_LOG("   [PRT] Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
+	            //VTR_LOG("       [PRT] seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
 
 		    int eff_corridor_to_x = corridor.to_x;
 		    int eff_corridor_to_y = corridor.to_y;
+		    
+		    int eff_corridor_from_x = corridor.from_x;
+		    int eff_corridor_from_y = corridor.from_y;
 
 	            int dx = corridor.to_x - corridor.from_x;
 	            int dy = corridor.to_y - corridor.from_y;
@@ -1224,6 +1242,8 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
 		    
 		    eff_corridor_to_x = (corridor_direction == Direction::DEC) ? eff_corridor_to_x + 1 : eff_corridor_to_x;
 		    eff_corridor_to_y = (corridor_direction == Direction::DEC) ? eff_corridor_to_y + 1 : eff_corridor_to_y;
+                    eff_corridor_from_x = (corridor_direction == Direction::INC) ? eff_corridor_from_x + 1 : eff_corridor_from_x;
+	    	    eff_corridor_from_y = (corridor_direction == Direction::INC) ? eff_corridor_from_y + 1 : eff_corridor_from_y;
 	            //int node_length = (node_type == CHANX) ? node_dx : node_dy;
 	            //int corridor_length = (corridor_type == CHANX) ? std::abs(dx) : std::abs(dy);
 
@@ -1233,12 +1253,17 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
 		    int const_coord_node  = (dx == 0) ? to_xlow : to_ylow;
 
 	            if (corridor_type == node_type && corridor_direction == node_direction && const_coord_corridor == const_coord_node) {
-	                int node_comp_coord = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
-	                //int corridor_comp_coord = (corridor_type == CHANX) ? corridor.to_x : corridor.to_y;
-	                int corridor_comp_coord = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
+			int node_coord_comp_corr_to = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
+		
+			int node_coord_comp_corr_from = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xlow : to_xhigh) : (node_direction == Direction::INC ? to_ylow : to_yhigh); 
+		
+			int corridor_comp_coord_to = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
+			int corridor_comp_coord_from = (corridor_type == CHANX) ? eff_corridor_from_x : eff_corridor_from_y;
 
-	                // same channel and direction, but node is either contained or not
-	                add_to_heap = (node_direction == Direction::INC) ? ((node_comp_coord <= corridor_comp_coord) ? 1 : 0) : ((node_comp_coord >= corridor_comp_coord) ? 1 : 0); 
+			// same channel and direction, but node is either contained or not
+			add_to_heap = (node_direction == Direction::INC) ? ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? 1 : 0) : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? 1 : 0); 
+	                
+	                //add_to_heap = (node_direction == Direction::INC) ? ((node_comp_coord <= corridor_comp_coord) ? 1 : 0) : ((node_comp_coord >= corridor_comp_coord) ? 1 : 0); 
 
 	            }
 		}

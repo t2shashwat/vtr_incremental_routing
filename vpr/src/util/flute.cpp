@@ -1282,10 +1282,10 @@ Tree flutes_MD( FluteState * flute_p, int d, FLUTE_DTYPE xs[], FLUTE_DTYPE ys[],
 #if FLUTE_LOCAL_REFINEMENT==1
     if (BreakInX(bestbp)) {
         t = hmergetree(bestt1, bestt2, s);
-        local_refinement( d, &t, si[BreakPt(bestbp)]);
+        local_refinement(flute_p, d, &t, si[BreakPt(bestbp)]);
     } else {
         t = vmergetree(bestt1, bestt2);
-        local_refinement( d, &t, BreakPt(bestbp));
+        local_refinement(flute_p, d, &t, BreakPt(bestbp));
     }
 #else
     if (BreakInX(bestbp)) {

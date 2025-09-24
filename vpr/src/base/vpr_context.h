@@ -41,6 +41,17 @@ struct Corridor {
         VTR_LOG("      (%d, %d) → (%d, %d)\n", from_x, from_y, to_x, to_y);
     }
 };
+struct Point {
+    int x;
+    int y;
+};
+
+struct Edge {
+    Point a;
+    Point b;
+    Edge(Point p1, Point p2) : a(p1), b(p2) {}
+
+};
 /**
  * @brief A Context is collection of state relating to a particular part of VPR
  *
@@ -440,6 +451,7 @@ struct SteinerContext : public Context {
     */
     std::unordered_map<std::pair<int, int>, std::unordered_map<std::string, int>, vtr::hash_pair> loc_dir_len_to_gnode;
     std::unordered_map<std::pair<int, int>, std::unordered_map<std::string, int>, vtr::hash_pair> loc_type_to_gnode;
+    std::unordered_map<int, std::vector<Edge>> net_edges;
     std::unordered_map<int, std::vector<int>> gnode_to_dnodes;
 
     /*
@@ -448,6 +460,7 @@ struct SteinerContext : public Context {
     */
     std::unordered_map<int, std::vector<std::pair<int, int>>> connections_per_dnode;
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::vector<Corridor>>> all_corridors;
+    std::unordered_map<ClusterNetId, std::unordered_map<int, bool>> net_connection_intra_tile;
     /*
         A mapping from Net Pin Index to number denoting priority when routing (lower number, higher priority)
         Used in the RSMT constrained routing setting, as well as when routing with the dependency graph sink order

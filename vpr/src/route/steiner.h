@@ -76,6 +76,7 @@ struct RSMTEdgeSet {
     }
 };
 
+
 class Steiner {
 private:
     std::unordered_map<std::string, CLB> clb_map;
@@ -142,9 +143,14 @@ public:
 
     void map_clbs_to_sbs();
 
+    bool detect_diagonal(Flute::FluteState *flute1);
     void build_sb_rsmt_flute(Flute::FluteState *flute1);
     
-    void make_tree_graph_directed(std::string source_sb_id, std::set<std::string>& visited, std::set<std::string>& edges_to_remove);
+    void build_sb_rsmt_post_process_flute();
+    
+    void make_tree_graph_directed(std::string source_sb_id, std::set<std::string>& visited, std::set<std::string>& edges_to_remove, const std::string& parent_sb_id = "");
+    
+    void prune_subtree_from(const std::string& node_id, std::set<std::string>& edges_to_remove);
 
     void create_coarsened_regions(std::string source_sb_id);
     
@@ -152,7 +158,7 @@ public:
     
     void map_net_sink_to_dnodes(int source_x, int source_y, int sink_x, int sink_y, std::vector<int>& sink_ids);
 
-    std::unordered_map<int, std::vector<Corridor>> build_corridor_list_per_connection() const;
+    std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, bool>> build_corridor_list_per_connection(std::string source_sb_id) const;
 
     void compute_dependency_graph_sink_order(std::string source_sb_id, std::unordered_map<size_t, std::unordered_map<int, int>>& sink_order);
     

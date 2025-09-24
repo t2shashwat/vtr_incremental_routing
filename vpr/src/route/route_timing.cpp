@@ -3976,15 +3976,27 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             int target_pin = remaining_targets[itarget];
 
             std::set<int> branch_nodes;
-	    std::vector<Corridor> corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
-	    if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
-            VTR_LOG("Corridors for Net %d, Sink Pin %d:\n", size_t(net_id), target_pin);
-            for (size_t i = 0; i < corridors_per_connection.size(); ++i) {
-                const Corridor& c = corridors_per_connection[i];
-                VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
-                    i, c.from_x, c.from_y, c.to_x, c.to_y);
-            }
+	    std::vector<Corridor> corridors_per_connection;
+    
+            int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+            bool intra_tile_connection = steiner_ctx.net_connection_intra_tile[net_id][target_pin]; 
+	    if (router_opts.detailed_router == 1 && intra_tile_connection == false) {
+	        corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
+                cost_params.detailed_router = router_opts.detailed_router;
 	    }
+	    else {
+                cost_params.offpath_penalty = router_opts.offpath_penalty;
+                cost_params.detailed_router = 0;
+	        //cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
+	    }
+	    //if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
+            //VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
+            //for (size_t i = 0; i < corridors_per_connection.size(); ++i) {
+            //    const Corridor& c = corridors_per_connection[i];
+            //    VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
+            //        i, c.from_x, c.from_y, c.to_x, c.to_y);
+            //}
+	    //}
 
             /*if (router_opts.detailed_router == 1){
                     branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
@@ -3994,7 +4006,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 VTR_LOG("Branch nodes: %d\n", node);        		
             
             }*/
-            int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
 
                 enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 

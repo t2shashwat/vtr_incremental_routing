@@ -19,9 +19,9 @@
 /*  User-Defined Parameters  */
 /*****************************/
 /* Flute is now dynamic #define MAXD 3000   max. degree that can be handled */
-#define FLUTE_ACCURACY 3  		// Default accuracy
+#define FLUTE_ACCURACY 6  		// Default accuracy
 #define FLUTE_ROUTING 1   	// 1 to construct routing, 0 to estimate WL only
-#define FLUTE_LOCAL_REFINEMENT 0      // Suggestion: Set to 1 if ACCURACY >= 5
+#define FLUTE_LOCAL_REFINEMENT 1      // Suggestion: Set to 1 if ACCURACY >= 5
 #define FLUTE_REMOVE_DUPLICATE_PIN 0  // Remove dup. pin for flute_wl() & flute()
 
 /* Types of tables */
@@ -65,7 +65,7 @@ Tree flute( FluteState *flute, int d, FLUTE_DTYPE *x, FLUTE_DTYPE *y, int acc);
 void free_tree( FluteState * flute_p, Tree tree ) ;
 
 //Macro: Tree flutes( FluteState * flute_p,int d, DTYPE *xs, DTYPE *ys, int *s, int acc);
-FLUTE_DTYPE wirelength( Tree tree) ;
+FLUTE_DTYPE flute_wirelength( Tree tree) ;
 void printtree( Tree tree ) ; 
 void plottree( Tree tree ) ;
 
