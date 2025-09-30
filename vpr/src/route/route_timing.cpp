@@ -3604,6 +3604,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
     size_t min_heap_pushes;
     size_t min_heap_pops;
+    std::string strategy;
     for (int sink_order_itr = 0; sink_order_itr < max_sub_iterations + additional_sub_iterations + 1; sink_order_itr++) {
         // assert to check only one sub iteration when no shuffling
         VTR_ASSERT(!(router_opts.shuffle1 == 0 && sink_order_itr > 0));
@@ -3647,10 +3648,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         //if (sink_order_itr == 0){
         auto& ref_remaining_targets = connections_inf.get_remaining_targets();
         
-
-        if (router_opts.detailed_router == 0 && sink_order_itr == 0) {
-            net_order_file << (size_t)net_id << " " << ref_remaining_targets.size() << "/" << num_sinks << " ";
-        }
         //}
         if (sink_order_itr == 0){// need to fix remaining targets so that a new permutation  is produced in subsequent iterations
             remaining_targets = ref_remaining_targets;
@@ -3708,6 +3705,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 and router effort (since lookahead is not helpful in this case, we minimize heap pops by making sure
                 to route to the sink closes to the current partial route tree).
             */
+            strategy = "steiner";
             std::unordered_map<int, int> rsmt_sink_order = g_vpr_ctx.mutable_steiner().steiner_sink_orders[size_t(net_id)];
             std::sort(remaining_targets.begin(), remaining_targets.end(),
                     [&](int a, int b) {
@@ -3720,6 +3718,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 (PARSA) Luka, 2025: Only shuffle the sink order in the first iteration of routing, then revert back to the default one.
             */
             if (itry == 1) {
+                strategy = "shuffleFirst";
                 if (router_opts.detailed_router == 0) {
                     bool is_net_in_target_bracket = false;
                     if (router_opts.target_bracket == 1) {
@@ -3798,6 +3797,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             }
         } else if (router_opts.closest_to_farthest || router_opts.farthest_to_closest) {
             if (itry == 1) {
+                strategy = router_opts.closest_to_farthest ? "closeToFar" : "farToClose";
                 const int source_x = device_ctx.rr_graph.node_xlow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
                 const int source_y = device_ctx.rr_graph.node_ylow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
             
@@ -3821,6 +3821,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 (PARSA) Luka, 2025: Use the sink order derived from the net's rectilinear Steiner
                 minimal tree.
             */
+            strategy = "depGraph";
             std::unordered_map<int, int> dependency_graph_sink_order = g_vpr_ctx.mutable_steiner().steiner_sink_orders[size_t(net_id)];
             std::sort(remaining_targets.begin(), remaining_targets.end(),
                 [&](int a, int b) {
@@ -3833,6 +3834,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 [Luka, July 1st 2025]: This should be all of the original code; in case of errors, look into uncommenting lines of code.
             */
             // compare the criticality of different sink nodes
+            strategy = "original";
             sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
                 // // Change sink order only for the first iteration
@@ -4083,8 +4085,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     // min_heap_pushes += 
     // max_heap_pushes += 
 
-    	
-
     size_t heap_pushes_after = router_stats.heap_pushes;
     size_t heap_pops_after = router_stats.heap_pops;
 
@@ -4100,6 +4100,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	min_heap_pops = sub_iter_heap_pops;	
     }
     }
+
+    int bends, wirelength, segments;
+    get_num_bends_and_length(net_id, &bends, &wirelength, &segments);
+    net_order_file << strategy << " | " << itry << " | " <<(size_t)net_id << " | " << segments << " | " << wirelength << " | " << num_sinks << std::endl;
 
     auto [min_heap_pushes_it, max_heap_pushes_it] = std::minmax_element(net_heap_pushes.begin(), net_heap_pushes.end());
     auto [min_heap_pops_it, max_heap_pops_it] = std::minmax_element(net_heap_pops.begin(), net_heap_pops.end());
