@@ -271,6 +271,7 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
     if (node) {
         auto& device_ctx = g_vpr_ctx.device();
         const auto& rr_graph = device_ctx.rr_graph;
+        auto& route_ctx = g_vpr_ctx.mutable_routing();
         if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
             VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode]->inode == node->inode);
         } else {
@@ -278,6 +279,22 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
         }
 
         rr_node_to_rt_node[node->inode] = node;
+
+        // (PARSA) Julien, 2025
+        int old_size = route_ctx.partial_tree_size++;
+        route_ctx.geometric_center.set_x(
+            (route_ctx.geometric_center.x() * old_size
+            + (device_ctx.rr_graph.node_xlow(RRNodeId(node->inode))
+                + device_ctx.rr_graph.node_xhigh(RRNodeId(node->inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
+
+        route_ctx.geometric_center.set_y(
+            (route_ctx.geometric_center.y() * old_size
+            + (device_ctx.rr_graph.node_ylow(RRNodeId(node->inode))
+                + device_ctx.rr_graph.node_yhigh(RRNodeId(node->inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
 
         for (auto edge = node->u.child_list; edge != nullptr; edge = edge->next) {
             add_route_tree_to_rr_node_lookup(edge->child);
@@ -296,7 +313,7 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
 
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
-    auto& route_ctx = g_vpr_ctx.routing();
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
 
     int inode = hptr->index;
 
@@ -335,6 +352,22 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
     while (rr_node_to_rt_node[inode] == nullptr) { //Not connected to existing routing
         main_branch_visited.insert(inode);
         all_visited.insert(inode);
+
+        // (PARSA) Julien, 2025
+        int old_size = route_ctx.partial_tree_size++;
+        route_ctx.geometric_center.set_x(
+            (route_ctx.geometric_center.x() * old_size
+            + (device_ctx.rr_graph.node_xlow(RRNodeId(inode))
+                + device_ctx.rr_graph.node_xhigh(RRNodeId(inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
+
+        route_ctx.geometric_center.set_y(
+            (route_ctx.geometric_center.y() * old_size
+            + (device_ctx.rr_graph.node_ylow(RRNodeId(inode))
+                + device_ctx.rr_graph.node_yhigh(RRNodeId(inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
 
         linked_rt_edge = alloc_linked_rt_edge();
         linked_rt_edge->child = downstream_rt_node;

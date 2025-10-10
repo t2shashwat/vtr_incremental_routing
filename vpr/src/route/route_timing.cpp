@@ -3968,9 +3968,40 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             budgeting_inf.set_should_reroute(net_id, false);
         }
 
+        auto remaining_targets_copy = remaining_targets;
     // explore in order of decreasing criticality (no longer need sink_order array)
         for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
             int target_pin = remaining_targets[itarget];
+
+            if (router_opts.closest_to_partial) {
+                strategy = "closestToPartial";
+                // (PARSA) Julien, 2025
+                const int partial_tree_center_x = static_cast<int>(route_ctx.geometric_center.x());
+                const int partial_tree_center_y = static_cast<int>(route_ctx.geometric_center.y());
+
+                auto distance_to_partial_tree_center= [&](int sink) {
+                    int terminal = route_ctx.net_rr_terminals[net_id][sink];
+                    int sink_x = device_ctx.rr_graph.node_xlow(RRNodeId(terminal));
+                    int sink_y = device_ctx.rr_graph.node_ylow(RRNodeId(terminal));
+                    return std::abs(sink_x - partial_tree_center_x) + std::abs(sink_y - partial_tree_center_y);
+                };
+
+                size_t best_idx = 0;
+                int min_dist = std::numeric_limits<int>::max();
+
+                for (size_t i = 0; i < remaining_targets_copy.size(); ++i) {
+                    int dist = distance_to_partial_tree_center(remaining_targets_copy[i]);
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        best_idx = i;
+                    }
+                }
+            
+                target_pin = remaining_targets_copy[best_idx];
+
+                remaining_targets_copy[best_idx] = remaining_targets_copy.back();
+                remaining_targets_copy.pop_back();
+            }
 
             std::set<int> branch_nodes;
             if (router_opts.detailed_router == 1){
@@ -4172,6 +4203,14 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         // thus we'll use functions that act on pin indices like mark_ends instead
         // of their versions that act on node indices directly like mark_remaining_ends
         mark_ends(net_id);
+
+        auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+        auto& device_ctx = g_vpr_ctx.device();
+        m_route_ctx.geometric_center.set_x((device_ctx.rr_graph.node_xlow(RRNodeId(rt_root->inode))
+            + device_ctx.rr_graph.node_xhigh(RRNodeId(rt_root->inode))) / 2.0);
+        m_route_ctx.geometric_center.set_y((device_ctx.rr_graph.node_ylow(RRNodeId(rt_root->inode))
+            + device_ctx.rr_graph.node_yhigh(RRNodeId(rt_root->inode))) / 2.0);
+        m_route_ctx.partial_tree_size = 1; // only the source node
         
     } else {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
@@ -4246,6 +4285,13 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         load_new_subtree_C_downstream(rt_root);
 
         VTR_ASSERT(reached_rt_sinks.size() + remaining_targets.size() == num_sinks);
+
+        // (PARSA) Julien, 2025
+        //Reset geometric center and partial_tree_size
+        auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+        m_route_ctx.geometric_center.set_x(0);
+        m_route_ctx.geometric_center.set_y(0);
+        m_route_ctx.partial_tree_size = 0;
 
         //Record current routing
         add_route_tree_to_rr_node_lookup(rt_root);

@@ -2349,6 +2349,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
                 "Use farthest to closest sink order")
             .default_value("false")
             .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.closest_to_partial, "--closest_to_partial")
+            .help(
+                "Use closest to patrial tree sink order")
+            .default_value("false")
+            .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")
         .help("Sets the present overuse factor for the first routing iteration")

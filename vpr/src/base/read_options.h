@@ -213,6 +213,7 @@ struct t_options {
     // (PARSA) Julien, 2025
     argparse::ArgValue<bool> closest_to_farthest;
     argparse::ArgValue<bool> farthest_to_closest;
+    argparse::ArgValue<bool> closest_to_partial;
     //==========================================
 
     /* Timing-driven router options only */

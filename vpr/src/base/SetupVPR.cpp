@@ -404,6 +404,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     // (PARSA) Julien, 2025
     RouterOpts->closest_to_farthest = Options.closest_to_farthest;
     RouterOpts->farthest_to_closest = Options.farthest_to_closest;
+    RouterOpts->closest_to_partial = Options.closest_to_partial;
     //==========================================
     
     //TODO document these?

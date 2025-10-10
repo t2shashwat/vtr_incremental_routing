@@ -1278,6 +1278,7 @@ struct t_router_opts {
     // (PARSA) Julien, 2025:
     bool closest_to_farthest = false;
     bool farthest_to_closest = false;
+    bool closest_to_partial = false;
     //==========================================
 };
 
