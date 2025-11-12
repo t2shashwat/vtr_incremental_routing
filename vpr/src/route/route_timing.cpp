@@ -1839,8 +1839,9 @@ static void print_route_status(int itry, double elapsed_sec, float pres_fac, int
     //Wirelength
     constexpr int WL_DIGITS = 7;
     constexpr int WL_SCI_PRECISION = 2;
-    pretty_print_uint(" ", wirelength_info.used_wirelength(), WL_DIGITS, WL_SCI_PRECISION);
-    VTR_LOG(" (%4.1f%%)", wirelength_info.used_wirelength_ratio() * 100);
+    //pretty_print_uint(" ", wirelength_info.used_wirelength(), WL_DIGITS, WL_SCI_PRECISION);
+    //VTR_LOG(" (%4.1f%%)", wirelength_info.used_wirelength_ratio() * 100);
+    VTR_LOG(" %d", wirelength_info.used_wirelength());
 
     //CPD
     if (timing_info) {
@@ -2431,14 +2432,16 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         is_flat);
    
     //loading files needed for detailed router
-    std::unordered_map<size_t, float> history_cost_map;
+    std::unordered_map<size_t, int> history_cost_map;
     std::unordered_map<size_t, float> iib_history_cost_map;
     std::unordered_map<size_t, size_t> node_id_map;
     std::unordered_map<size_t, std::set<size_t>> get_detailed_nodes;
-    std::unordered_map<size_t, std::unordered_map<int, int>> net_id_to_sink_order_map;
+    std::unordered_map<int, std::unordered_map<size_t, std::vector<int>>> net_id_to_sink_order_map;
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>> branch_node_map;
     std::set<size_t> nets_to_skip;
-    std::vector<ClusterNetId> golden_net_order;
+    std::set<size_t> golden_net_order;
+    std::vector<bool> flute_privilege;
+    flute_privilege.resize(sorted_nets.size() + 1000000, false);
     std::set<size_t> congested_nets;
     if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
     	//reading file with nets to skip
@@ -2455,6 +2458,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	{
     	     nets_to_skip.insert(net_id);
     	}
+    	nets_skip_fp.close();
     }
     std::string net_order_filename = "net_order_per_iteration.txt";
     std::ofstream net_order_file(net_order_filename);
@@ -2471,7 +2475,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	int net_id1;
     	while (net_order_fp >> net_id1)
     	{
-    	     golden_net_order.push_back(ClusterNetId(net_id1));
+    	     golden_net_order.insert(net_id1);
+	     flute_privilege[net_id1] = true;
     	}
     	net_order_fp.close();
     	//sorted_nets = golden_net_order;
@@ -2492,35 +2497,61 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             if (line.empty()) {
                     // If the line is empty, skip processing
                     continue;
-                }
-                std::istringstream iss(line);
-            size_t net_id;
-            int net_pin_index;
-            std::vector<int> sink_order;
-            std::unordered_map<int, int> sink_order_index;
-                
-            iss >> net_id;  // First read the net ID
-            //VTR_LOG("Net ID read: %d  ", node_id);
-                while (iss >> net_pin_index) {  // Then read all the following net IDs
-                    sink_order.push_back(net_pin_index);
-                //VTR_LOG("%s ", net_id.c_str());
-                }
-                for (int i = 0; i < sink_order.size(); ++i) {
-                sink_order_index[sink_order[i]] = i;
-                }
-            if (net_id == 48){
-            VTR_LOG("%zu", net_id);
-                    for (int i = 0; i < sink_order.size(); ++i) {
-                VTR_LOG(" %d", sink_order[i]);
-                    }
-                VTR_LOG("\n");
-            VTR_LOG("%zu", net_id);
-                    for (int i = 0; i < sink_order_index.size(); ++i) {
-                VTR_LOG(" %d", sink_order_index[i]);
-                    }
-                VTR_LOG("\n");
             }
-            net_id_to_sink_order_map[net_id] = sink_order_index;
+            std::istringstream iss(line);
+            size_t net_id;
+            int iteration = -1;
+	    std::string reroute_info; //5/12
+                
+            iss >> iteration;
+	    iss >> net_id;  // First read the net ID
+	    iss >> reroute_info;
+
+	    //parse 5/12
+	    int rerouted_sinks = 0;
+    	    int total_sinks = 0;
+    	    {
+    	        auto slash_pos = reroute_info.find('/');
+    	        if (slash_pos != std::string::npos) {
+    	            rerouted_sinks = std::stoi(reroute_info.substr(0, slash_pos));
+    	            total_sinks = std::stoi(reroute_info.substr(slash_pos + 1));
+    	        } else {
+    	            // if format is bad, you can handle it here
+    	        }
+    	    }
+            //VTR_LOG("Net ID read: %d  ", node_id);
+            
+	    int net_pin_index;
+            //std::vector<int> sink_order;
+            //std::unordered_map<int, int> sink_order_index;
+	    //the below vector assigns all the sinks, total_sinks+1, and this basically
+	    //helps to put all the sinks that are not part of vanilla order to be 
+	    //routed at last
+	    std::vector<int> sink_order_index(total_sinks+1, total_sinks+10);
+
+	    int order = 0;
+            while (iss >> net_pin_index) {  // Then read all the following net IDs
+		sink_order_index[net_pin_index] = order++;
+                //sink_order.push_back(net_pin_index);
+                //VTR_LOG("%s ", net_id.c_str());
+            }
+            //for (int i = 0; i < sink_order.size(); ++i) {
+            //    sink_order_index[sink_order[i]] = i;
+            //}
+           
+	    /*if (net_id == 48) {
+                VTR_LOG("%zu", net_id);
+                for (int i = 0; i < sink_order.size(); ++i) {
+                    VTR_LOG(" %d", sink_order[i]);
+                }
+                VTR_LOG("\n");
+                VTR_LOG("%zu", net_id);
+                for (int i = 0; i < sink_order_index.size(); ++i) {
+                    VTR_LOG(" %d", sink_order_index[i]);
+                }
+                VTR_LOG("\n");
+            }*/
+            net_id_to_sink_order_map[iteration][net_id] = std::move(sink_order_index);
         }
         // reading branch node 
         // net, net_pin_index --> all branch dnode id
@@ -2643,9 +2674,11 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         int node_id, history_congestion_cost;
         while (hist_fp >> node_id >> history_congestion_cost)
         {
-            history_cost_map[node_id] = float(history_congestion_cost);
+            //history_cost_map[node_id] = float(history_congestion_cost);
+            history_cost_map[node_id] = history_congestion_cost;
         }
         hist_fp.close();
+	/*
         //======================   
         //reading node map file
         std::ifstream node_map_fp;
@@ -2666,7 +2699,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             }
         }
         node_map_fp.close();
-        for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+	*/
+        
+	/*for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
             size_t dr_node_id = (size_t)rr_id;
             route_ctx.rr_node_route_inf[dr_node_id].acc_cost = history_cost_map[dr_node_id];//1 + (history_cost_map[node_id_from]-1) * 0.4;
              
@@ -2674,7 +2709,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             //if (history_cost_map.find(gr_node_id) != history_cost_map.end()){//GI
             //	route_ctx.rr_node_route_inf[dr_node_id].acc_cost = history_cost_map[gr_node_id];//1 + (history_cost_map[node_id_from]-1) * 0.4;
             //}
-         } 
+         }*/ 
     }
 
     // Make sure template type ConnectionRouter is a ConnectionRouterInterface.
@@ -2773,29 +2808,46 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         ClusterNetId temp_net_id;
         complete_rip_up_net_count = 0;
         partial_rip_up_net_count = 0;
-	//std::vector<ClusterNetId> first_100_nets;
-	//size_t num_elements_to_copy = 100;
-	//first_100_nets.reserve(num_elements_to_copy);
+
+	std::vector<ClusterNetId> first_100_nets;
+	size_t num_elements_to_copy = 809218; //138;
+	first_100_nets.reserve(num_elements_to_copy);
+	
+	// code to copy the last nets with fanout 1 - 10
+	auto start_iter = sorted_nets.end() - num_elements_to_copy;
+	
 	//std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
+	std::copy_n(start_iter, num_elements_to_copy, std::back_inserter(first_100_nets));
+	
+
 	if(router_opts.shuffle_net_order == 1){
 	  //std::random_device rd;  // Seed for random number generator
           //std::mt19937 g(rd());   // Standard Mersenne Twister engine
           //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
           std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
-	
+		
+	//for (auto net_id : first_100_nets) {
 	for (auto net_id : sorted_nets) {
 	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
+	    /*if (golden_net_order.find(size_t(net_id)) == golden_net_order.end()){
+	    	continue;
+	    }*/
 	    /*if (congested_nets.find(size_t(net_id)) == congested_nets.end()){
 	        continue;
 	    }*/
 
             temp_net_id = net_id;
-	    std::unordered_map<int, int> sink_order_index;
+	    std::vector<int> sink_order_index;
 	    if (router_opts.detailed_router == 1){
-	    	sink_order_index = net_id_to_sink_order_map[size_t(net_id)];
+	    	//sink_order_index = net_id_to_sink_order_map[itry][size_t(net_id)];
+		auto& net_map = net_id_to_sink_order_map[itry];  // itry exists, so this reference is safe
+		auto net_it = net_map.find(size_t(net_id));
+		if (net_it != net_map.end()) {
+		    sink_order_index = net_it->second;  // copy the vector if found
+		}
 	    }
 
             bool was_rerouted = false;
@@ -2806,7 +2858,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                                                            itry,
                                                            pres_fac,
                                                            sink_order_index,
-                                                           branch_node_map,
+                                                           //branch_node_map,
+                                                           //golden_net_order,
+							   flute_privilege,
                                                            router_opts,
                                                            connections_inf,
                                                            router_iteration_stats,
@@ -2840,7 +2894,13 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	        routing_predictor.set_leak_flag(true);
 	    }
 	    if (routing_predictor.get_leak_flag() == true) {
-	        VTR_LOG("[SHA] Leak allowed from this iteration.\n");
+	        VTR_LOG("[SHA] Leak allowed after this iteration %d.\n", itry);
+
+		// setting the node occupancy same as in vanilla
+	        for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+                    size_t dr_node_id = (size_t)rr_id;
+                    route_ctx.rr_node_route_inf[dr_node_id].set_occ(history_cost_map[dr_node_id]);
+                 } 
 	    }
 	}
 
@@ -3047,12 +3107,13 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             print_route(nullptr, filename.c_str());
         }
 	if (router_opts.save_history_cost_per_iteration){
-            std::string hist_filename = vtr::string_fmt("history_cost_iteration_%03d.hcost", itry);
+            std::string hist_filename = vtr::string_fmt("node_occupancy_iteration_%03d.hcost", itry);
             std::ofstream hist_file(hist_filename);
             for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
                 auto& node_inf = route_ctx.rr_node_route_inf[(size_t)rr_id];
                 float history_cost = node_inf.acc_cost;
-                hist_file << (size_t)rr_id << " " << history_cost << "\n";
+                short occupancy = node_inf.occ();
+                hist_file << (size_t)rr_id << " " << occupancy << "\n";
             }
             hist_file.close();
 	}
@@ -3427,8 +3488,8 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  ClusterNetId net_id,
                                  int itry,
                                  float pres_fac,
-				 std::unordered_map<int, int>& sink_order_index,
-				 std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>>& branch_node_map,
+				 std::vector<int>& sink_order_index,
+				 std::vector<bool> flute_privilege,
                                  const t_router_opts& router_opts,
                                  CBRR& connections_inf,
                                  RouterStats& router_stats,
@@ -3481,7 +3542,8 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                             itry,
                                             pres_fac,
 					    sink_order_index,
-					    branch_node_map,
+					    //branch_node_map,
+					    flute_privilege,
                                             router_opts,
                                             connections_inf,
                                             router_stats,
@@ -3516,8 +3578,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              ClusterNetId net_id,
                              int itry,
                              float pres_fac,
-                             std::unordered_map<int, int>& sink_order_index,
-                             std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>>& branch_node_map,
+                             std::vector<int>& sink_order_index,
+                             //std::unordered_map<ClusterNetId, std::unordered_map<int, std::set<int>>>& branch_node_map,
+			     std::vector<bool> flute_privilege,
                              const t_router_opts& router_opts,
                              CBRR& connections_inf,
                              RouterStats& router_stats,
@@ -3570,7 +3633,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         if (itry == 1) { 
             max_sub_iterations = (router_opts.detailed_router == 1) ? 0 : router_opts.shuffle1;
         }
-        else if (itry > 1 && itry < 10){
+        else if (itry > 1 && itry < 2){//10
             if (num_sinks >= factorials.size()){
                 t_num_sinks = factorials.size() - 1; 
             }
@@ -3582,7 +3645,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     all_permutation_max_fanout = 4;
             }
         }
-        else if (itry >= 10) {
+        else if (itry >= 2) {//10
             if (num_sinks >= factorials.size()){
                 t_num_sinks = factorials.size() - 1; 
             }
@@ -3671,9 +3734,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         auto& ref_remaining_targets = connections_inf.get_remaining_targets();
         
 
-        if (router_opts.detailed_router == 0 && sink_order_itr == 0) {
+        //if (router_opts.detailed_router == 0 && sink_order_itr == 0) {
+        /*if (sink_order_itr == 0) {
             net_order_file << (size_t)net_id << " " << ref_remaining_targets.size() << "/" << num_sinks << " ";
-        }
+           for (auto target : ref_remaining_targets) {
+               net_order_file << target << " ";
+           }
+           net_order_file << "\n";
+        }*/
         //}
         if (sink_order_itr == 0){// need to fix remaining targets so that a new permutation  is produced in subsequent iterations
             remaining_targets = ref_remaining_targets;
@@ -3837,21 +3905,38 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 [Luka, July 1st 2025]: This should be all of the original code; in case of errors, look into uncommenting lines of code.
             */
             // compare the criticality of different sink nodes
-            sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
-            if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
-                // // Change sink order only for the first iteration
-                // if (itry == 1) {
-                //     sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
-                // }
-            	// else {
-                //     sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
-                // }
-                std::random_device rd;  // Seed for random number generator
-                std::mt19937 g(rd());   // Standard Mersenne Twister engine
-                std::shuffle(begin(remaining_targets), end(remaining_targets), g);
+            //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+            if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1) {
+                if (routing_predictor.get_leak_flag() == false) {
+                    sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                }
+            	else {
+		    if (sink_order_index.empty()) {
+                        sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+		    }
+		    else {
+                        sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
+		    }
+                    //sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
+                }
+            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "/" << num_sinks << " ";
+           	for (auto target : remaining_targets) {
+               		net_order_file << target << " ";
+           	}
+           	net_order_file << "\n";
+                
+                // Change sink order only for the first iteration
+		//std::random_device rd;  // Seed for random number generator
+                //std::mt19937 g(rd());   // Standard Mersenne Twister engine
+                //std::shuffle(begin(remaining_targets), end(remaining_targets), g);
             }
             else if (sink_order_itr == 0) {
                 sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "/" << num_sinks << " ";
+           	for (auto target : remaining_targets) {
+               		net_order_file << target << " ";
+           	}
+           	net_order_file << "\n";
             /*if (size_t(net_id) == 6366) {
                     VTR_LOG("  order:"); 
                     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -3935,12 +4020,22 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
         cost_params.bias = router_opts.sbNode_lookahead_factor;
         cost_params.offpath_penalty = router_opts.offpath_penalty;
-        cost_params.detailed_router = router_opts.detailed_router;
         cost_params.relax_hop_order = router_opts.relax_hop_order;
         cost_params.global_occ_factor = router_opts.global_occ_factor;
 	//cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
 	cost_params.leak = routing_predictor.get_leak_flag();
-        // Pre-route to clock source for clock nets (marked as global nets)
+	cost_params.intra_tile_connection = false;
+        
+	//if (golden_net_order.find(size_t(net_id)) != golden_net_order.end()){
+	if (flute_privilege[size_t(net_id)] == true){
+	    cost_params.detailed_router = router_opts.detailed_router;
+            cost_params.pres_fac = cost_params.pres_fac;//5.0;
+	}
+	else {
+	    cost_params.detailed_router = 0;
+	}
+	
+	// Pre-route to clock source for clock nets (marked as global nets)
         if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
             //VTR_ASSERT(router_opts.clock_modeling == DEDICATED_NETWORK);
             int sink_node = device_ctx.virtual_clock_network_root_idx;
@@ -3982,12 +4077,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             bool intra_tile_connection = steiner_ctx.net_connection_intra_tile[net_id][target_pin]; 
 	    if (router_opts.detailed_router == 1 && intra_tile_connection == false) {
 	        corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
-                cost_params.detailed_router = router_opts.detailed_router;
+		cost_params.intra_tile_connection = false;
 	    }
-	    else {
-                cost_params.offpath_penalty = router_opts.offpath_penalty;
-                cost_params.detailed_router = 0;
-	        //cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
+	    else if (router_opts.detailed_router == 1) {
+		cost_params.intra_tile_connection = true;
+                //cost_params.detailed_router = 0;
 	    }
 	    //if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
             //VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);

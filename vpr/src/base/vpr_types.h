@@ -1520,6 +1520,7 @@ struct t_trace {
     int index;
     int net_pin_index = OPEN;
     short iswitch;
+    int corridor_index;
 };
 
 /**

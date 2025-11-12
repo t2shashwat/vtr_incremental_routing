@@ -1122,7 +1122,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
         if (path_found) {
             std::reverse(corridor_path.begin(), corridor_path.end());
             corridor_list_per_connection[sink_id] = std::move(corridor_path);
-        } else if (current != source_sb_id){
+        } else if (current != source_sb_id) {
             VTR_LOG("Sink pin_id %d at %d is disconnected from the source. No path found.\n", sink_id, this->net_id);
         }
 	else if (current == source_sb_id){ // intra-CLB connections having no edges, but we need to initialize the connection

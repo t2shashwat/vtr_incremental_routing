@@ -175,7 +175,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
     if (itry < 1 && cost_params.detailed_router == 1) {
     	high_fanout_bb = add_only_branch_node_of_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node);
     }
-    else if (cost_params.detailed_router == 1) {// && cost_params.leak == false){
+    else if (cost_params.detailed_router == 1){ // && cost_params.leak == false){
 	add_route_tree_to_heap(rt_root, sink_node, cost_params, branch_nodes, seg_index_branch_node, net_id, sink_id, corridors_per_connection);
     	high_fanout_bb = net_bounding_box;
     	//high_fanout_bb = add_high_fanout_route_tree_to_heap(rt_root, sink_node, cost_params, spatial_rt_lookup, net_bounding_box, branch_nodes, seg_index_branch_node, net_id, sink_id, corridors_per_connection);
@@ -272,17 +272,26 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	int next_corridor_index = 0;
 	int corridor_index = cheapest->corridor_index;
         t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
-        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s)\n",
-                            inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
+        VTR_LOGV_DEBUG(router_debug_, "  Popping node %d (cost: %g) hist: (%f) pres_cost: (%f) (%s) corridor index: %d\n",
+                            inode, cheapest->cost, get_single_rr_cong_acc_cost(inode),  get_single_rr_cong_pres_cost(inode, cost_params.pres_fac), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str(), corridor_index);
 	// in case of pins being popped, pass an arbitrary next_corridor_index, as it will be anyway not used, given the detailed router is run in combination with CHANX and CHANY
-	if (cost_params.detailed_router == 1) {
-	
-	    if (node_type == OPIN || node_type == SOURCE || node_type == IPIN || node_type == SINK) {
+	if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && cost_params.leak == true && corridor_index == std::numeric_limits<int>::max()){
+	      // this condition ensures that once a node outside the allowed nodes is allowed, from that point on, all nodes as an extension of this node would be considered outside
+	      next_corridor_index =  std::numeric_limits<int>::max();
+	      // what about the case when corridor index is not max?
+	      // cases when a long whcih is part of multiple corridors is still considered out of corridor. Relaxing this would lead to dissolving constraint of branch points
+	      // change: do not check corridor list when pushing
+	      // change: same goes when moving PRT to heap, for max corridor index do not query list of corridors
+	}
+	else if (cost_params.detailed_router == 1 && (node_type == OPIN || node_type == SOURCE || node_type == IPIN || node_type == SINK)) {
                 next_corridor_index = corridor_index+1;
-	    }
-	    
-	    else { // corridor_index + 1 out of list
-            
+	}
+	else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == true) {
+	      next_corridor_index =  std::numeric_limits<int>::max();
+	}
+
+	else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false) {
+	
 	    // SHA: Optimized implementation for corridor routing
 
 	    Corridor corridor = corridors_per_connection[corridor_index];
@@ -291,29 +300,6 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	    short corridor_xto = corridor.to_x;
 	    short corridor_yto = corridor.to_y;
 	    
-	    /*bool turn = false;
-	    if (corridor_index + 1 < corridors_per_connection.size()){
-	        Corridor corridor_next = corridors_per_connection[corridor_index + 1];
-
-	    	short corridor_next_xfrom = corridor_next.from_x;
-	    	short corridor_next_yfrom = corridor_next.from_y;
-	    	short corridor_next_xto = corridor_next.to_x;
-	    	short corridor_next_yto = corridor_next.to_y;
-
-                bool is_current_horizontal = (corridor.from_x != corridor.to_x);
-                bool is_current_vertical   = (corridor.from_y != corridor.to_y);
-
-                bool is_next_horizontal = (corridor_next.from_x != corridor_next.to_x);
-                bool is_next_vertical   = (corridor_next.from_y != corridor_next.to_y);
-
-                if ((is_current_horizontal && is_next_vertical) ||
-                    (is_current_vertical && is_next_horizontal)) {
-                    turn = true;
-                }
-
-	    }*/
-
-
 	    int eff_corridor_to_x = corridor.to_x;
 	    int eff_corridor_to_y = corridor.to_y;
 	    // determine corridor direction
@@ -323,9 +309,6 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	    Direction corridor_direction = (dx != 0) ? (dx > 0 ? Direction::INC : Direction::DEC)
                         			     : (dy > 0 ? Direction::INC : Direction::DEC);
 	    
-            //eff_corridor_to_x = (corridor_direction == Direction::DEC) ? eff_corridor_to_x + 1 : eff_corridor_to_x;
-	    //eff_corridor_to_y = (corridor_direction == Direction::DEC) ? eff_corridor_to_y + 1 : eff_corridor_to_y;
-	       
 	    
 	    int inode_xlow = rr_graph_->node_xlow(RRNodeId(inode));
     	    int inode_ylow = rr_graph_->node_ylow(RRNodeId(inode));
@@ -382,7 +365,6 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 		    }
                 }
 	    }
-	}
 	}
 	
 	VTR_LOGV_DEBUG(router_debug_, "   next corridor index: %d\n", next_corridor_index);	
@@ -711,8 +693,12 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	
     float offpath_penalty = 1.0;
     t_rr_type node_type = rr_graph_->node_type(to_node);
+    if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && cost_params.leak == true && corridor_index == std::numeric_limits<int>::max()){
+	    offpath_penalty = cost_params.offpath_penalty; 
+	    //corridor_index = std::numeric_limits<int>::max(); 
+    }
     // query the corridors list only for CHANX and CHANY
-    if (cost_params.detailed_router == 1 && (node_type == CHANX || node_type == CHANY)) {
+    else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY)) {
             Corridor corridor = corridors_per_connection[corridor_index];
 
 	    int eff_corridor_to_x = corridor.to_x;
@@ -774,8 +760,9 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 
 	    // update offpath based on leak value
 	    // for now leaking everywhere is allowed without any discriminatory penalty
-	    if (offpath_penalty == -1.0 && cost_params.leak == true ) {
+	    if (offpath_penalty == -1.0 && cost_params.leak == true) {
 		  offpath_penalty = cost_params.offpath_penalty; 
+		  corridor_index = std::numeric_limits<int>::max(); 
  	    }
 	    
             //VTR_LOG("   offpath: %f \n", offpath_penalty); 
@@ -1096,8 +1083,20 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
         total_cost = compute_node_cost_using_rcv(cost_params, to_node, target_node, to->path_data->backward_delay, to->path_data->backward_cong, to->R_upstream);
     } else {
         const auto& device_ctx = g_vpr_ctx.device();
-        //Update total cost
-        float expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
+	float expected_cost;
+	//if (cost>params.detailed_router != 1) {
+            //Update total cost
+            expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
+	//}
+	//else {
+	    // this lookahead value will not be precise for wires whose length are less than the
+	    // corridor length, but for all other it will be precise
+	    // With additional computation, imprecise lookahead can also be fixed on the fly, but it may not have 
+	    // that big of an impact (quantify)
+	    //expected_cost = global_router_lookahead[corridor_index];
+	
+	//}
+	// get expected cost for global paths
         VTR_LOGV_DEBUG(router_debug_ && std::isfinite(expected_cost),
                        "        Lookahead from %s (%s) to %s (%s) is non-finite, expected_cost = %f, to->R_upstream = %f\n",
                        rr_node_arch_name(to_node).c_str(), describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, to_node, is_flat_).c_str(),
@@ -1189,6 +1188,8 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     std::set<int> branch_nodes, int seg_index_branch_node,
     ClusterNetId net_id, int sink_id,
     std::vector<Corridor>& corridors_per_connection) {
+    
+	const auto& device_ctx = g_vpr_ctx.device();
 
     /* Puts the entire partial routing below and including rt_node onto the heap *
      * (except for those parts marked as not to be expanded) by calling itself   *
@@ -1201,22 +1202,39 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     // IPINs and SINKS are not re_expanded
     int corridor_index = 0;
     if (rt_node->re_expand) {
-	if (cost_params.detailed_router == 1) {	
+	if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false) {	
 		int to_node = rt_node->inode;
 		corridor_index = rt_node->corridor_index;
+		//if (sink_id == 14849598) {
+        	//VTR_LOGV_DEBUG(router_debug_, "  Checking node %8d to heap from init route tree (%s) corridor index: %d\n", to_node,
+                 //      describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, to_node, is_flat_).c_str(), corridor_index);
+		//}
     		
 		t_rr_type node_type = rr_graph_->node_type(RRNodeId(to_node));
 		int add_to_heap = 0;
-                if ((node_type == CHANX || node_type == CHANY) && corridor_index >=0 && corridor_index < corridors_per_connection.size()) {
+		// what about the high fanout nets? that are added with spatial lookup around the target
+		// // for now it seems I am not using spatial lookup, but this can be used as a runtime optimization in the future
+		if (corridor_index < 0) {
+	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
+	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d) \n", corridor_index);
+		    add_to_heap = 1;
+		}
+		else if (corridor_index == std::numeric_limits<int>::max() && cost_params.leak == true) {
+	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
+	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d) \n", corridor_index);
+		    add_to_heap = 1;
+		
+		}
+		else if ((node_type == CHANX || node_type == CHANY) && corridor_index >=0 && corridor_index < corridors_per_connection.size()) {
     		    int to_xlow = rr_graph_->node_xlow(RRNodeId(to_node));
     		    int to_ylow = rr_graph_->node_ylow(RRNodeId(to_node));
     		    int to_xhigh = rr_graph_->node_xhigh(RRNodeId(to_node));
     		    int to_yhigh = rr_graph_->node_yhigh(RRNodeId(to_node));
                     
 		    Corridor corridor = corridors_per_connection[corridor_index];
-		    //VTR_LOG(" adding to heap from PRT: %d\n", corridor_index);
-	    	    //VTR_LOG("   [PRT] Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
-	            //VTR_LOG("       [PRT] seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
+		    VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
+	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
+	            VTR_LOGV_DEBUG(router_debug_, "       [PRT] seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
 
 		    int eff_corridor_to_x = corridor.to_x;
 		    int eff_corridor_to_y = corridor.to_y;
@@ -1273,16 +1291,15 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
 		//if (hop != -1) 
 		if (corridor_index < 0 || add_to_heap == 1) {
 	    		add_route_tree_node_to_heap(rt_node,
-                                   				   target_node,
-                                    				   cost_params, corridor_index);
+                                   		    target_node,
+                                    		    cost_params, corridor_index);
 		}
-	} // the above case still adds node with zero cost when hop order is relaxed
-	/*else if (cost_params.detailed_router == 1 && cost_params.leak == true){	
-	    add_route_tree_node_to_heap(rt_node,
-                                    target_node,
-                                    cost_params);
-	}*/
-	else if (cost_params.detailed_router == 0){
+	} 
+	
+	else if (cost_params.detailed_router == 0 || cost_params.intra_tile_connection == true){
+	    int to_node = rt_node->inode;
+            corridor_index = rt_node->corridor_index;
+	    VTR_LOGV_DEBUG(router_debug_, " [PRT] Corridor index up for addition: %d\n", corridor_index);
 	    add_route_tree_node_to_heap(rt_node,
                                     target_node,
                                     cost_params, corridor_index);
@@ -1327,10 +1344,10 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap_with_zero_cost(
         //                 + cost_params.astar_fac
         //                       * router_lookahead_.get_expected_cost(RRNodeId(inode), RRNodeId(target_node), cost_params, R_upstream);
         float tot_cost = 0.;
-        VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s)\n", inode, tot_cost,
-                       describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
-
 	int corridor_index;
+        VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s) corridor index: %d\n", inode, tot_cost,
+                       describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str(), corridor_index);
+
         push_back_node(&heap_, rr_node_route_inf_,
                        inode, tot_cost, NO_PREVIOUS, RREdgeId::INVALID(),
                        backward_path_cost, R_upstream, corridor_index);
@@ -1372,11 +1389,26 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
 
     if (!rcv_path_manager.is_enabled()) {
         // tot_cost = backward_path_cost + cost_params.astar_fac * expected_cost;
-        float tot_cost = backward_path_cost
+	float tot_cost;
+	//if (cost_params.detailed_router != 1) {
+            tot_cost = backward_path_cost
                          + cost_params.astar_fac
                                * router_lookahead_.get_expected_cost(RRNodeId(inode), RRNodeId(target_node), cost_params, R_upstream);
-        VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s)\n", inode, tot_cost,
-                       describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
+            VTR_LOGV_DEBUG(router_debug_, "  Adding node %8d to heap from init route tree with cost %g (%s) corridor_index: %d\n", inode, tot_cost,
+                       describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str(), corridor_index);
+	//}
+	// get cost from current node to target along the FLUTE path
+	// accessing steiner_ctx here is going to be mem intensive?
+	// have astar_fac as 1 when within global paths, and then set to 1.2
+	// have a list storing distance to source from each corridor
+	// of course when a wire of length smaller than corridor length is used, then the cost
+	// should be adjusted, but it can be ignored for now
+	// Q. Do I need a lookahead when within the global paths?
+	//
+	//else {
+	//    float lookahead_cost =  global_router_lookahead[corridor_index];
+	//    tot_cost = backward_path_cost + cost_params.astar_fac * lookahead_cost;
+	//}
 
         push_back_node(&heap_, rr_node_route_inf_,
                        inode, tot_cost, NO_PREVIOUS, RREdgeId::INVALID(),

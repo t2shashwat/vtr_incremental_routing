@@ -810,6 +810,9 @@ static t_trace* traceback_to_route_tree_branch(t_trace* trace,
         int ipin = trace->net_pin_index;
         int iswitch = trace->iswitch;
 
+	//SHA: FLUTE+PF
+	int corridor_index = trace->corridor_index;
+
         auto& device_ctx = g_vpr_ctx.device();
         const auto& rr_graph = device_ctx.rr_graph;
         auto itr = rr_node_to_rt.find(trace->index);
@@ -829,6 +832,9 @@ static t_trace* traceback_to_route_tree_branch(t_trace* trace,
             node->R_upstream = std::numeric_limits<float>::quiet_NaN();
             node->C_downstream = std::numeric_limits<float>::quiet_NaN();
             node->Tdel = std::numeric_limits<float>::quiet_NaN();
+
+	    //SHA:FLUTE+PF
+	    node->corridor_index = corridor_index;
 
             auto node_type = rr_graph.node_type(RRNodeId(inode));
             if (node_type == IPIN || node_type == SINK)
@@ -909,6 +915,7 @@ static std::pair<t_trace*, t_trace*> traceback_from_route_tree_recurr(t_trace* h
                 curr->net_pin_index = node->net_pin_index;
                 curr->iswitch = edge->iswitch;
                 curr->next = nullptr;
+		curr->corridor_index = node->corridor_index;
 
                 if (tail) {
                     VTR_ASSERT(tail->next == nullptr);
@@ -930,6 +937,7 @@ static std::pair<t_trace*, t_trace*> traceback_from_route_tree_recurr(t_trace* h
             curr->net_pin_index = node->net_pin_index;
             curr->iswitch = OPEN;
             curr->next = nullptr;
+ 	    curr->corridor_index = node->corridor_index;
 
             if (tail) {
                 VTR_ASSERT(tail->next == nullptr);

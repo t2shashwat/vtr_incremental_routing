@@ -232,6 +232,7 @@ static void fill_in_missing_lookahead_entries(int segment_index, e_rr_type chan_
 static Cost_Entry get_nearby_cost_entry(int x, int y, int segment_index, int chan_index);
 /* returns the absolute delta_x and delta_y offset required to reach to_node from from_node */
 static void get_xy_deltas(const RRNodeId from_node, const RRNodeId to_node, int* delta_x, int* delta_y);
+static void get_xy_deltas_vpr_style(const RRNodeId from_node, const RRNodeId to_node, int* delta_x, int* delta_y);
 static void adjust_rr_position(const RRNodeId rr, int& x, int& y);
 static void adjust_rr_pin_position(const RRNodeId rr, int& x, int& y);
 static void adjust_rr_wire_position(const RRNodeId rr, int& x, int& y);
@@ -947,8 +948,75 @@ Cost_Entry Expansion_Cost_Entry::get_median_entry() {
     return representative_entry;
 }
 
-/* returns the absolute delta_x and delta_y offset required to reach to_node from from_node */
+/*
+ * Distance function to compute the channel-tile distance from the ending point of a segment to the top-left SB of a given CLB location.
+ * No location adjustement is needed to use this function to account for the connected SB being on the tile to the left of the CLB.
+ * Everything is accounted for inside this function and the result can be used "as-is".
+ */
+
 static void get_xy_deltas(const RRNodeId from_node, const RRNodeId to_node, int* delta_x, int* delta_y) {
+    auto& device_ctx = g_vpr_ctx.device();
+    const auto& rr_graph = device_ctx.rr_graph;
+    e_rr_type from_type = rr_graph.node_type(from_node);
+    e_rr_type to_type = rr_graph.node_type(to_node);
+    if (!is_chan(from_type) && !is_chan(to_type)) {
+        //Alternate formulation for non-channel types
+        int from_x = 0;
+        int from_y = 0;
+        adjust_rr_position(from_node, from_x, from_y);
+        int to_x = 0;
+        int to_y = 0;
+        adjust_rr_position(to_node, to_x, to_y);
+        *delta_x = to_x - from_x;
+        *delta_y = to_y - from_y;
+    } else {
+        //Traditional formulation
+        
+        Direction from_dir = rr_graph.node_direction(from_node);
+
+        /* Get relative arrival-SB coordinates */
+        int sb_x, sb_y;
+
+        if (from_type == e_rr_type::CHANX && from_dir == Direction::DEC){
+            sb_x = rr_graph.node_xlow(from_node);
+        }
+        else {
+            sb_x = rr_graph.node_xhigh(from_node) + 1;
+        }
+
+        if (from_type == e_rr_type::CHANX || from_dir == Direction::INC){
+            sb_y = rr_graph.node_yhigh(from_node);
+        }
+        else {
+            sb_y = rr_graph.node_ylow(from_node) - 1;
+        }
+
+        /* Get target CLB coordinates */
+        int to_clb_x = rr_graph.node_xlow(to_node);
+        int to_clb_y = rr_graph.node_ylow(to_node);
+
+        /* Count the minimum number of *channel segments* between the from and to nodes */
+        *delta_x = to_clb_x - sb_x;
+        *delta_y = to_clb_y - sb_y;
+
+        /* Handle edge cases */
+        if (from_type == e_rr_type::CHANX && delta_y == 0
+            && ((*delta_x < 0 && from_dir == Direction::INC)
+             || (*delta_x > 0 && from_dir == Direction::DEC))){
+            *delta_y += 2;
+        }
+        else if (from_type == e_rr_type::CHANY && delta_x == 0
+            && ((*delta_y < 0 && from_dir == Direction::INC)
+             || (*delta_y > 0 && from_dir == Direction::DEC))){
+            *delta_x += 2;
+        }
+    }
+    VTR_ASSERT_SAFE(std::abs(*delta_x) < (int)device_ctx.grid.width());
+    VTR_ASSERT_SAFE(std::abs(*delta_y) < (int)device_ctx.grid.height());
+}
+
+/* returns the absolute delta_x and delta_y offset required to reach to_node from from_node */
+static void get_xy_deltas_vpr_style(const RRNodeId from_node, const RRNodeId to_node, int* delta_x, int* delta_y) {
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
 

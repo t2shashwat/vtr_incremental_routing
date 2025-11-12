@@ -671,7 +671,13 @@ void pathfinder_update_single_node_occupancy(int inode, int add_or_sub) {
 
     auto& route_ctx = g_vpr_ctx.mutable_routing();
     //printf("single node occupancy of %d: %d\n", inode, route_ctx.rr_node_route_inf[inode].occ());
+    //SHA: ad hoc fix
+    //int occ = std::min<int>(6, route_ctx.rr_node_route_inf[inode].occ()) + add_or_sub;
     int occ = route_ctx.rr_node_route_inf[inode].occ() + add_or_sub;
+    //SHA: temp change to support ad hoc loading of occupancy
+    if (occ < 0) {
+        occ = 0;
+    }
     route_ctx.rr_node_route_inf[inode].set_occ(occ);
     // can't have negative occupancy
     VTR_ASSERT(occ >= 0);
@@ -691,6 +697,8 @@ void pathfinder_update_acc_cost_and_overuse_info(float acc_fac, OveruseInfo& ove
     size_t overused_nodes = 0, total_overuse = 0, worst_overuse = 0;
 
     for (const RRNodeId& rr_id : rr_graph.nodes()) {
+	    //SHA: Revert this ad hoc hypo tester
+        //int overuse = std::min<int>(6, route_ctx.rr_node_route_inf[(size_t)rr_id].occ()) - rr_graph.node_capacity(rr_id);
         int overuse = route_ctx.rr_node_route_inf[(size_t)rr_id].occ() - rr_graph.node_capacity(rr_id);
     	//int g_occupancy = route_ctx.rr_node_route_inf[(size_t)rr_id].g_occ();
 
@@ -842,6 +850,9 @@ static t_trace_branch traceback_branch(int node, int target_net_pin_index, std::
     branch_head->iswitch = OPEN;
     branch_head->next = nullptr;
 
+    // SHA: FLUTE+PF
+    branch_head->corridor_index = route_ctx.rr_node_route_inf[node].corridor_index;
+
     trace_nodes.insert(node);
 
     std::vector<int> new_nodes_added_to_traceback = {node};
@@ -855,6 +866,9 @@ static t_trace_branch traceback_branch(int node, int target_net_pin_index, std::
         prev_ptr->index = inode;
         prev_ptr->net_pin_index = OPEN; //Net pin index is invalid for Non-SINK nodes
         prev_ptr->iswitch = rr_graph.rr_nodes().edge_switch(iedge);
+
+	//SHA: FLUTE+PF
+	prev_ptr->corridor_index = route_ctx.rr_node_route_inf[inode].corridor_index;
 
         prev_ptr->next = branch_head;
         branch_head = prev_ptr;
@@ -1756,6 +1770,8 @@ static void adjust_one_rr_occ_and_acc_cost(int inode, int add_or_sub, float acc_
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
 
+    //SHA: ad hoc fix
+    //int new_occ = std::min<int>(6, route_ctx.rr_node_route_inf[inode].occ()) + add_or_sub;
     int new_occ = route_ctx.rr_node_route_inf[inode].occ() + add_or_sub;
     int capacity = rr_graph.node_capacity(RRNodeId(inode));
     route_ctx.rr_node_route_inf[inode].set_occ(new_occ);
