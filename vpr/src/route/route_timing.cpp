@@ -3835,7 +3835,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             */
             // compare the criticality of different sink nodes
             strategy = "original";
-            sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+            //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1){
                 // // Change sink order only for the first iteration
                 // if (itry == 1) {
