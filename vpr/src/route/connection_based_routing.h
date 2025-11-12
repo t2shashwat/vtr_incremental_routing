@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 #include "route_tree_type.h"
 #include "vpr_types.h"
 #include "timing_info.h"
@@ -21,6 +22,9 @@ class Connection_based_routing_resources {
     // conversion from node to pin being performed by this class
     std::vector<int> remaining_targets;
 
+    std::vector<std::pair<int,int>> remaining_targets_with_depth;
+    
+
     // contains rt_nodes representing sinks reached legally while pruning the route tree
     // used to populate rt_node_of_sink after building route tree from traceback
     // order does not matter
@@ -30,7 +34,19 @@ class Connection_based_routing_resources {
     Connection_based_routing_resources();
     // adding to the resources when they are reached during pruning
     // mark rr sink node as something that still needs to be reached
-    void toreach_rr_sink(int rr_sink_node) { remaining_targets.push_back(rr_sink_node); }
+    void toreach_rr_sink(int rr_sink_node, int depth) {
+      auto it = std::upper_bound(remaining_targets_with_depth.begin(),
+                                 remaining_targets_with_depth.end(),
+                                 depth,
+                                 [](int d, const std::pair<int,int>& p) {
+                                     return d < p.second;
+                                 });
+  
+      auto idx = static_cast<size_t>(std::distance(remaining_targets_with_depth.begin(), it));
+  
+      remaining_targets_with_depth.insert(it, std::make_pair(rr_sink_node, depth));
+      remaining_targets.insert(remaining_targets.begin() + idx, rr_sink_node);
+  }
     // mark rt sink node as something that has been legally reached
     void reached_rt_sink(t_rt_node* rt_sink) { reached_rt_sinks.push_back(rt_sink); }
 
@@ -91,6 +107,7 @@ class Connection_based_routing_resources {
         current_inet = inet;
         // fresh net with fresh targets
         remaining_targets.clear();
+        remaining_targets_with_depth.clear();
         reached_rt_sinks.clear();
     }
 

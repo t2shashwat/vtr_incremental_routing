@@ -1493,7 +1493,7 @@ static t_rt_node* setup_routing_resources(int itry,
 
         rt_root = init_route_tree_to_source(net_id);
         for (unsigned int sink_pin = 1; sink_pin <= num_sinks; ++sink_pin)
-            connections_inf.toreach_rr_sink(sink_pin);
+            connections_inf.toreach_rr_sink(sink_pin, 0);
         // since all connections will be rerouted for this net, clear all of net's forced reroute flags
         connections_inf.clear_force_reroute_for_net();
 
@@ -3849,7 +3849,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 std::shuffle(begin(remaining_targets), end(remaining_targets), g);
             }
             else if (sink_order_itr == 0) {
-                sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             /*if (size_t(net_id) == 6366) {
                     VTR_LOG("  order:"); 
                     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -4195,7 +4195,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 
         rt_root = init_route_tree_to_source(net_id);
         for (unsigned int sink_pin = 1; sink_pin <= num_sinks; ++sink_pin)
-            connections_inf.toreach_rr_sink(sink_pin);
+            connections_inf.toreach_rr_sink(sink_pin, 0);
         // since all connections will be rerouted for this net, clear all of net's forced reroute flags
         connections_inf.clear_force_reroute_for_net();
 
