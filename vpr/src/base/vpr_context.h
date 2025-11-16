@@ -41,6 +41,12 @@ struct Corridor {
         VTR_LOG("      (%d, %d) → (%d, %d)\n", from_x, from_y, to_x, to_y);
     }
 };
+
+struct CorridorData {
+    std::vector<Corridor> corridors_per_connection;
+    std::vector<unsigned short> flute_lookahead;
+};
+
 struct Point {
     int x;
     int y;
