@@ -65,9 +65,9 @@ static float do_one_route(int source_node, int sink_node, const t_router_opts& r
     //std::string temp_net_id = "-1";
     int temp_sink_id = 0;
     std::set<int> temp_branch_nodes;
-    std::vector<Corridor> corridors_per_connections;
+    CorridorData corridor_data;
     int itry = 1;
-    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes, itry, corridors_per_connections);
+    std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root, sink_node, cost_params, bounding_box, router_stats, temp_net_id, temp_sink_id, temp_branch_nodes, itry, corridor_data);
 
     // Default delay is infinity, which indicates that a route was not found.
     float delay = std::numeric_limits<float>::infinity();

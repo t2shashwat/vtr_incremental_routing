@@ -890,9 +890,10 @@ std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_
     return corridor_list_per_connection;
 }
 */
-std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, bool>> Steiner::build_corridor_list_per_connection(std::string source_sb_id) const {
+std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> Steiner::build_corridor_list_per_connection(std::string source_sb_id) const {
 
     std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
+    std::unordered_map<int, std::vector<unsigned short>> corridors_lookahead;
     std::unordered_map<int, bool> connection_intra_tile;
 
     std::unordered_map<std::string, std::string> child_to_parent;
@@ -901,7 +902,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
     if (source_sb_id.empty()) {
         // Handle case with no source pin
 	VTR_LOG(" [Building corridors: No source for this net\n");
-        return {corridor_list_per_connection, connection_intra_tile};
+        return {corridor_list_per_connection, corridors_lookahead, connection_intra_tile};
     }
    
     auto parse_coords = [](const std::string& sb_id) -> std::pair<int, int> {
@@ -1102,15 +1103,23 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 	// if sink and source in the same tile, set to true
 	connection_intra_tile[sink_id] = (source_sb_id == current) ? true : false;
         std::vector<Corridor> corridor_path;
+        std::vector<unsigned short> corridor_lookahead;
 
 	bool path_found = false;//(child_to_parent.count(current) || current == source_sb_id);
         //if (path_found) {
+	unsigned short previous_distance = 0;
         while (child_to_parent.count(current)) {
             const std::string& parent = child_to_parent.at(current);
             auto [from_x, from_y] = parse_coords(parent);
             auto [to_x, to_y] = parse_coords(current);
+	    // assumes that corridor are not horizontal, they are either horizontal or vertical
+	    unsigned short corridor_len = std::abs(from_x - to_x) + std::abs(from_y - to_y);
 
             corridor_path.emplace_back(from_x, from_y, to_x, to_y);
+
+	    corridor_lookahead.emplace_back(previous_distance);
+
+ 	    previous_distance += corridor_len;
 
             if (parent == source_sb_id) {
                 path_found = true;
@@ -1121,16 +1130,19 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 
         if (path_found) {
             std::reverse(corridor_path.begin(), corridor_path.end());
+            std::reverse(corridor_lookahead.begin(), corridor_lookahead.end());
             corridor_list_per_connection[sink_id] = std::move(corridor_path);
+	    corridors_lookahead[sink_id] = std::move(corridor_lookahead);
         } else if (current != source_sb_id) {
             VTR_LOG("Sink pin_id %d at %d is disconnected from the source. No path found.\n", sink_id, this->net_id);
         }
 	else if (current == source_sb_id){ // intra-CLB connections having no edges, but we need to initialize the connection
 	    corridor_list_per_connection[sink_id] = std::move(corridor_path);
+	    corridors_lookahead[sink_id] = std::move(corridor_lookahead);
 	}
     }
     
-    return {corridor_list_per_connection, connection_intra_tile};
+    return {corridor_list_per_connection, corridors_lookahead, connection_intra_tile};
 }
 
 
@@ -1244,8 +1256,9 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
             // by doing this, we reduce heap pops and redundant wires
 	    //
 	    // Below is the new implemenation driven to optimize runtime by reducing memory accesses
-	    auto [net_corridors, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
+	    auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
             steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+	    steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
 	    steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
 	    // Debug print: Dump corridors for this net
 	    /*if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1) {

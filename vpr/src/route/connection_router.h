@@ -74,7 +74,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection) final;
+	CorridorData& corridor_data) final;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
     // high fanout net.
@@ -91,7 +91,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection) final;
+	CorridorData& corridor_data) final;
 
     // Finds a path from the route tree rooted at rt_root to all sinks
     // available.
@@ -162,7 +162,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes, int seg_index_branch_node,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection);
+	CorridorData& corridor_data);
 
     // Finds a path to sink_node, starting from the elements currently in the
     // heap.
@@ -177,7 +177,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId net_id, int sink_id, int itry, std::vector<Corridor>& corridors_per_connection);
+        ClusterNetId net_id, int sink_id, int itry, CorridorData& corridor_data);
 
     // Expand this current node if it is a cheaper path.
     void timing_driven_expand_cheapest(
@@ -188,7 +188,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	int current_hop_value, 
 	int itry,
-	std::vector<Corridor>& corridors_per_connection,
+	CorridorData& corridor_data,
 	int corridor_index);
 
     // Expand each neighbor of the current node.
@@ -200,7 +200,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	int current_hop_value,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection,
+	CorridorData& corridor_data,
 	int corridor_index);
 
     // Conditionally adds to_node to the router heap (via path from from_node
@@ -220,7 +220,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	int current_hop_value,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection,
+	CorridorData& corridor_data,
 	int corridor_index);
 
     // Add to_node to the heap, and also add any nodes which are connected by
@@ -233,7 +233,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const RREdgeId from_edge,
         const int target_node,
 	const float offpath_penalty,
-	const int corridor_index);
+	const int corridor_index,
+	CorridorData& corridor_data);
 
     // Calculates the cost of reaching to_node
     void evaluate_timing_driven_node_costs(
@@ -243,7 +244,9 @@ class ConnectionRouter : public ConnectionRouterInterface {
         const int to_node,
         const RREdgeId from_edge,
         const int target_node,
-	const float offpath_penalty);
+	const float offpath_penalty,
+	CorridorData& corridor_data,
+	const int corridor_index);
 
     // Find paths from current heap to all nodes in the RR graph
     std::vector<t_heap> timing_driven_find_all_shortest_paths_from_heap(
@@ -260,7 +263,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
                                 const t_conn_cost_params cost_params,
 				std::set<int> branch_nodes, int seg_index_branch_node,
 				ClusterNetId net_id, int sink_id,
-				std::vector<Corridor>& corridors_per_connection);
+				CorridorData& corridor_data);
     
     bool add_only_branch_node_of_route_tree_to_heap(t_rt_node* rt_node,
                                 int target_node,
@@ -283,6 +286,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         t_rt_node* rt_node,
         int target_node,
         const t_conn_cost_params cost_params,
+	CorridorData& corridor_data,
 	int corridor_index);
     
     void add_route_tree_node_to_heap_with_zero_cost(
@@ -298,7 +302,7 @@ class ConnectionRouter : public ConnectionRouterInterface {
         t_bb net_bounding_box,
 	std::set<int> branch_nodes, int seg_index_branch_node,
 	ClusterNetId net_id, int sink_id,
-	std::vector<Corridor>& corridors_per_connection);
+	CorridorData& corridor_data);
     
     t_bb add_only_branch_node_of_high_fanout_route_tree_to_heap(
         t_rt_node* rt_root,

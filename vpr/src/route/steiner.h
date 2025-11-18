@@ -158,7 +158,7 @@ public:
     
     void map_net_sink_to_dnodes(int source_x, int source_y, int sink_x, int sink_y, std::vector<int>& sink_ids);
 
-    std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, bool>> build_corridor_list_per_connection(std::string source_sb_id) const;
+    std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> build_corridor_list_per_connection(std::string source_sb_id) const;
 
     void compute_dependency_graph_sink_order(std::string source_sb_id, std::unordered_map<size_t, std::unordered_map<int, int>>& sink_order);
     

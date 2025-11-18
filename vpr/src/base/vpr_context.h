@@ -466,6 +466,7 @@ struct SteinerContext : public Context {
     */
     std::unordered_map<int, std::vector<std::pair<int, int>>> connections_per_dnode;
     std::unordered_map<ClusterNetId, std::unordered_map<int, std::vector<Corridor>>> all_corridors;
+    std::unordered_map<ClusterNetId, std::unordered_map<int, std::vector<unsigned short>>> all_corridors_lookahead;
     std::unordered_map<ClusterNetId, std::unordered_map<int, bool>> net_connection_intra_tile;
     /*
         A mapping from Net Pin Index to number denoting priority when routing (lower number, higher priority)

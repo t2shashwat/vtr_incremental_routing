@@ -67,7 +67,7 @@ class ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection)
+	CorridorData& corridor_data)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to sink_node for a
@@ -85,7 +85,7 @@ class ConnectionRouterInterface {
         ClusterNetId net_id, int sink_id,
 	std::set<int> branch_nodes,
 	int itry,
-	std::vector<Corridor>& corridors_per_connection)
+	CorridorData& corridor_data)
         = 0;
 
     // Finds a path from the route tree rooted at rt_root to all sinks

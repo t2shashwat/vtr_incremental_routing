@@ -111,7 +111,8 @@ static bool timing_driven_route_sink(
     bool is_flat,
     std::set<int> branch_nodes,
     int itry,
-    std::vector<Corridor>& corridors_per_connection);
+    CorridorData& corridor_data);
+    //std::vector<Corridor>& corridors_per_connection);
 
 template<typename ConnectionRouter>
 static bool timing_driven_pre_route_to_clock_root(
@@ -1192,7 +1193,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
 
         profiling::conn_start();
 	std::set<int> branch_nodes;
-	std::vector<Corridor> corridors_per_connection;
+	//std::vector<Corridor> corridors_per_connection;
+	CorridorData corridor_data;
         // build a branch in the route tree to the target
         if (!timing_driven_route_sink(router,
                                       net_id,
@@ -1208,7 +1210,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
                                       is_flat,
 				      branch_nodes,
 				      itry,
-				      corridors_per_connection))
+				      corridor_data))
             return false;
 
         profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
@@ -1283,14 +1285,15 @@ static bool timing_driven_pre_route_to_clock_root(
     int sink_id = 0;
     std::set<int> branch_nodes;
     int itry = 1;
-    std::vector<Corridor> corridors_per_connection;
+    //std::vector<Corridor> corridors_per_connection;
+    CorridorData corridor_data;
     std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(
         rt_root,
         sink_node,
         cost_params,
         bounding_box,
         router_stats,
-        net_id, sink_id, branch_nodes, itry, corridors_per_connection);
+        net_id, sink_id, branch_nodes, itry, corridor_data);
 
     // TODO: Parts of the rest of this function are repetitive to code in timing_driven_route_sink. Should refactor.
     if (!found_path) {
@@ -1368,7 +1371,8 @@ static bool timing_driven_route_sink(
     bool is_flat,
     std::set<int> branch_nodes,
     int itry,
-    std::vector<Corridor>& corridors_per_connection) {
+    CorridorData& corridor_data) {
+    //std::vector<Corridor>& corridors_per_connection) {
     /* Build a path from the existing route tree rooted at rt_root to the target_node
      * add this branch to the existing route tree and update pathfinder costs and rr_node_route_inf to reflect this */
     const auto& device_ctx = g_vpr_ctx.device();
@@ -1407,13 +1411,13 @@ static bool timing_driven_route_sink(
                                                                                                            cost_params,
                                                                                                            bounding_box,
                                                                                                            spatial_rt_lookup,
-                                                                                                           router_stats, net_id, target_pin, branch_nodes, itry, corridors_per_connection);
+                                                                                                           router_stats, net_id, target_pin, branch_nodes, itry, corridor_data);
     } else {
         std::tie(found_path, cheapest) = router.timing_driven_route_connection_from_route_tree(rt_root,
                                                                                                sink_node,
                                                                                                cost_params,
                                                                                                bounding_box,
-                                                                                               router_stats, net_id, target_pin, branch_nodes, itry, corridors_per_connection);
+                                                                                               router_stats, net_id, target_pin, branch_nodes, itry, corridor_data);
     }
 
     if (!found_path) {
@@ -4216,7 +4220,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                             is_flat,
                                             branch_nodes,
                                             itry,
-					    corridors_per_connection))
+					    corridor_data))
                     return false;
 
                 profiling::conn_finish(route_ctx.net_rr_terminals[net_id][0],
