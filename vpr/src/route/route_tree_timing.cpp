@@ -1042,9 +1042,15 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
     bool all_children_pruned = true;
     t_linked_rt_edge* prev_edge = nullptr;
     t_linked_rt_edge* edge = node->u.child_list;
+
+    int length = 0;
+    if (rr_graph.node_type(RRNodeId(node->inode)) == CHANX || rr_graph.node_type(RRNodeId(node->inode)) == CHANY) {
+        length = rr_graph.node_length(RRNodeId(node->inode));
+    }
+
     while (edge) {
         t_rt_node* child = prune_route_tree_recurr(edge->child,
-                                                   connections_inf, force_prune, non_config_node_set_usage, depth + 1);
+                                                   connections_inf, force_prune, non_config_node_set_usage, depth + length);
 
         if (!child) { //Child was pruned
 
