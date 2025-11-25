@@ -807,7 +807,7 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
                 */
 		if (router_opts.calculate_steiner_trees){
                    VTR_LOG("Steiner pre-processing...\n");
-                   steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order);
+                   steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order, router_opts.dump_raw_flute_trees);
 		}
             }
             

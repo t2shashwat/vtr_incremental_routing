@@ -2355,6 +2355,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Choose which category of sinks to optimize route trees for")
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.dump_raw_flute_trees, "--dump_raw_flute_trees")
+        .help(
+            "Set true to dump flute trees before post-processing")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
 
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")

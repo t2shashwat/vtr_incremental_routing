@@ -23,7 +23,7 @@ Steiner::Steiner(
     const Netlist<ClusterBlockId, ClusterPortId, ClusterPinId, ClusterNetId>& net_list,
         ClusterNetId net_id,
     const vtr::vector_map<ClusterBlockId, t_block_loc>& blocks_locs,
-    Flute::FluteState *flute1) {
+    Flute::FluteState *flute1, std::ofstream& fluteOutfile, bool dump_raw_flute_trees) {
     // VTR_LOG("----------------------------------------\nSTEINER CONSTRUCTOR CALLED FOR %zu\n---------------------------------------\n", size_t(net_id));
     
     // Get the coordinates of the net's CLBs
@@ -47,9 +47,14 @@ Steiner::Steiner(
     bool diagonal_detected = true;
     //diagonal_detected = this->detect_diagonal(flute1);
     //if (this->sb_map.size()>1 && diagonal_detected == true) {
-    //    this->build_sb_rsmt_flute(flute1);
+    //    this->build_sb_rsmt_flute(flute1, fluteOutfile);
     //}
     //
+    
+    if (dump_raw_flute_trees == true) {
+    	this->build_sb_rsmt_flute(flute1, fluteOutfile);
+    }
+
     this->build_sb_rsmt_post_process_flute();
 
     // Make tree directed
@@ -146,20 +151,21 @@ bool Steiner::detect_diagonal(Flute::FluteState *flute1) {
     return false;
 }
 
-void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1) {
+void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile) {
     Flute::Tree flutetree;
     int d=0;
     int n = this->sb_map.size();
     int x[n], y[n];
 
-    VTR_LOG("Net id: %d\n", size_t(this->net_id));
-    VTR_LOG("Source at: (%d, %d)\n", this->source_x, this->source_y);
+    fluteOutfile << "Net id: " << size_t(this->net_id) << "\n";
+    fluteOutfile << "Source at: (" << this->source_x << ", " << this->source_y << ")\n";
 
     for (const auto& sb : this->sb_map) {
         x[d] = sb.second.x;
         y[d] = sb.second.y;
 	if (sb.second.pin_id != 0){
-            VTR_LOG(" Sink %d: (%d, %d)\n", d, x[d], y[d]);
+            //VTR_LOG(" Sink %d: (%d, %d)\n", d, x[d], y[d]);
+	    fluteOutfile << " Sink " << d << ": (" << x[d] << ", " << y[d] << ")\n";
 	}
         d++;
     }
@@ -185,7 +191,8 @@ void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1) {
         if (i_x != o_x && i_y != o_y) {
             // Use the essentially uniformly distributed x coordinates to serve as a random function to resolve "diagonal edges" FLUTE outputs for certain terminals
 	    //if (size_t(this->net_id) == 415){
-	     VTR_LOG(" FLUTE: (%d, %d) -> (%d, %d)\n", o_x, o_y, i_x, i_y);
+	     //VTR_LOG(" FLUTE: (%d, %d) -> (%d, %d)\n", o_x, o_y, i_x, i_y);
+	     fluteOutfile << " FLUTE: (" << o_x << ", " << o_y << ") -> (" << i_x << ", " << i_y << ")\n";
 	    //}
             this->sb_edges.add_edge(o_x, o_y, i_x, i_y);
             /*if (i_x % 2 == 0) {
@@ -201,13 +208,15 @@ void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1) {
         } 
         else if (i_x != o_x || i_y != o_y) {
 	    //if (size_t(this->net_id) == 415){
-	     VTR_LOG(" FLUTE: (%d, %d) -> (%d, %d)\n", o_x, o_y, i_x, i_y);
+	     //VTR_LOG(" FLUTE: (%d, %d) -> (%d, %d)\n", o_x, o_y, i_x, i_y);
+	     fluteOutfile << " FLUTE: (" << o_x << ", " << o_y << ") -> (" << i_x << ", " << i_y << ")\n";
 	    //}
             this->sb_edges.add_edge(o_x, o_y, i_x, i_y);
         }
     }
     int total_wirelength = Flute::flute_wirelength(flutetree);
-    VTR_LOG("Total wirelength: %d\n", total_wirelength);
+    //VTR_LOG("Total wirelength: %d\n", total_wirelength);
+    fluteOutfile << "Total wirelength: " << total_wirelength << "\n";
 
     Flute::free_tree(flute1, flutetree);
     //Flute::free_tree(flutetree);
@@ -1211,7 +1220,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 
 
 
-void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders) {
+void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees) {
     // Initialize context refereces
     const ClusteringContext& cluster_ctx = g_vpr_ctx.clustering();
     const PlacementContext& placement_ctx = g_vpr_ctx.placement();
@@ -1233,6 +1242,14 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     // "global connecting nets") and update the global Steiner context 
     // with information about the corresponding constrained regions
     const vtr::vector_map<ClusterBlockId, t_block_loc>& blocks_locs = g_vpr_ctx.placement().block_locs;
+    
+    const std::string fluteOutfilename = "nets_with_and_without_diagonals_and_uturns.txt";
+    std::ofstream fluteOutfile(fluteOutfilename);
+
+    if (!fluteOutfile.is_open()) {
+        std::cerr << "Error: Cannot open " << fluteOutfilename << " for writing.\n";
+        return;
+    }
 
     for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
         // Skip "global connecting nets"; this might also be done by checking clb_nlist.net_is_global(net_id), but I haven't been able to get that to work
@@ -1244,7 +1261,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
         }
 
         // Construct the RSMT for the net
-        Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1);
+        Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
 
         if (create_steiner_constraints) {
 	    // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
@@ -1285,6 +1302,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
             }       
         }
     }
+    fluteOutfile.close();
     if (create_steiner_constraints) {
         // Create "connections_per_dnode.txt"
         //create_connections_per_dnode_file(steiner_ctx);

@@ -694,7 +694,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     float offpath_penalty = 1.0;
     t_rr_type node_type = rr_graph_->node_type(to_node);
     if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && cost_params.leak == true && corridor_index == std::numeric_limits<int>::max()){
-	    offpath_penalty = cost_params.offpath_penalty; 
+	    //offpath_penalty = cost_params.offpath_penalty; 
+	    offpath_penalty = 1.0; 
 	    //corridor_index = std::numeric_limits<int>::max(); 
     }
     // query the corridors list only for CHANX and CHANY
@@ -750,7 +751,7 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 		int corridor_comp_coord_from = (corridor_type == CHANX) ? eff_corridor_from_x : eff_corridor_from_y;
 
 		// same channel and direction, but node is either contained or not
-		offpath_penalty = (node_direction == Direction::INC) ? ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? 1.0 : -1.0) : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? 1.0 : -1.0); 
+		offpath_penalty = (node_direction == Direction::INC) ? ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? cost_params.offpath_penalty : -1.0) : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? cost_params.offpath_penalty : -1.0); 
 
 	    }
 	    // outside the corridor
@@ -761,7 +762,8 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	    // update offpath based on leak value
 	    // for now leaking everywhere is allowed without any discriminatory penalty
 	    if (offpath_penalty == -1.0 && cost_params.leak == true) {
-		  offpath_penalty = cost_params.offpath_penalty; 
+		  offpath_penalty = 1.0; 
+		  //offpath_penalty = cost_params.offpath_penalty; 
 		  corridor_index = std::numeric_limits<int>::max(); 
  	    }
 	    

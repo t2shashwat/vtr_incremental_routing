@@ -1277,6 +1277,7 @@ struct t_router_opts {
     bool dependency_graph_sink_order = false;
     bool shuffle_first_iteration = false;
     int target_bracket = 0;
+    bool dump_raw_flute_trees = false;
     //==========================================
 };
 

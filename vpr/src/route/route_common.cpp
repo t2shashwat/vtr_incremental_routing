@@ -675,9 +675,9 @@ void pathfinder_update_single_node_occupancy(int inode, int add_or_sub) {
     //int occ = std::min<int>(6, route_ctx.rr_node_route_inf[inode].occ()) + add_or_sub;
     int occ = route_ctx.rr_node_route_inf[inode].occ() + add_or_sub;
     //SHA: temp change to support ad hoc loading of occupancy
-    if (occ < 0) {
-        occ = 0;
-    }
+    //if (occ < 0) {
+    //    occ = 0;
+    //}
     route_ctx.rr_node_route_inf[inode].set_occ(occ);
     // can't have negative occupancy
     VTR_ASSERT(occ >= 0);

@@ -2448,75 +2448,77 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     flute_privilege.resize(sorted_nets.size() + 1000000, false);
     std::set<size_t> congested_nets;
 
-    // SHA: temporary code to load sink order for standard router
-    std::ifstream sink_order_fp;
-    std::string sink_order_filename = "sink_order.txt";
-    sink_order_fp.open(sink_order_filename);
-    int lineno = 0;
-    VTR_LOG("[SHA] Reading sink_order.txt file\n");
-    if (!sink_order_fp.is_open()) {
-        vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
-            "Cannot open sink order file");
-    }
+    if (router_opts.detailed_router == 0 && router_opts.preorder_sink_order == 1) {
+    	// SHA: temporary code to load sink order for standard router
+    	std::ifstream sink_order_fp;
+    	std::string sink_order_filename = "sink_order.txt";
+    	sink_order_fp.open(sink_order_filename);
+    	int lineno = 0;
+    	VTR_LOG("[SHA] Reading sink_order.txt file\n");
+    	if (!sink_order_fp.is_open()) {
+    	    vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+    	        "Cannot open sink order file");
+    	}
 
-    std::string line;
-    while (getline(sink_order_fp, line)) {
-        if (line.empty()) {
-                // If the line is empty, skip processing
-                continue;
-        }
-        std::istringstream iss(line);
-        size_t net_id;
-        int iteration = -1;
-        std::string reroute_info; //5/12
-            
-        iss >> iteration;
-        iss >> net_id;  // First read the net ID
-        iss >> reroute_info;
+    	std::string line;
+    	while (getline(sink_order_fp, line)) {
+    	    if (line.empty()) {
+    	            // If the line is empty, skip processing
+    	            continue;
+    	    }
+    	    std::istringstream iss(line);
+    	    size_t net_id;
+    	    int iteration = -1;
+    	    std::string reroute_info; //5/12
+    	        
+    	    iss >> iteration;
+    	    iss >> net_id;  // First read the net ID
+    	    iss >> reroute_info;
 
-        //parse 5/12
-        int rerouted_sinks = 0;
-        int total_sinks = 0;
-        {
-            auto slash_pos = reroute_info.find('/');
-            if (slash_pos != std::string::npos) {
-                rerouted_sinks = std::stoi(reroute_info.substr(0, slash_pos));
-                total_sinks = std::stoi(reroute_info.substr(slash_pos + 1));
-            } else {
-                // if format is bad, you can handle it here
-            }
-        }
-        //VTR_LOG("Net ID read: %d  ", node_id);
-        
-        int net_pin_index;
-        //std::vector<int> sink_order;
-        //std::unordered_map<int, int> sink_order_index;
-        //the below vector assigns all the sinks, total_sinks+1, and this basically
-        //helps to put all the sinks that are not part of vanilla order to be 
-        //routed at last
-        std::vector<int> sink_order_index(total_sinks+1, total_sinks+10);
+    	    //parse 5/12
+    	    int rerouted_sinks = 0;
+    	    int total_sinks = 0;
+    	    {
+    	        auto slash_pos = reroute_info.find('/');
+    	        if (slash_pos != std::string::npos) {
+    	            rerouted_sinks = std::stoi(reroute_info.substr(0, slash_pos));
+    	            total_sinks = std::stoi(reroute_info.substr(slash_pos + 1));
+    	        } else {
+    	            // if format is bad, you can handle it here
+    	        }
+    	    }
+    	    //VTR_LOG("Net ID read: %d  ", node_id);
+    	    
+    	    int net_pin_index;
+    	    //std::vector<int> sink_order;
+    	    //std::unordered_map<int, int> sink_order_index;
+    	    //the below vector assigns all the sinks, total_sinks+1, and this basically
+    	    //helps to put all the sinks that are not part of vanilla order to be 
+    	    //routed at last
+    	    std::vector<int> sink_order_index(total_sinks+1, total_sinks+10);
 
-        int order = 0;
-        while (iss >> net_pin_index) {  // Then read all the following net IDs
-    	sink_order_index[net_pin_index] = order++;
-        }
-        //for (int i = 0; i < sink_order.size(); ++i) {
-        //    sink_order_index[sink_order[i]] = i;
-        //}
-       
-        /*if (net_id == 48) {
-            VTR_LOG("%zu", net_id);
-            for (int i = 0; i < sink_order.size(); ++i) {
-                VTR_LOG(" %d", sink_order[i]);
-            }
-            VTR_LOG("\n");
-            VTR_LOG("%zu", net_id);
-            for (int i = 0; i < sink_order_index.size(); ++i) {
-                VTR_LOG(" %d", sink_order_index[i]);
-            }
-            VTR_LOG("\n");
-        }*/
-        net_id_to_sink_order_map[iteration][net_id] = std::move(sink_order_index);
+    	    int order = 0;
+    	    while (iss >> net_pin_index) {  // Then read all the following net IDs
+    		sink_order_index[net_pin_index] = order++;
+    	    }
+    	    //for (int i = 0; i < sink_order.size(); ++i) {
+    	    //    sink_order_index[sink_order[i]] = i;
+    	    //}
+    	   
+    	    /*if (net_id == 48) {
+    	        VTR_LOG("%zu", net_id);
+    	        for (int i = 0; i < sink_order.size(); ++i) {
+    	            VTR_LOG(" %d", sink_order[i]);
+    	        }
+    	        VTR_LOG("\n");
+    	        VTR_LOG("%zu", net_id);
+    	        for (int i = 0; i < sink_order_index.size(); ++i) {
+    	            VTR_LOG(" %d", sink_order_index[i]);
+    	        }
+    	        VTR_LOG("\n");
+    	    }*/
+    	    net_id_to_sink_order_map[iteration][net_id] = std::move(sink_order_index);
+    	}
     }
 
     if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
@@ -2917,14 +2919,14 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 
             temp_net_id = net_id;
 	    std::vector<int> sink_order_index;
-	    //if (router_opts.detailed_router == 1){
+	    if (router_opts.preorder_sink_order == 1){
 	    	//sink_order_index = net_id_to_sink_order_map[itry][size_t(net_id)];
 		auto& net_map = net_id_to_sink_order_map[itry];  // itry exists, so this reference is safe
 		auto net_it = net_map.find(size_t(net_id));
 		if (net_it != net_map.end()) {
 		    sink_order_index = net_it->second;  // copy the vector if found
 		}
-	    //}
+	    }
 
             bool was_rerouted = false;
             bool is_routable;
@@ -2972,11 +2974,13 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    if (routing_predictor.get_leak_flag() == true) {
 	        VTR_LOG("[SHA] Leak allowed after this iteration %d.\n", itry);
 
+		// below code was used to load any arbitrary occupancy for the leaking iteration
 		// setting the node occupancy same as in vanilla
-	        for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
-                    size_t dr_node_id = (size_t)rr_id;
-                    route_ctx.rr_node_route_inf[dr_node_id].set_occ(history_cost_map[dr_node_id]);
-                 } 
+		// ad hoc
+	        //for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+                //    size_t dr_node_id = (size_t)rr_id;
+                //    route_ctx.rr_node_route_inf[dr_node_id].set_occ(history_cost_map[dr_node_id]);
+                //} 
 	    }
 	}
 
@@ -3983,6 +3987,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             // compare the criticality of different sink nodes
             //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1) {
+		// the below code was used to load sink order for the leaking iteration
                 if (routing_predictor.get_leak_flag() == false) {
                     sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
                 }
@@ -4008,14 +4013,15 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             }
             else if (sink_order_itr == 0) {
 		// code for loading sink order in the first iteration
-	 	if (sink_order_index.empty() || itry > 1) {
+		// add a line to check for preorder_sink_order flag
+	 	/*if (sink_order_index.empty() || itry > 1) {
                     sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
 		}
 		else {
                     sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
-		}
+		}*/
 		//SHA: below is the original
-                //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "/" << num_sinks << " ";
            	for (auto target : remaining_targets) {
                		net_order_file << target << " ";

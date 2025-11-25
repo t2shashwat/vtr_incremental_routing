@@ -122,7 +122,7 @@ public:
     Steiner(const Netlist<ClusterBlockId, ClusterPortId, ClusterPinId, ClusterNetId>& net_list,
         ClusterNetId net_id,
         const vtr::vector_map<ClusterBlockId, t_block_loc>& block_locs,
-        Flute::FluteState *flute1);
+        Flute::FluteState *flute1, std::ofstream& fluteOutfile, bool dump_raw_flute_trees);
 
     void add_clb(int x, int y) {
         clb_map[make_str_id(x, y, -1)] = CLB(x, y);
@@ -144,7 +144,7 @@ public:
     void map_clbs_to_sbs();
 
     bool detect_diagonal(Flute::FluteState *flute1);
-    void build_sb_rsmt_flute(Flute::FluteState *flute1);
+    void build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile);
     
     void build_sb_rsmt_post_process_flute();
     
@@ -181,4 +181,4 @@ void create_sink_order_file(const ClusteringContext& cluster_ctx, const vtr::vec
 
 void create_branch_node_map_file(SteinerContext& steiner_ctx);
 
-void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders);
+void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees);

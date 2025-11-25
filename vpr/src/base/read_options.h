@@ -212,6 +212,7 @@ struct t_options {
     argparse::ArgValue<bool> dependency_graph_sink_order;
     argparse::ArgValue<bool> shuffle_first_iteration;
     argparse::ArgValue<int> target_bracket;
+    argparse::ArgValue<bool> dump_raw_flute_trees;
     //==========================================
 
     /* Timing-driven router options only */
