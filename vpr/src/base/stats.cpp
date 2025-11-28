@@ -295,6 +295,13 @@ void get_num_bends_and_length(ClusterNetId inet, int* bends_ptr, int* len_ptr, i
     length = 0;
     segments = 0;
 
+    if (route_ctx.trace[inet].head == nullptr) {
+        *bends_ptr = bends;
+        *len_ptr = length;
+        *segments_ptr = segments;
+        return;
+    }
+
     prevptr = route_ctx.trace[inet].head; /* Should always be SOURCE. */
     if (prevptr == nullptr) {
         VPR_FATAL_ERROR(VPR_ERROR_OTHER,

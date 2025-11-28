@@ -1000,7 +1000,12 @@ t_trace* traceback_from_route_tree(ClusterNetId inet, const t_rt_node* root, int
             num_trace_sinks += 1;
         }
     }
-    VTR_ASSERT(num_routed_sinks == num_trace_sinks);
+    VTR_ASSERT_MSG(
+        num_routed_sinks == num_trace_sinks,
+        vtr::string_fmt("num_routed_sinks (%d) != num_trace_sinks (%d)",
+                        num_routed_sinks, num_trace_sinks).c_str()
+    );
+
 
     route_ctx.trace[inet].tail = tail;
     route_ctx.trace[inet].head = head;

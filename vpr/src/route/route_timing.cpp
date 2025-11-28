@@ -2775,7 +2775,17 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
           std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
 	
-	for (auto net_id : sorted_nets) {
+    std::vector<ClusterNetId> first_100_nets;
+    size_t num_elements_to_copy = 138; //138;
+    first_100_nets.reserve(num_elements_to_copy);        // code to copy the last nets with fanout 1 - 10
+    //auto start_iter = sorted_nets.end() - num_elements_to_copy;        
+    std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
+    //std::copy_n(start_iter, num_elements_to_copy, std::back_inserter(first_100_nets));        if(router_opts.shuffle_net_order == 1){
+        //std::random_device rd;  // Seed for random number generator
+        //std::mt19937 g(rd());   // Standard Mersenne Twister engine
+        //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
+        std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());      
+    for (auto net_id : first_100_nets) {
         if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
@@ -3849,7 +3859,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 std::shuffle(begin(remaining_targets), end(remaining_targets), g);
             }
             else if (sink_order_itr == 0) {
-                //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             /*if (size_t(net_id) == 6366) {
                     VTR_LOG("  order:"); 
                     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
@@ -3969,6 +3979,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         }
 
         auto remaining_targets_copy = remaining_targets;
+        t_rt_node* greedy_base_rt_root = nullptr; // need to be freed
     // explore in order of decreasing criticality (no longer need sink_order array)
         for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
             int target_pin = remaining_targets[itarget];
@@ -4001,6 +4012,187 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
                 remaining_targets_copy[best_idx] = remaining_targets_copy.back();
                 remaining_targets_copy.pop_back();
+            }
+
+            // rt_root = init_route_tree_to_source(net_id);
+            bool incremental_allowed =
+                ((itry > 2 && router_opts.detailed_router == 1) ||
+                (itry > 1 && router_opts.detailed_router == 0));
+            
+            VTR_LOG("[GREEDY] itry=%d net=%zu itarget=%u detailed=%d incremental_allowed=%d num_sinks=%u\n",
+                    itry, size_t(net_id), itarget, router_opts.detailed_router, incremental_allowed, num_sinks);
+            
+            if (incremental_allowed) {
+                auto& cluster_ctx = g_vpr_ctx.clustering();
+                size_t expected_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
+                VTR_LOG("[GREEDY]   net=%zu expected_sinks=%zu num_sinks=%u\n",
+                        size_t(net_id), expected_sinks, num_sinks);
+                VTR_ASSERT_MSG(num_sinks == expected_sinks,
+                            "num_sinks must match clb_nlist.net_sinks(net_id).size() in greedy mode");
+            
+                if (itarget == 0) {
+                    greedy_base_rt_root = traceback_to_route_tree(net_id);  //contention 1
+                    VTR_LOG("[GREEDY]   Built initial greedy_base_rt_root=%p for net=%zu\n",
+                            (void*)greedy_base_rt_root, size_t(net_id));
+                    VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
+                                "greedy_base_rt_root should not be nullptr after traceback_to_route_tree");
+                } else {
+                    VTR_LOG("[GREEDY]   Reusing greedy_base_rt_root=%p (itarget=%u)\n",
+                            (void*)greedy_base_rt_root, itarget);
+                    VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
+                                "greedy_base_rt_root must be non-null on itarget > 0");
+                }
+            
+                VTR_LOG("[GREEDY]   remaining_targets_copy.size() before candidate loop=%zu\n",
+                        remaining_targets_copy.size());
+            
+                int sinkIdx = 0;
+                int best_total_detailed_nodes = std::numeric_limits<int>::max();
+                t_rt_node* best_rt_root = nullptr;
+
+                for (size_t i = 0; i < remaining_targets_copy.size(); ++i) {
+                    auto* trace_head_before = route_ctx.trace[net_id].head;
+                    VTR_LOG("[GREEDY]   Candidate i=%zu: trace_head_before=%p, greedy_base_rt_root=%p\n",
+                            i, (void*)trace_head_before, (void*)greedy_base_rt_root);
+            
+                    // We expect either an existing trace or null (first time); assert we at least don't crash
+                    // If you want to be strict, use ASSERT instead of the null-check.
+                    if (trace_head_before != nullptr) {
+                        pathfinder_update_path_occupancy(trace_head_before, -1);
+                    } else {
+                        VTR_LOG("[GREEDY]   WARNING: trace_head_before is nullptr before occ -1 (net=%zu, itarget=%u, i=%zu)\n",
+                                size_t(net_id), itarget, i);
+                    }
+
+                    free_traceback(net_id);
+            
+                    VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
+                                "greedy_base_rt_root must be non-null before traceback_from_route_tree");
+            
+                    VTR_LOG("[GREEDY]   Calling traceback_from_route_tree(net=%zu, base=%p, num_sinks=%u) [i=%zu]\n",
+                            size_t(net_id), (void*)greedy_base_rt_root, num_sinks - remaining_targets_copy.size(), i);
+                    traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size());
+            
+                    auto* trace_head_after = route_ctx.trace[net_id].head;
+                    VTR_LOG("[GREEDY]   After traceback_from_route_tree: trace_head_after=%p (net=%zu, i=%zu)\n",
+                            (void*)trace_head_after, size_t(net_id), i);
+                    VTR_ASSERT_MSG(trace_head_after != nullptr,
+                                "trace_head should not be nullptr after traceback_from_route_tree in greedy mode");
+            
+                    pathfinder_update_path_occupancy(trace_head_after, 1);
+            
+                    VTR_LOG("[GREEDY]   Calling setup_routing_resources_incr_route(i=%zu, itarget=%u, net=%zu)\n",
+                            i, itarget, size_t(net_id));
+                    t_rt_node* tmp_rt_root = traceback_to_route_tree(net_id); // base partial route tree copy
+
+                    VTR_ASSERT_SAFE(is_valid_route_tree(tmp_rt_root));
+                    VTR_ASSERT_SAFE(is_uncongested_route_tree(tmp_rt_root));
+            
+                    VTR_LOG("[GREEDY]   tmp_rt_root=%p for candidate i=%zu\n",
+                            (void*)tmp_rt_root, i);
+                    VTR_ASSERT_MSG(tmp_rt_root != nullptr,
+                                "tmp_rt_root should not be nullptr from setup_routing_resources_incr_route");
+            
+                    int candidate_pin = remaining_targets_copy[i];
+                    VTR_LOG("[GREEDY]   Candidate i=%zu uses candidate_pin=%d\n", i, candidate_pin);
+            
+                    target_pin = candidate_pin;
+                    cost_params.criticality = pin_criticality[target_pin];
+                    cost_params.bias = router_opts.sbNode_lookahead_factor;
+            
+                    std::set<int> branch_nodes;
+
+
+                    if (!timing_driven_route_sink(router,
+                                                net_id,
+                                                itarget,
+                                                target_pin,
+                                                cost_params,
+                                                router_opts,
+                                                tmp_rt_root, rt_node_of_sink,
+                                                spatial_route_tree_lookup,
+                                                router_stats,
+                                                budgeting_inf,
+                                                routing_predictor,
+                                                is_flat,
+                                                branch_nodes,
+                                                itry)) {
+                        VTR_LOG_ERROR("[GREEDY]   timing_driven_route_sink FAILED for candidate i=%zu (target_pin=%d) on net %zu\n",
+                                    i, target_pin, size_t(net_id));
+                        free_route_tree(tmp_rt_root);
+                        return false;
+                    }
+            
+                    auto cost = get_tree_cost(route_ctx.trace[net_id].head);
+                    VTR_LOG("[GREEDY]   Candidate i=%zu, target_pin=%d -> total_nodes=%d, cong_cost=%f\n",
+                            i, target_pin, cost.first, cost.second);
+            
+                    if (cost.first < best_total_detailed_nodes) {
+                        VTR_LOG("[GREEDY]   New best at i=%zu: total_nodes=%d (prev=%d)\n",
+                                i, cost.first, best_total_detailed_nodes);
+                        best_total_detailed_nodes = cost.first;
+                        sinkIdx = static_cast<int>(i);
+            
+                        if (best_rt_root != nullptr) {
+                            VTR_LOG("[GREEDY]   Freeing previous best_rt_root=%p\n", (void*)best_rt_root);
+                            //free_route_tree(best_rt_root);
+                        }
+                        best_rt_root = tmp_rt_root;
+                        VTR_LOG("[GREEDY]   best_rt_root now=%p (sinkIdx=%d)\n",
+                                (void*)best_rt_root, sinkIdx);
+                    } else {
+                        VTR_LOG("[GREEDY]   Discarding non-best tmp_rt_root=%p\n", (void*)tmp_rt_root);
+                        //free_route_tree(tmp_rt_root);
+                    }
+                }
+            
+                VTR_ASSERT_MSG(best_rt_root != nullptr,
+                            "best_rt_root must be non-null after greedy candidate loop");
+                VTR_LOG("[GREEDY] After candidate loop: chosen sinkIdx=%d, best_rt_root=%p, best_total_nodes=%d, remaining_targets_copy.size()=%zu\n",
+                        sinkIdx, (void*)best_rt_root, best_total_detailed_nodes, remaining_targets_copy.size());
+            
+                // Sync routing/occupancy with best_rt_root
+                auto* trace_head_sync_before = route_ctx.trace[net_id].head;
+                VTR_LOG("[GREEDY]   Before sync: trace_head_sync_before=%p\n",
+                        (void*)trace_head_sync_before);
+            
+                if (trace_head_sync_before != nullptr) {
+                    pathfinder_update_path_occupancy(trace_head_sync_before, -1);
+                } else {
+                    VTR_LOG("[GREEDY]   WARNING: trace_head_sync_before is nullptr before occ -1 during sync\n");
+                }
+            
+                VTR_LOG("[GREEDY]   Syncing traceback_from_route_tree(net=%zu, best_rt_root=%p, num_sinks=%u)\n",
+                        size_t(net_id), (void*)best_rt_root, num_sinks);
+                traceback_from_route_tree(net_id, best_rt_root, num_sinks);
+            
+                auto* trace_head_sync_after = route_ctx.trace[net_id].head;
+                VTR_LOG("[GREEDY]   After sync: trace_head_sync_after=%p\n",
+                        (void*)trace_head_sync_after);
+                VTR_ASSERT_MSG(trace_head_sync_after != nullptr,
+                            "trace_head should not be nullptr after syncing best_rt_root");
+            
+                pathfinder_update_path_occupancy(trace_head_sync_after, 1);
+            
+                // Replace the base tree with the new best tree, free the old one
+                if (itarget > 0) {
+                    VTR_LOG("[GREEDY]   Freeing old greedy_base_rt_root=%p (itarget=%u)\n",
+                            (void*)greedy_base_rt_root, itarget);
+                    free_route_tree(greedy_base_rt_root);
+                }
+                greedy_base_rt_root = best_rt_root;
+                VTR_LOG("[GREEDY]   Updated greedy_base_rt_root=%p for next iteration\n",
+                        (void*)greedy_base_rt_root);
+            
+                // Remove the chosen sink from the pool
+                VTR_LOG("[GREEDY]   Removing chosen sinkIdx=%d (pin=%d) from remaining_targets_copy (size before=%zu)\n",
+                        sinkIdx, remaining_targets_copy[sinkIdx], remaining_targets_copy.size());
+                remaining_targets_copy[sinkIdx] = remaining_targets_copy.back();
+                remaining_targets_copy.pop_back();
+                VTR_LOG("[GREEDY]   remaining_targets_copy.size() after removal=%zu\n",
+                        remaining_targets_copy.size());
+            
+                continue;
             }
 
             std::set<int> branch_nodes;
@@ -4056,6 +4248,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 ++router_stats.connections_routed;
             }
         } // finished all sinks
+    if (greedy_base_rt_root != nullptr)
+        free_route_tree(greedy_base_rt_root);
     
     std::pair<int, float> cost = get_tree_cost(route_ctx.trace[net_id].head);
     int total_detailed_nodes = cost.first;
@@ -4284,7 +4478,15 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         load_new_subtree_R_upstream(rt_root);
         load_new_subtree_C_downstream(rt_root);
 
-        VTR_ASSERT(reached_rt_sinks.size() + remaining_targets.size() == num_sinks);
+        VTR_ASSERT_MSG(
+            reached_rt_sinks.size() + remaining_targets.size() == num_sinks,
+            vtr::string_fmt(
+                "reached_rt_sinks (%zu) + remaining_targets (%zu) != num_sinks (%d)",
+                reached_rt_sinks.size(),
+                remaining_targets.size(),
+                num_sinks
+            ).c_str()
+        );
 
         // (PARSA) Julien, 2025
         //Reset geometric center and partial_tree_size
