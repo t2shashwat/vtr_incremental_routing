@@ -2784,7 +2784,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         //std::random_device rd;  // Seed for random number generator
         //std::mt19937 g(rd());   // Standard Mersenne Twister engine
         //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
-        std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());      
+        //std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());      
     for (auto net_id : first_100_nets) {
         if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
