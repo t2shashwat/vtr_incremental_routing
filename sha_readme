@@ -1,0 +1,4 @@
+2Dec25
+For integrating FastRoute, old files used for FLUTE were replaced with files used in FastRoute. As a result, the FLUTE setup will have to be updated, in particular, the flute_init function. 
+In addition, the steiner class was also modified to remove FLUTE object. As of now, the code does not suport toggling between FLUTE and FastROute as was envisioned.
+
