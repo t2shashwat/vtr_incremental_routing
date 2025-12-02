@@ -4117,13 +4117,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	cost_params.intra_tile_connection = false;
         
 	//if (golden_net_order.find(size_t(net_id)) != golden_net_order.end()){
-	if (flute_privilege[size_t(net_id)] == true){
+	// TODO: Disabling privilege routing support
+	//if (flute_privilege[size_t(net_id)] == true){
 	    cost_params.detailed_router = router_opts.detailed_router;
             cost_params.pres_fac = cost_params.pres_fac;//5.0;
-	}
-	else {
-	    cost_params.detailed_router = 0;
-	}
+	//}
+	//else {
+	//    cost_params.detailed_router = 0;
+	//}
 	
 	// Pre-route to clock source for clock nets (marked as global nets)
         if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
@@ -4159,6 +4160,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     // explore in order of decreasing criticality (no longer need sink_order array)
         for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
             int target_pin = remaining_targets[itarget];
+            
+	    VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
 
             std::set<int> branch_nodes;
 	    CorridorData corridor_data;
@@ -4166,6 +4169,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     
             int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
             bool intra_tile_connection = steiner_ctx.net_connection_intra_tile[net_id][target_pin]; 
+            VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
 	    if (router_opts.detailed_router == 1 && intra_tile_connection == false) {
 	        //corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
 	        corridor_data.corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
@@ -4177,9 +4181,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 //cost_params.detailed_router = 0;
 	    }
 	    //if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
-            //VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
-            //for (size_t i = 0; i < corridors_per_connection.size(); ++i) {
-            //    const Corridor& c = corridors_per_connection[i];
+            //for (size_t i = 0; i < corridor_data.corridors_per_connection.size(); ++i) {
+            //    const Corridor& c = corridor_data.corridors_per_connection[i];
             //    VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
             //        i, c.from_x, c.from_y, c.to_x, c.to_y);
             //}
@@ -4196,7 +4199,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
                 enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
 
-                VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
 
                 cost_params.criticality = pin_criticality[target_pin];
                 cost_params.bias = router_opts.sbNode_lookahead_factor;

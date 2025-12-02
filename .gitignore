@@ -12,6 +12,7 @@ bin/
 CMakeCache.txt
 CMakeFiles
 build
+build_debug
 Yosys
 
 #

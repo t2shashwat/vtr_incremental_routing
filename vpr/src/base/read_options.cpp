@@ -364,6 +364,34 @@ struct ParseBaseCost {
     }
 };
 
+struct ParseGlobalRouterType {
+    ConvertedValue<e_global_router_type> from_str(std::string str) {
+        ConvertedValue<e_global_router_type> conv_value;
+        if (str == "FastRoute")
+            conv_value.set_value(FASTROUTE);
+        else if (str == "FLUTE")
+            conv_value.set_value(FLUTE);
+        else {
+            std::stringstream msg;
+            msg << "Invalid conversion from '" << str << "' to e_global_router_type (expected one of: " << argparse::join(default_choices(), ", ") << ")";
+            conv_value.set_error(msg.str());
+        }
+        return conv_value;
+    }
+
+    ConvertedValue<std::string> to_str(e_global_router_type val) {
+        ConvertedValue<std::string> conv_value;
+        if (val == FASTROUTE)
+            conv_value.set_value("FastRoute");
+        else if (val == FLUTE)
+            conv_value.set_value("FLUTE");
+        return conv_value;
+    }
+
+    std::vector<std::string> default_choices() {
+        return {"FastRoute", "FLUTE"};
+    }
+};
 struct ParseTreeType {
     ConvertedValue<e_tree_type> from_str(std::string str) {
         ConvertedValue<e_tree_type> conv_value;
@@ -388,7 +416,7 @@ struct ParseTreeType {
         ConvertedValue<std::string> conv_value;
         if (val == MIN_TOTAL_NODES)
             conv_value.set_value("min_total_nodes");
-	    else if (val == MIN_CONG_COST)
+	else if (val == MIN_CONG_COST)
             conv_value.set_value("min_cong_cost");
         else if (val == MAX_TOTAL_NODES) {
             conv_value.set_value("max_total_nodes");
@@ -2360,6 +2388,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help(
             "Set true to dump flute trees before post-processing")
         .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    route_grp.add_argument<e_global_router_type, ParseGlobalRouterType>(args.global_router_algorithm, "--global_router_algorithm")
+        .help("Specifies which global router to use during routing.")
+        .default_value("FastRoute")
+        .choices({"FastRoute", "FLUTE"})
         .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
 

@@ -404,6 +404,7 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->shuffle_first_iteration = Options.shuffle_first_iteration;
     RouterOpts->target_bracket = Options.target_bracket;
     RouterOpts->dump_raw_flute_trees = Options.dump_raw_flute_trees;
+    RouterOpts->global_router_algorithm= Options.global_router_algorithm;
     //==========================================
 
     //TODO document these?

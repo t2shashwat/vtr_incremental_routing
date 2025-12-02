@@ -25,6 +25,11 @@ enum e_tree_type {
     MIN_HEAP_PUSHES,
     MAX_TOTAL_NODES
 };
+ 
+enum e_global_router_type {
+    FASTROUTE,
+    FLUTE
+};
 
 enum e_graph_type {
     GRAPH_GLOBAL, /* One node per channel with wire capacity > 1 and full connectivity */

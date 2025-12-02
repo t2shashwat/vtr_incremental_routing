@@ -213,6 +213,7 @@ struct t_options {
     argparse::ArgValue<bool> shuffle_first_iteration;
     argparse::ArgValue<int> target_bracket;
     argparse::ArgValue<bool> dump_raw_flute_trees;
+    argparse::ArgValue<e_global_router_type> global_router_algorithm;
     //==========================================
 
     /* Timing-driven router options only */

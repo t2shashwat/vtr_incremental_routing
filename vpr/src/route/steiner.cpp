@@ -15,6 +15,8 @@
 #include <queue>
 // For purposes of creating RSMTs
 #include "flute.h"
+#include "FastRoute.h"
+using namespace FastRoute;
 
 // For parallelization attempts
 // #include <omp.h>
@@ -23,7 +25,8 @@ Steiner::Steiner(
     const Netlist<ClusterBlockId, ClusterPortId, ClusterPinId, ClusterNetId>& net_list,
         ClusterNetId net_id,
     const vtr::vector_map<ClusterBlockId, t_block_loc>& blocks_locs,
-    Flute::FluteState *flute1, std::ofstream& fluteOutfile, bool dump_raw_flute_trees) {
+    //Flute::FluteState *flute1, 
+    std::ofstream& fluteOutfile, bool dump_raw_flute_trees) {
     // VTR_LOG("----------------------------------------\nSTEINER CONSTRUCTOR CALLED FOR %zu\n---------------------------------------\n", size_t(net_id));
     
     // Get the coordinates of the net's CLBs
@@ -51,9 +54,10 @@ Steiner::Steiner(
     //}
     //
     
-    if (dump_raw_flute_trees == true) {
+    // commenting this out only temporarily as the flute used by FastRoute does not support Flute_type datatype
+    /*if (dump_raw_flute_trees == true) {
     	this->build_sb_rsmt_flute(flute1, fluteOutfile);
-    }
+    }*/
 
     this->build_sb_rsmt_post_process_flute();
 
@@ -119,7 +123,7 @@ void Steiner::map_clbs_to_sbs() {
         this->add_pin_sb(clb.second.x-1, clb.second.y, clb.second.pin_id);
     }
 }
-bool Steiner::detect_diagonal(Flute::FluteState *flute1) {
+/*bool Steiner::detect_diagonal(Flute::FluteState *flute1) {
     Flute::Tree flutetree;
     int d=0;
     int n = this->sb_map.size();
@@ -149,9 +153,9 @@ bool Steiner::detect_diagonal(Flute::FluteState *flute1) {
 
     Flute::free_tree(flute1, flutetree);
     return false;
-}
+}*/
 
-void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile) {
+/*void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile) {
     Flute::Tree flutetree;
     int d=0;
     int n = this->sb_map.size();
@@ -195,16 +199,16 @@ void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& flut
 	     fluteOutfile << " FLUTE: (" << o_x << ", " << o_y << ") -> (" << i_x << ", " << i_y << ")\n";
 	    //}
             this->sb_edges.add_edge(o_x, o_y, i_x, i_y);
-            /*if (i_x % 2 == 0) {
-                this->add_sb(i_x, o_y);
-                this->sb_edges.add_edge(o_x, o_y, i_x, o_y);
-                this->sb_edges.add_edge(i_x, o_y, i_x, i_y);
-            }
-            else {
-                this->add_sb(o_x, i_y);
-                this->sb_edges.add_edge(o_x, o_y, o_x, i_y);
-                this->sb_edges.add_edge(o_x, i_y, i_x, i_y);
-            }*/
+            //if (i_x % 2 == 0) {
+            //    this->add_sb(i_x, o_y);
+            //    this->sb_edges.add_edge(o_x, o_y, i_x, o_y);
+            //    this->sb_edges.add_edge(i_x, o_y, i_x, i_y);
+            //}
+            //else {
+            //    this->add_sb(o_x, i_y);
+            //    this->sb_edges.add_edge(o_x, o_y, o_x, i_y);
+            //    this->sb_edges.add_edge(o_x, i_y, i_x, i_y);
+            //}
         } 
         else if (i_x != o_x || i_y != o_y) {
 	    //if (size_t(this->net_id) == 415){
@@ -220,7 +224,7 @@ void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& flut
 
     Flute::free_tree(flute1, flutetree);
     //Flute::free_tree(flutetree);
-}
+}*/
 
 void Steiner::build_sb_rsmt_post_process_flute() {
     
@@ -229,6 +233,7 @@ void Steiner::build_sb_rsmt_post_process_flute() {
     VTR_LOG("Net id: %d\n", net);
 
     // Check if net_id exists in net_edges
+    // here the net_edges are either populated from an external file or is computed from fastroute
     auto it = steiner_ctx.net_edges.find(net);
     if (it == steiner_ctx.net_edges.end() || it->second.empty()) {
         VTR_LOG("  No FLUTE edges for net_id: %d\n", net);
@@ -1220,19 +1225,15 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 
 
 
-void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees) {
+void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_router_algorithm) {
     // Initialize context refereces
     const ClusteringContext& cluster_ctx = g_vpr_ctx.clustering();
     const PlacementContext& placement_ctx = g_vpr_ctx.placement();
+    auto& device_ctx  = g_vpr_ctx.device();
+
     SteinerContext& steiner_ctx = g_vpr_ctx.mutable_steiner();
 
-    // Initialize FLUTE
-    Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
-    VTR_LOG("FLUTE initialized.\n");
 
-    // Load gnode maps onto global Steiner context
-    if (create_steiner_constraints)
-        load_gnode_maps(steiner_ctx);
 
     // Nets belonging to the "global connecting nets" are not routed by the global router
     // net is global should replace this
@@ -1251,58 +1252,328 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
         return;
     }
 
-    for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
-        // Skip "global connecting nets"; this might also be done by checking clb_nlist.net_is_global(net_id), but I haven't been able to get that to work
-	//unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size()
-	//VTR_LOG("Net id: %d (num_sinks: %d)\n", size_t(net_id), num_sinks);
-        if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) {
-            printf("Net ID: %d\n", size_t(net_id));
-            continue;
-        }
 
-        // Construct the RSMT for the net
-        Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
+    if (global_router_algorithm == "FLUTE") {
+    	// Load gnode maps onto global Steiner context
+	// TODO: in load_gnode_maps, reading the node_dict and gnode_dnode map can be removed
+    	if (create_steiner_constraints)
+       	    load_gnode_maps(steiner_ctx);
+    	// Initialize FLUTE
+    	//Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
+    	VTR_LOG("FLUTE initialized.\n");
 
-        if (create_steiner_constraints) {
-	    // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
-            // Create RSMT constrained regions for the net and
-            // update the global Steiner context with the information 
-            //steiner.create_coarsened_regions(make_str_id(steiner.source_x, steiner.source_y));
+    	for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
+    	    // Skip "global connecting nets"; this might also be done by checking clb_nlist.net_is_global(net_id), but I haven't been able to get that to work
+    	    //unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size()
+    	    //VTR_LOG("Net id: %d (num_sinks: %d)\n", size_t(net_id), num_sinks);
+    	    if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) {
+    	        printf("Net ID: %d\n", size_t(net_id));
+    	        continue;
+    	    }
 
-            // The RSMT is used to compute the nearest neighbour sink order;
-            // by doing this, we reduce heap pops and redundant wires
-	    //
-	    // Below is the new implemenation driven to optimize runtime by reducing memory accesses
-	    auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
-            steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
-	    steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
-	    steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
-	    // Debug print: Dump corridors for this net
-	    /*if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1) {
-	    VTR_LOG("Corridors for Net %zu:\n", size_t(net_id));
-	    for (const auto& sink_entry : steiner_ctx.all_corridors[net_id]) {
-	        int sink_id = sink_entry.first;
-	        const std::vector<Corridor>& corridor_list = sink_entry.second;
-	    
-	        VTR_LOG("  Sink %d has %zu corridors:\n", sink_id, corridor_list.size());
-	        for (size_t i = 0; i < corridor_list.size(); ++i) {
-	            const Corridor& c = corridor_list[i];
-	            VTR_LOG("    Corridor %zu: (%d, %d) → (%d, %d)\n", i, c.from_x, c.from_y, c.to_x, c.to_y);
-	        }
-	    }
-	    VTR_LOG("\n");
-	    }*/
-	}
-        // Calculate Francois' dependency graph sink order
-        if (compute_dependency_graph_sink_orders) {
-            steiner.compute_dependency_graph_sink_order(make_str_id(steiner.source_x, steiner.source_y), steiner_ctx.steiner_sink_orders);
-            VTR_LOG("Sink order for net ID: %zu\n", size_t(net_id));
-            for (const auto& [sink_id, order] : steiner_ctx.steiner_sink_orders[size_t(net_id)]) {
-                VTR_LOG("Sink ID: %d, Order: %d\n", sink_id, order);
-            }       
-        }
+    	    // Construct the RSMT for the net
+    	    //Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
+    	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+
+    	    if (create_steiner_constraints) {
+    	        // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
+    	        // Create RSMT constrained regions for the net and
+    	        // update the global Steiner context with the information 
+    	        //steiner.create_coarsened_regions(make_str_id(steiner.source_x, steiner.source_y));
+
+    	        // The RSMT is used to compute the nearest neighbour sink order;
+    	        // by doing this, we reduce heap pops and redundant wires
+    	        //
+    	        // Below is the new implemenation driven to optimize runtime by reducing memory accesses
+    	        auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
+    	        steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+    	        steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
+    	        steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
+    	        // Debug print: Dump corridors for this net
+    	        /*if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1) {
+    	        VTR_LOG("Corridors for Net %zu:\n", size_t(net_id));
+    	        for (const auto& sink_entry : steiner_ctx.all_corridors[net_id]) {
+    	            int sink_id = sink_entry.first;
+    	            const std::vector<Corridor>& corridor_list = sink_entry.second;
+    	        
+    	            VTR_LOG("  Sink %d has %zu corridors:\n", sink_id, corridor_list.size());
+    	            for (size_t i = 0; i < corridor_list.size(); ++i) {
+    	                const Corridor& c = corridor_list[i];
+    	                VTR_LOG("    Corridor %zu: (%d, %d) → (%d, %d)\n", i, c.from_x, c.from_y, c.to_x, c.to_y);
+    	            }
+    	        }
+    	        VTR_LOG("\n");
+    	        }*/
+    	    }
+    	    // Calculate Francois' dependency graph sink order
+    	    
+    	    
+    	    if (compute_dependency_graph_sink_orders) {
+    	        steiner.compute_dependency_graph_sink_order(make_str_id(steiner.source_x, steiner.source_y), steiner_ctx.steiner_sink_orders);
+    	        VTR_LOG("Sink order for net ID: %zu\n", size_t(net_id));
+    	        for (const auto& [sink_id, order] : steiner_ctx.steiner_sink_orders[size_t(net_id)]) {
+    	            VTR_LOG("Sink ID: %d, Order: %d\n", sink_id, order);
+    	        }       
+    	    }
+
+
+
+    	}
     }
+    else if (global_router_algorithm == "FastRoute4.0") {
+	struct PinLess {
+   	    bool operator()(const PIN& a, const PIN& b) const {
+                if (a.x != b.x) return a.x < b.x;
+                if (a.y != b.y) return a.y < b.y;
+                return a.layer < b.layer;
+    	    }
+	};
+    	// 1. Define FastRoute grid
+    	int Gx = device_ctx.grid.width();
+    	int Gy = device_ctx.grid.height();
+	VTR_LOG("Width = %d height = %d\n", Gx, Gy);
+    	int nLayers = 1; // FPGA-style: single layer
+
+	FastRoute::FT fr_router;
+
+    	fr_router.setGridsAndLayers(Gx, Gy, nLayers);
+
+    	int layer = 1;
+    	int capacity = 208; // choose something; or derive from channel width
+    	fr_router.addVCapacity(capacity, layer);
+    	fr_router.addHCapacity(capacity, layer); 
+
+	fr_router.addMinWidth(1, layer);
+    	fr_router.addMinSpacing(1, layer);
+    	fr_router.addViaSpacing(1, layer);
+
+    	// For physical embedding, you can keep it trivial:
+    	fr_router.setLowerLeft(0, 0);
+    	fr_router.setTileSize(1, 1);
+   
+	// 2. Count nets and set number
+    	int num_nets = 0;
+	int valid_global_nets = 0;
+	int max_net_degree = 0;
+    	for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
+    	    if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) {
+		continue;
+    	    }
+	    // Check 1: Is it intra-tile?
+            bool is_global = false;
+            int first_x = -1, first_y = -1;
+            int pin_count = 0;
+
+            // Quick check of pins to determine global status
+            std::set<PIN, PinLess> unique_pins;	
+            for (ClusterPinId pin_id : cluster_ctx.clb_nlist.net_pins(net_id)) {
+                auto block_id = cluster_ctx.clb_nlist.pin_block(pin_id);
+                int x = blocks_locs[block_id].loc.x - 1;
+                int y = blocks_locs[block_id].loc.y;
+
+                if (pin_count == 0) {
+                    first_x = x; first_y = y;
+                } 
+		else {
+                    if (x != first_x || y != first_y) is_global = true;
+                }
+                pin_count++;
+		
+		PIN p;
+                p.x = x;
+                p.y = y;
+                p.layer = 1;
+                //temp_pins.push_back(p);
+		unique_pins.insert(PIN{(long)x, (long)y, 1});
+            }
+    	    num_nets++;
+	    int unique_pins_fanout = static_cast<int>(unique_pins.size());
+	    max_net_degree = std::max(unique_pins_fanout, max_net_degree);
+
+            // Only count if it's a valid global net
+            if (is_global) {
+                valid_global_nets++;
+            }
+    	}
+
+    	fr_router.setNumberNets(valid_global_nets);
+	fr_router.setMaxNetDegree(max_net_degree);
+	VTR_LOG("valid net = %d max_net_deg = %d\n",valid_global_nets, max_net_degree);
+   
+	std::vector<ClusterNetId> fr_to_vpr_net;  
+	fr_to_vpr_net.reserve(valid_global_nets);
+	// For FastRoute: Keep pin storage alive for all nets and also the net names
+	std::vector<std::vector<PIN>> fr_pins(valid_global_nets);
+	std::vector<std::string> stored_net_names;
+	stored_net_names.reserve(valid_global_nets);
+	
+	std::vector<ClusterNetId> intra_tile_nets;  
+	int intra_tile_nets_count = num_nets - valid_global_nets;
+	intra_tile_nets.reserve(intra_tile_nets_count);
+      
+       	// 3. Add nets to FastRoute
+    	int netIdx = 0;
+    	for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
+    	    if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) continue;
+
+    	    std::string net_name = cluster_ctx.clb_nlist.net_name(net_id);
+
+    	    int nPins = cluster_ctx.clb_nlist.net_pins(net_id).size();
+	    //auto& pins = fr_pins[netIdx]; 
+	    //pins.resize(nPins);
+
+	    // temp
+	    //std::vector<PIN> temp_pins;
+            //temp_pins.reserve(cluster_ctx.clb_nlist.net_pins(net_id).size());
+
+            std::set<PIN, PinLess> unique_pins;	
+    	    int pin_i = 0;
+	    // C. Extract Pins & Detect Global vs. Local
+            bool is_global_net = false;
+            int first_x = -1;
+            int first_y = -1;
+
+    	    for (ClusterPinId pin_id : cluster_ctx.clb_nlist.net_pins(net_id)) {
+    	        // You already know how to compute these terminals for FLUTE;
+    	        // reuse that logic here.
+		auto block_id = cluster_ctx.clb_nlist.pin_block(pin_id);
+		//TODO: for now assuming, loc.x will not be 0, which will result in x  = -1, out of grid problem
+        	int x = blocks_locs[block_id].loc.x - 1;
+        	int y = blocks_locs[block_id].loc.y;
+		
+		// pin_i is the source coordinate
+		if (pin_i == 0) {
+                    first_x = x;
+                    first_y = y;
+                } else {
+                    if (x != first_x || y != first_y) {
+                        is_global_net = true;
+                    }
+                }
+
+		if (x < 0 || y < 0 || x >= Gx || y >= Gy) {
+    			VTR_LOG_ERROR("Pin out of bounds! x=%d, y=%d, grid=(%d,%d)\n",
+                  	x, y, Gx, Gy);
+		}
+
+		PIN p;
+                p.x = x;
+                p.y = y;
+                p.layer = 1;
+                //temp_pins.push_back(p);
+		unique_pins.insert(PIN{(long)x, (long)y, 1});
+    	        //pins[pin_i].x = x;
+    	        //pins[pin_i].y = y;
+    	        //pins[pin_i].layer = 1;
+    	        // Set other PIN fields as needed (check FastRoute.h)
+    	        ++pin_i;
+    	    }
+	    
+	    if (!is_global_net) {
+            	// We SKIP this net entirely.
+            	// We do NOT increment netIdx.
+            	// We do NOT add to fr_to_vpr_net.
+		intra_tile_nets.push_back(net_id);
+            	continue;
+            }
+	
+	    stored_net_names.push_back(net_name);
+	    std::vector<PIN> temp_pins(unique_pins.begin(), unique_pins.end());
+	    fr_pins[netIdx] = temp_pins;
+	    int nPins_fr = (int)temp_pins.size();
+	    // atleast two unique pins, then it is not an intra-tile net
+	    VTR_ASSERT(nPins_fr > 1);
+
+    	    int minWidth = 1; // not really important for FPGA-style use
+	    VTR_LOG("FastRoute pins for net %zu (%s), nPins=%d\n",
+            size_t(net_id), net_name.c_str(), nPins_fr);
+            for (int i = 0; i < nPins_fr; ++i) {
+        	VTR_LOG("  pin %d: (%ld,%ld,l%d)\n",
+                i, temp_pins[i].x, temp_pins[i].y, temp_pins[i].layer);
+    	    }
+	    auto& s = stored_net_names.back();
+	    if (s.size() >= 200) {
+    		VTR_LOG_ERROR("FastRoute net name too long (%zu chars): %s\n",
+                  s.size(), s.c_str());
+	    }	
+
+    	    fr_router.addNet(const_cast<char*>(stored_net_names.back().c_str()), netIdx, nPins_fr, minWidth, fr_pins[netIdx].data());
+	    fr_to_vpr_net.push_back(net_id);
+    	    ++netIdx;
+    	}
+	VTR_ASSERT(netIdx == valid_global_nets);
+	// For FastRoute: calling again to prevent double free or corruption
+    	//fr_router.setNumberNets(netIdx);
+
+	// 4. Run FastRoute
+    	fr_router.initEdges();
+    	fr_router.setNumAdjustments(0); // no regional capacity tweaks for now
+    	fr_router.initAuxVar();
+
+	VTR_LOG("Calling FastRoute::run on %d nets, but total_nets including intra_tile nets %d\n", valid_global_nets, num_nets);
+    	std::vector<NET> routed_nets;
+    	int fr_status = fr_router.run(routed_nets);
+	VTR_LOG("FastRoute::run returned %d, routed_nets.size() = %zu\n",
+        	fr_status, routed_nets.size());	
+	
+	//fix the steiner class constructor and delete the below line
+    	//Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
+	
+	// 5. Extract Steiner trees and populate sb_edges
+	ClusterNetId debug_net_id = ClusterNetId(0); 
+	for (int fr_idx = 0; fr_idx < routed_nets.size(); fr_idx++) {
+    		ClusterNetId net_id = fr_to_vpr_net[fr_idx];
+    		const NET& fr_net = routed_nets[fr_idx];
+
+
+    		bool debug_this_net = (net_id == debug_net_id);
+
+    		//if (debug_this_net) {
+    		    auto net_name = cluster_ctx.clb_nlist.net_name(net_id);
+    		//    VTR_LOG("==== (%d) FastRoute tree for net %zu (%s) ====\n",
+    		//            fr_idx, size_t(net_id), net_name.c_str());
+
+    		//    VTR_LOG("Number of FR edges: %zu\n", fr_net.route.size());
+    		//}
+    		for (const ROUTE& r : fr_net.route) {
+        		//add_edge_to_sb(net_id, r.initX, r.initY, r.finalX, r.finalY);
+			int x1 = r.initX;
+			int y1 = r.initY;
+			int x2 = r.finalX;
+			int y2 = r.finalY;
+			steiner_ctx.net_edges[size_t(net_id)].emplace_back(Point{x1, y1}, Point{x2, y2});
+
+		//	if (debug_this_net) {
+            	//		VTR_LOG("  edge: (%ld,%ld,l%d) -> (%ld,%ld,l%d)\n",
+                //    		r.initX, r.initY, r.initLayer,
+                //    		r.finalX, r.finalY, r.finalLayer);
+        	//	}
+    		}
+    	    	
+		// this class may not be usable as it is
+		//Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
+		Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+    	        
+		auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
+    	        steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+    	        steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
+    	        steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
+	}
+
+	for (auto net_id: intra_tile_nets) {
+	    
+	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+	    auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
+    	    steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
+    	    steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
+    	    steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
+	
+	}
+
+    }
+
     fluteOutfile.close();
+    
     if (create_steiner_constraints) {
         // Create "connections_per_dnode.txt"
         //create_connections_per_dnode_file(steiner_ctx);

@@ -53,7 +53,6 @@ add_library(libvpr STATIC
              ${LIB_SOURCES}
 )
 
-
 target_include_directories(libvpr PUBLIC ${LIB_INCLUDE_DIRS})
 
 #VPR_ANALYTIC_PLACE is inisitalized in the root CMakeLists
@@ -84,6 +83,7 @@ target_link_libraries(libvpr
                         libargparse
                         libpugixml
                         librrgraph
+			fastroute
 )
 
 #link graphics library only when graphics set to on

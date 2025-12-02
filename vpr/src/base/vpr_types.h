@@ -1278,6 +1278,7 @@ struct t_router_opts {
     bool shuffle_first_iteration = false;
     int target_bracket = 0;
     bool dump_raw_flute_trees = false;
+    enum e_global_router_type global_router_algorithm;
     //==========================================
 };
 
