@@ -1432,11 +1432,14 @@ static bool timing_driven_route_sink(
 
     int inode = cheapest.index;
     route_ctx.rr_node_route_inf[inode].target_flag--; /* Connected to this SINK. */
+    VTR_LOG("[GREEDY]   update traceback\n");
     t_trace* new_route_start_tptr = update_traceback(&cheapest, target_pin, net_id);
 
     VTR_ASSERT_DEBUG(validate_traceback(route_ctx.trace[net_id].head));
+    VTR_LOG("[GREEDY]   update route_tree\n");
 
     rt_node_of_sink[target_pin] = update_route_tree(&cheapest, target_pin, ((high_fanout) ? &spatial_rt_lookup : nullptr));
+    VTR_LOG("[GREEDY]  after update route_tree\n");
     VTR_ASSERT_DEBUG(verify_route_tree(rt_root));
     VTR_ASSERT_DEBUG(verify_traceback_route_tree_equivalent(route_ctx.trace[net_id].head, rt_root));
     VTR_ASSERT_DEBUG(!high_fanout || validate_route_tree_spatial_lookup(rt_root, spatial_rt_lookup));
@@ -3646,6 +3649,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             router_opts,
             check_hold(router_opts, worst_neg_slack));
 
+        VTR_LOG("rtree: ");
+        print_route_tree(rt_root);
+        VTR_LOG("\n");
+
         bool high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
 
         SpatialRouteTreeLookup spatial_route_tree_lookup;
@@ -3985,6 +3992,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             int target_pin = remaining_targets[itarget];
 
             if (router_opts.closest_to_partial) {
+                VTR_LOG("closest to partial\n");
                 strategy = "closestToPartial";
                 // (PARSA) Julien, 2025
                 const int partial_tree_center_x = static_cast<int>(route_ctx.geometric_center.x());
@@ -4071,7 +4079,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             
                     VTR_LOG("[GREEDY]   Calling traceback_from_route_tree(net=%zu, base=%p, num_sinks=%u) [i=%zu]\n",
                             size_t(net_id), (void*)greedy_base_rt_root, num_sinks - remaining_targets_copy.size(), i);
-                    traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size());
+                    print_traceback(traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size()));
+
+                    print_traceback(net_id);
+
             
                     auto* trace_head_after = route_ctx.trace[net_id].head;
                     VTR_LOG("[GREEDY]   After traceback_from_route_tree: trace_head_after=%p (net=%zu, i=%zu)\n",
@@ -4084,6 +4095,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     VTR_LOG("[GREEDY]   Calling setup_routing_resources_incr_route(i=%zu, itarget=%u, net=%zu)\n",
                             i, itarget, size_t(net_id));
                     t_rt_node* tmp_rt_root = traceback_to_route_tree(net_id); // base partial route tree copy
+                    load_new_subtree_R_upstream(tmp_rt_root);
+                    load_new_subtree_C_downstream(tmp_rt_root);
+                    load_route_tree_Tdel(tmp_rt_root, 0);
+                    load_route_tree_rr_route_inf(tmp_rt_root);
+                    VTR_LOG("rtree: ");
+                    print_route_tree(tmp_rt_root);
+                    VTR_LOG("\n");
 
                     VTR_ASSERT_SAFE(is_valid_route_tree(tmp_rt_root));
                     VTR_ASSERT_SAFE(is_uncongested_route_tree(tmp_rt_root));
@@ -4102,6 +4120,12 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             
                     std::set<int> branch_nodes;
 
+                    int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+
+                    enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
+
+                    VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
+
 
                     if (!timing_driven_route_sink(router,
                                                 net_id,
@@ -4119,7 +4143,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                                 itry)) {
                         VTR_LOG_ERROR("[GREEDY]   timing_driven_route_sink FAILED for candidate i=%zu (target_pin=%d) on net %zu\n",
                                     i, target_pin, size_t(net_id));
-                        free_route_tree(tmp_rt_root);
+                        //free_route_tree(tmp_rt_root);
                         return false;
                     }
             
@@ -4164,8 +4188,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             
                 VTR_LOG("[GREEDY]   Syncing traceback_from_route_tree(net=%zu, best_rt_root=%p, num_sinks=%u)\n",
                         size_t(net_id), (void*)best_rt_root, num_sinks);
-                traceback_from_route_tree(net_id, best_rt_root, num_sinks);
-            
+                traceback_from_route_tree(net_id, best_rt_root, num_sinks);            
                 auto* trace_head_sync_after = route_ctx.trace[net_id].head;
                 VTR_LOG("[GREEDY]   After sync: trace_head_sync_after=%p\n",
                         (void*)trace_head_sync_after);
@@ -4178,7 +4201,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 if (itarget > 0) {
                     VTR_LOG("[GREEDY]   Freeing old greedy_base_rt_root=%p (itarget=%u)\n",
                             (void*)greedy_base_rt_root, itarget);
-                    free_route_tree(greedy_base_rt_root);
+                    //free_route_tree(greedy_base_rt_root);
                 }
                 greedy_base_rt_root = best_rt_root;
                 VTR_LOG("[GREEDY]   Updated greedy_base_rt_root=%p for next iteration\n",
@@ -4248,8 +4271,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 ++router_stats.connections_routed;
             }
         } // finished all sinks
-    if (greedy_base_rt_root != nullptr)
-        free_route_tree(greedy_base_rt_root);
+    //if (greedy_base_rt_root != nullptr)
+        //free_route_tree(greedy_base_rt_root);
     
     std::pair<int, float> cost = get_tree_cost(route_ctx.trace[net_id].head);
     int total_detailed_nodes = cost.first;
