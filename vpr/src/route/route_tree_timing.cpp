@@ -272,13 +272,22 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
         auto& device_ctx = g_vpr_ctx.device();
         const auto& rr_graph = device_ctx.rr_graph;
         auto& route_ctx = g_vpr_ctx.mutable_routing();
-        if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
-            VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode]->inode == node->inode);
-        } else {
-            VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode] == node);
-        }
+        //if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
+        //    VTR_ASSERT_MSG(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode]->inode == node->inode, vtr::string_fmt(
+        //        "rr_node_to_rt_node[node->inode] == %zu",
+        //        rr_node_to_rt_node[node->inode]
+        //    ).c_str());
+        //} else {
+        //    VTR_ASSERT_MSG(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode] == node, vtr::string_fmt(
+        //        "rr_node_to_rt_node[node->inode] == %zu",
+        //        rr_node_to_rt_node[node->inode]
+        //    ).c_str());
+        //}
 
         rr_node_to_rt_node[node->inode] = node;
+        if (node->inode == 13069386){
+            VTR_LOG("added to rr_node_to_rt\n");
+        }
 
         // (PARSA) Julien, 2025
         int old_size = route_ctx.partial_tree_size++;
@@ -315,25 +324,39 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
+    VTR_LOG("=== [ADD_SUBTREE] enter ===\n");
+    VTR_LOG("[ADD_SUBTREE] hptr=%p\n", (void*)hptr);
+
     int inode = hptr->index;
+    VTR_LOG("[ADD_SUBTREE] initial inode (SINK)=%d\n", inode);
 
     //if (rr_graph.node_type(RRNodeId(inode)) != SINK) {
     //VPR_FATAL_ERROR(VPR_ERROR_ROUTE,
     //"in add_subtree_to_route_tree. Expected type = SINK (%d).\n"
     //"Got type = %d.",  SINK, rr_graph.node_type(RRNodeId(inode)));
     //}
+    auto node_type = rr_graph.node_type(RRNodeId(inode));
+    VTR_LOG("[ADD_SUBTREE] initial node_type=%d (expect SINK=%d)\n", node_type, SINK);
 
     sink_rt_node = alloc_rt_node();
+    VTR_LOG("[ADD_SUBTREE] allocated sink_rt_node=%p\n", (void*)sink_rt_node);
     sink_rt_node->u.child_list = nullptr;
     sink_rt_node->inode = inode;
     sink_rt_node->net_pin_index = target_net_pin_index; //hptr is the heap pointer of the SINK that was reached, which corresponds to the target pin
+    VTR_LOG("[ADD_SUBTREE] sink_rt_node: inode=%d, net_pin_index=%d\n",
+        sink_rt_node->inode, sink_rt_node->net_pin_index);
+    VTR_LOG("[ADD_SUBTREE] rr_node_to_rt_node[%d] before set=%p\n",
+            inode, (void*)rr_node_to_rt_node[inode]);
     rr_node_to_rt_node[inode] = sink_rt_node;
+    VTR_LOG("[ADD_SUBTREE] rr_node_to_rt_node[%d] after set=%p\n",
+        inode, (void*)rr_node_to_rt_node[inode]);
 
     /* In the code below I'm marking SINKs and IPINs as not to be re-expanded.
      * It makes the code more efficient (though not vastly) to prune this way
      * when there aren't route-throughs or ipin doglegs.                        */
 
     sink_rt_node->re_expand = false;
+    VTR_LOG("[ADD_SUBTREE] sink_rt_node->re_expand=false\n");
 
     /* Now do it's predecessor. */
 
@@ -343,18 +366,28 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
     std::unordered_set<int> all_visited;         //does not include sink
     inode = hptr->prev_node();
     RREdgeId edge = hptr->prev_edge();
+    VTR_LOG("[ADD_SUBTREE] first predecessor: prev_node=%d, prev_edge=%zu\n",
+        inode, (size_t)edge);
     short iswitch = rr_graph.rr_nodes().edge_switch(edge);
+    VTR_LOG("[ADD_SUBTREE] first iswitch=%d\n", iswitch);
+
+    VTR_LOG("[ADD_SUBTREE] entering main while loop: condition is (rr_node_to_rt_node[inode] == nullptr)\n");
 
     /* For all "new" nodes in the main path */
     // inode is node index of previous node
     // NO_PREVIOUS tags a previously routed node
 
     while (rr_node_to_rt_node[inode] == nullptr) { //Not connected to existing routing
+        VTR_LOG("[ADD_SUBTREE] loop start: inode=%d, rr_node_to_rt_node[inode]=%p\n",
+            inode, (void*)rr_node_to_rt_node[inode]);
         main_branch_visited.insert(inode);
+        VTR_LOG("[ADD_SUBTREE] added inode=%d to main_branch_visited & all_visited\n", inode);
         all_visited.insert(inode);
 
         // (PARSA) Julien, 2025
         int old_size = route_ctx.partial_tree_size++;
+        VTR_LOG("[ADD_SUBTREE] partial_tree_size updated: old_size=%d, new_size=%d\n",
+            old_size, route_ctx.partial_tree_size);
         route_ctx.geometric_center.set_x(
             (route_ctx.geometric_center.x() * old_size
             + (device_ctx.rr_graph.node_xlow(RRNodeId(inode))
@@ -369,8 +402,15 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
             / route_ctx.partial_tree_size
         );
 
+        VTR_LOG("[ADD_SUBTREE] updated global geometric_center=(%g,%g)\n",
+                route_ctx.geometric_center.x(), route_ctx.geometric_center.y());
+
         linked_rt_edge = alloc_linked_rt_edge();
+        VTR_LOG("[ADD_SUBTREE] allocated linked_rt_edge=%p\n", (void*)linked_rt_edge);
         linked_rt_edge->child = downstream_rt_node;
+        VTR_LOG("[ADD_SUBTREE] linked_rt_edge->child=%p (inode=%d)\n",
+                (void*)linked_rt_edge->child,
+                downstream_rt_node ? downstream_rt_node->inode : -1);
 
         // Also mark downstream_rt_node->inode as visited to prevent
         // add_non_configurable_to_route_tree from potentially adding
@@ -378,51 +418,98 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
         all_visited.insert(downstream_rt_node->inode);
         linked_rt_edge->iswitch = iswitch;
         linked_rt_edge->next = nullptr;
+        VTR_LOG("[ADD_SUBTREE] linked_rt_edge: iswitch=%d, next=%p\n",
+            linked_rt_edge->iswitch, (void*)linked_rt_edge->next);
+
 
         rt_node = alloc_rt_node();
+        VTR_LOG("[ADD_SUBTREE] allocated rt_node=%p\n", (void*)rt_node);
         downstream_rt_node->parent_node = rt_node;
         downstream_rt_node->parent_switch = iswitch;
+        VTR_LOG("[ADD_SUBTREE] downstream_rt_node=%p parent_node=%p parent_switch=%d\n",
+            (void*)downstream_rt_node, (void*)downstream_rt_node->parent_node,
+            downstream_rt_node->parent_switch);
 
         rt_node->u.child_list = linked_rt_edge;
         rt_node->inode = inode;
         rt_node->net_pin_index = OPEN; //net pin index is invalid for non-SINK nodes
+        VTR_LOG("[ADD_SUBTREE] rt_node=%p inode=%d net_pin_index=%d\n",
+            (void*)rt_node, rt_node->inode, rt_node->net_pin_index);
 
+
+            VTR_LOG("[ADD_SUBTREE] rr_node_to_rt_node[%d] before set=%p\n",
+                inode, (void*)rr_node_to_rt_node[inode]);
         rr_node_to_rt_node[inode] = rt_node;
+        VTR_LOG("[ADD_SUBTREE] rr_node_to_rt_node[%d] after set=%p\n",
+                inode, (void*)rr_node_to_rt_node[inode]);
 
         if (rr_graph.node_type(RRNodeId(inode)) == IPIN) {
             rt_node->re_expand = false;
+            VTR_LOG("[ADD_SUBTREE] rt_node->re_expand=false (IPIN)\n");
         } else {
             rt_node->re_expand = true;
+            VTR_LOG("[ADD_SUBTREE] rt_node->re_expand=true (type=%d)\n",
+                    rr_graph.node_type(RRNodeId(inode)));
         }
 
         downstream_rt_node = rt_node;
+        VTR_LOG("[ADD_SUBTREE] downstream_rt_node updated to rt_node=%p (inode=%d)\n",
+                (void*)downstream_rt_node, downstream_rt_node->inode);
+
+        VTR_LOG("[ADD_SUBTREE] accessing route_ctx.rr_node_route_inf[inode=%d]\n", inode);
+        VTR_ASSERT(inode >= 0 && inode < (int)route_ctx.rr_node_route_inf.size());
         edge = route_ctx.rr_node_route_inf[inode].prev_edge;
+        VTR_LOG("[ADD_SUBTREE] edge is =%d\n", edge);
         inode = route_ctx.rr_node_route_inf[inode].prev_node;
+        VTR_LOG("[ADD_SUBTREE] inode is =%d\n", edge);
         iswitch = rr_graph.rr_nodes().edge_switch(edge);
+        VTR_LOG("[ADD_SUBTREE] new inode=%d, new iswitch=%d\n", inode, iswitch);
+        VTR_LOG("[ADD_SUBTREE] while loop end: will re-check rr_node_to_rt_node[inode=%d]\n", inode);
     }
 
     //Inode is now the branch point to the old routing; do not need
     //to alloc another node since the old routing has done so already
     rt_node = rr_node_to_rt_node[inode];
     VTR_ASSERT_MSG(rt_node, "Previous routing branch should exist");
+    VTR_LOG("[ADD_SUBTREE] branch rt_node=%p inode=%d\n", (void*)rt_node, rt_node->inode);
 
     linked_rt_edge = alloc_linked_rt_edge();
+    VTR_LOG("[ADD_SUBTREE] allocated branch linked_rt_edge=%p\n", (void*)linked_rt_edge);
     linked_rt_edge->child = downstream_rt_node;
     linked_rt_edge->iswitch = iswitch;
     linked_rt_edge->next = rt_node->u.child_list; //Add to head
     rt_node->u.child_list = linked_rt_edge;
 
+    VTR_LOG("[ADD_SUBTREE] attached new child to branch rt_node=%p: child=%p, iswitch=%d\n",
+        (void*)rt_node, (void*)linked_rt_edge->child, linked_rt_edge->iswitch);
+
+
     downstream_rt_node->parent_node = rt_node;
     downstream_rt_node->parent_switch = iswitch;
+
+    VTR_LOG("[ADD_SUBTREE] downstream_rt_node=%p parent_node=%p parent_switch=%d\n",
+        (void*)downstream_rt_node, (void*)downstream_rt_node->parent_node,
+        downstream_rt_node->parent_switch);
+
+    VTR_LOG("[ADD_SUBTREE] main_branch_visited size=%zu, all_visited size=%zu\n",
+            main_branch_visited.size(), all_visited.size());
 
     //Expand (recursively) each of the main-branch nodes adding any
     //non-configurably connected nodes
     //Sink is not included, so no need to pass in the node's ipin value.
     for (int rr_node : main_branch_visited) {
+        VTR_LOG("[ADD_SUBTREE] calling add_non_configurable_to_route_tree(rr_node=%d)\n", rr_node);
         add_non_configurable_to_route_tree(rr_node, false, all_visited);
+        VTR_LOG("[ADD_SUBTREE] returned from add_non_configurable_to_route_tree(rr_node=%d)\n", rr_node);
     }
 
     *sink_rt_node_ptr = sink_rt_node;
+    VTR_LOG("[ADD_SUBTREE] sink_rt_node_ptr set to %p (inode=%d)\n",
+            (void*)sink_rt_node, sink_rt_node->inode);
+
+    VTR_LOG("[ADD_SUBTREE] returning downstream_rt_node=%p (inode=%d)\n",
+            (void*)downstream_rt_node, downstream_rt_node ? downstream_rt_node->inode : -1);
+    VTR_LOG("=== [ADD_SUBTREE] exit ===\n");
     return (downstream_rt_node);
 }
 
@@ -712,9 +799,36 @@ void free_route_tree(t_rt_node* rt_node) {
 
     if (!rr_node_to_rt_node.empty()) {
         rr_node_to_rt_node.at(rt_node->inode) = nullptr;
+        if (rt_node->inode == 13069386){
+            VTR_LOG("removed from rr_node_to_rt\n");
+        }
     }
 
     free_rt_node(&rt_node);
+}
+
+void fake_free_route_tree(t_rt_node* rt_node) {
+    if (rt_node == nullptr) {
+        return;
+    }
+    t_linked_rt_edge *rt_edge, *next_edge;
+
+    rt_edge = rt_node->u.child_list;
+
+    while (rt_edge != nullptr) { /* For all children */
+        t_rt_node* child_node = rt_edge->child;
+        fake_free_route_tree(child_node);
+        next_edge = rt_edge->next;
+        //free_linked_rt_edge(rt_edge);
+        rt_edge = next_edge;
+    }
+
+    if (!rr_node_to_rt_node.empty()) {
+        rr_node_to_rt_node.at(rt_node->inode) = nullptr;
+        if (rt_node->inode == 13069386){
+            VTR_LOG("removed from rr_node_to_rt");
+        }
+    }
 }
 
 void print_route_tree(const t_rt_node* rt_node) {

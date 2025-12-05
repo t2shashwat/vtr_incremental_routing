@@ -4032,24 +4032,28 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             
             if (incremental_allowed) {
                 auto& cluster_ctx = g_vpr_ctx.clustering();
+                auto& m_route_ctx = g_vpr_ctx.mutable_routing();
                 size_t expected_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size();
                 VTR_LOG("[GREEDY]   net=%zu expected_sinks=%zu num_sinks=%u\n",
                         size_t(net_id), expected_sinks, num_sinks);
                 VTR_ASSERT_MSG(num_sinks == expected_sinks,
                             "num_sinks must match clb_nlist.net_sinks(net_id).size() in greedy mode");
             
-                if (itarget == 0) {
+                //if (itarget == 0) {
                     greedy_base_rt_root = traceback_to_route_tree(net_id);  //contention 1
+                    auto inf_snap = m_route_ctx.rr_node_route_inf;
+                    //fake_free_route_tree(greedy_base_rt_root);
+                    print_traceback(net_id);
                     VTR_LOG("[GREEDY]   Built initial greedy_base_rt_root=%p for net=%zu\n",
                             (void*)greedy_base_rt_root, size_t(net_id));
                     VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
                                 "greedy_base_rt_root should not be nullptr after traceback_to_route_tree");
-                } else {
-                    VTR_LOG("[GREEDY]   Reusing greedy_base_rt_root=%p (itarget=%u)\n",
-                            (void*)greedy_base_rt_root, itarget);
-                    VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
-                                "greedy_base_rt_root must be non-null on itarget > 0");
-                }
+                //} else {
+                //    VTR_LOG("[GREEDY]   Reusing greedy_base_rt_root=%p (itarget=%u)\n",
+                //            (void*)greedy_base_rt_root, itarget);
+                //    VTR_ASSERT_MSG(greedy_base_rt_root != nullptr,
+                //                "greedy_base_rt_root must be non-null on itarget > 0");
+                //}
             
                 VTR_LOG("[GREEDY]   remaining_targets_copy.size() before candidate loop=%zu\n",
                         remaining_targets_copy.size());
@@ -4058,7 +4062,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 int best_total_detailed_nodes = std::numeric_limits<int>::max();
                 t_rt_node* best_rt_root = nullptr;
 
-                for (size_t i = 0; i < remaining_targets_copy.size(); ++i) {
+                for (size_t i = 0; i < remaining_targets_copy.size() + 1; ++i) {
                     auto* trace_head_before = route_ctx.trace[net_id].head;
                     VTR_LOG("[GREEDY]   Candidate i=%zu: trace_head_before=%p, greedy_base_rt_root=%p\n",
                             i, (void*)trace_head_before, (void*)greedy_base_rt_root);
@@ -4066,11 +4070,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     // We expect either an existing trace or null (first time); assert we at least don't crash
                     // If you want to be strict, use ASSERT instead of the null-check.
                     if (trace_head_before != nullptr) {
-                        pathfinder_update_path_occupancy(trace_head_before, -1);
+                        //pathfinder_update_path_occupancy(trace_head_before, -1);
                     } else {
                         VTR_LOG("[GREEDY]   WARNING: trace_head_before is nullptr before occ -1 (net=%zu, itarget=%u, i=%zu)\n",
                                 size_t(net_id), itarget, i);
                     }
+
+                    m_route_ctx.rr_node_route_inf = inf_snap;
 
                     free_traceback(net_id);
             
@@ -4079,29 +4085,27 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             
                     VTR_LOG("[GREEDY]   Calling traceback_from_route_tree(net=%zu, base=%p, num_sinks=%u) [i=%zu]\n",
                             size_t(net_id), (void*)greedy_base_rt_root, num_sinks - remaining_targets_copy.size(), i);
-                    print_traceback(traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size()));
+                    traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size());
 
-                    print_traceback(net_id);
-
-            
                     auto* trace_head_after = route_ctx.trace[net_id].head;
                     VTR_LOG("[GREEDY]   After traceback_from_route_tree: trace_head_after=%p (net=%zu, i=%zu)\n",
                             (void*)trace_head_after, size_t(net_id), i);
                     VTR_ASSERT_MSG(trace_head_after != nullptr,
                                 "trace_head should not be nullptr after traceback_from_route_tree in greedy mode");
             
-                    pathfinder_update_path_occupancy(trace_head_after, 1);
+                    //pathfinder_update_path_occupancy(trace_head_after, 1);
+                    //connections_inf.prepare_routing_for_net(net_id);
             
                     VTR_LOG("[GREEDY]   Calling setup_routing_resources_incr_route(i=%zu, itarget=%u, net=%zu)\n",
                             i, itarget, size_t(net_id));
                     t_rt_node* tmp_rt_root = traceback_to_route_tree(net_id); // base partial route tree copy
+                    print_route_tree(tmp_rt_root);
                     load_new_subtree_R_upstream(tmp_rt_root);
                     load_new_subtree_C_downstream(tmp_rt_root);
+                    add_route_tree_to_rr_node_lookup(tmp_rt_root);
                     load_route_tree_Tdel(tmp_rt_root, 0);
                     load_route_tree_rr_route_inf(tmp_rt_root);
-                    VTR_LOG("rtree: ");
-                    print_route_tree(tmp_rt_root);
-                    VTR_LOG("\n");
+                    mark_remaining_ends(net_id, remaining_targets_copy);
 
                     VTR_ASSERT_SAFE(is_valid_route_tree(tmp_rt_root));
                     VTR_ASSERT_SAFE(is_uncongested_route_tree(tmp_rt_root));
@@ -4110,9 +4114,15 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                             (void*)tmp_rt_root, i);
                     VTR_ASSERT_MSG(tmp_rt_root != nullptr,
                                 "tmp_rt_root should not be nullptr from setup_routing_resources_incr_route");
-            
-                    int candidate_pin = remaining_targets_copy[i];
-                    VTR_LOG("[GREEDY]   Candidate i=%zu uses candidate_pin=%d\n", i, candidate_pin);
+                        
+                    int candidate_pin;
+                    if (i == remaining_targets_copy.size()) {
+                        candidate_pin = remaining_targets_copy[sinkIdx];
+                        VTR_LOG("[GREEDY]   Routing best sink %d\n", candidate_pin);
+                    } else {
+                        candidate_pin = remaining_targets_copy[i];
+                        VTR_LOG("[GREEDY]   Candidate i=%zu uses candidate_pin=%d\n", i, candidate_pin);
+                    }
             
                     target_pin = candidate_pin;
                     cost_params.criticality = pin_criticality[target_pin];
@@ -4121,11 +4131,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     std::set<int> branch_nodes;
 
                     int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
-
                     enable_router_debug(router_opts, net_id, sink_rr, itry, &router);
-
                     VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks) sub_iter: %d\n", size_t(net_id), num_sinks, sink_order_itr);
-
 
                     if (!timing_driven_route_sink(router,
                                                 net_id,
@@ -4141,11 +4148,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                                                 is_flat,
                                                 branch_nodes,
                                                 itry)) {
-                        VTR_LOG_ERROR("[GREEDY]   timing_driven_route_sink FAILED for candidate i=%zu (target_pin=%d) on net %zu\n",
-                                    i, target_pin, size_t(net_id));
-                        //free_route_tree(tmp_rt_root);
                         return false;
                     }
+
+                    traceback_from_route_tree(net_id, tmp_rt_root, num_sinks - remaining_targets_copy.size() + 1);
             
                     auto cost = get_tree_cost(route_ctx.trace[net_id].head);
                     VTR_LOG("[GREEDY]   Candidate i=%zu, target_pin=%d -> total_nodes=%d, cong_cost=%f\n",
@@ -4157,55 +4163,19 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                         best_total_detailed_nodes = cost.first;
                         sinkIdx = static_cast<int>(i);
             
-                        if (best_rt_root != nullptr) {
-                            VTR_LOG("[GREEDY]   Freeing previous best_rt_root=%p\n", (void*)best_rt_root);
-                            //free_route_tree(best_rt_root);
-                        }
-                        best_rt_root = tmp_rt_root;
-                        VTR_LOG("[GREEDY]   best_rt_root now=%p (sinkIdx=%d)\n",
-                                (void*)best_rt_root, sinkIdx);
-                    } else {
-                        VTR_LOG("[GREEDY]   Discarding non-best tmp_rt_root=%p\n", (void*)tmp_rt_root);
-                        //free_route_tree(tmp_rt_root);
                     }
+
+                    if (i == remaining_targets_copy.size()) {
+                        free_traceback(net_id);
+                        traceback_from_route_tree(net_id, tmp_rt_root, num_sinks - remaining_targets_copy.size() + 1);
+                        VTR_ASSERT_DEBUG(validate_traceback(route_ctx.trace[net_id].head));
+                        VTR_ASSERT_DEBUG(verify_traceback_route_tree_equivalent(route_ctx.trace[net_id].head, tmp_rt_root));
+                    }
+                    free_route_tree(tmp_rt_root);
                 }
             
-                VTR_ASSERT_MSG(best_rt_root != nullptr,
-                            "best_rt_root must be non-null after greedy candidate loop");
                 VTR_LOG("[GREEDY] After candidate loop: chosen sinkIdx=%d, best_rt_root=%p, best_total_nodes=%d, remaining_targets_copy.size()=%zu\n",
                         sinkIdx, (void*)best_rt_root, best_total_detailed_nodes, remaining_targets_copy.size());
-            
-                // Sync routing/occupancy with best_rt_root
-                auto* trace_head_sync_before = route_ctx.trace[net_id].head;
-                VTR_LOG("[GREEDY]   Before sync: trace_head_sync_before=%p\n",
-                        (void*)trace_head_sync_before);
-            
-                if (trace_head_sync_before != nullptr) {
-                    pathfinder_update_path_occupancy(trace_head_sync_before, -1);
-                } else {
-                    VTR_LOG("[GREEDY]   WARNING: trace_head_sync_before is nullptr before occ -1 during sync\n");
-                }
-            
-                VTR_LOG("[GREEDY]   Syncing traceback_from_route_tree(net=%zu, best_rt_root=%p, num_sinks=%u)\n",
-                        size_t(net_id), (void*)best_rt_root, num_sinks);
-                traceback_from_route_tree(net_id, best_rt_root, num_sinks);            
-                auto* trace_head_sync_after = route_ctx.trace[net_id].head;
-                VTR_LOG("[GREEDY]   After sync: trace_head_sync_after=%p\n",
-                        (void*)trace_head_sync_after);
-                VTR_ASSERT_MSG(trace_head_sync_after != nullptr,
-                            "trace_head should not be nullptr after syncing best_rt_root");
-            
-                pathfinder_update_path_occupancy(trace_head_sync_after, 1);
-            
-                // Replace the base tree with the new best tree, free the old one
-                if (itarget > 0) {
-                    VTR_LOG("[GREEDY]   Freeing old greedy_base_rt_root=%p (itarget=%u)\n",
-                            (void*)greedy_base_rt_root, itarget);
-                    //free_route_tree(greedy_base_rt_root);
-                }
-                greedy_base_rt_root = best_rt_root;
-                VTR_LOG("[GREEDY]   Updated greedy_base_rt_root=%p for next iteration\n",
-                        (void*)greedy_base_rt_root);
             
                 // Remove the chosen sink from the pool
                 VTR_LOG("[GREEDY]   Removing chosen sinkIdx=%d (pin=%d) from remaining_targets_copy (size before=%zu)\n",

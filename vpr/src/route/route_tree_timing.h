@@ -20,6 +20,7 @@ t_rt_node* init_route_tree_to_source(ClusterNetId inet);
  * free lists.  Recursive, depth-first post-order traversal.
  */
 void free_route_tree(t_rt_node* rt_node);
+void fake_free_route_tree(t_rt_node* rt_node);
 void print_route_tree(const t_rt_node* rt_node);
 void print_route_tree(const t_rt_node* rt_node, int depth);
 
