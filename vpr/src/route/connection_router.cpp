@@ -1130,7 +1130,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 	    	expected_cost = corridor_data.flute_lookahead[corridor_index] + offset;
 	    }
 	    else if (node_type == OPIN || node_type == SOURCE){
-		Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+		Corridor corridor = corridor_data.corridors_per_connection[0];
 
                 int eff_corridor_to_x = corridor.to_x;
                 int eff_corridor_to_y = corridor.to_y;
@@ -1492,8 +1492,9 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
             	offset = (corridor_type == CHANX) ? (std::abs(eff_corridor_to_x - node_x)) : (std::abs(eff_corridor_to_y - node_y));
 		expected_cost = corridor_data.flute_lookahead[corridor_index];
 	    }
-	    else if (node_type == OPIN || node_type == SOURCE){
-                Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+	    else if (node_type == OPIN || node_type == SOURCE) {
+                Corridor corridor = corridor_data.corridors_per_connection[0]; // reported heap buffer overflow
+									       // before had the corridor_index
 
                 int eff_corridor_to_x = corridor.to_x;
                 int eff_corridor_to_y = corridor.to_y;

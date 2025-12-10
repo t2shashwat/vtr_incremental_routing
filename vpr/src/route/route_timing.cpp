@@ -3711,7 +3711,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         */
         // just the loading of reconvergent nets for detailed router so no need to shuffle
         if (itry == 1) { 
-            max_sub_iterations = (router_opts.detailed_router == 1) ? 0 : router_opts.shuffle1;
+            max_sub_iterations = (router_opts.detailed_router == 1) ? router_opts.shuffle1 : router_opts.shuffle1;
         }
         else if (itry > 1 && itry < 2){//10
             if (num_sinks >= factorials.size()){
@@ -3778,10 +3778,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
         t_rt_node* rt_root;
         //VTR_LOG("itry: %d sub itr: %d net_id: %zu\n", itry, sink_order_itr, size_t(net_id));
-        if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) { // for standard router: in itry 1, the tree is just OPIN. For detailed router: itry 2 is the first iteration
+        if (((itry > 1 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && sink_order_itr == 0 && num_sinks >= t_min_incremental_reroute_fanout) { // for standard router: in itry 1, the tree is just OPIN. For detailed router: itry 2 is the first iteration
         base_rt_root = traceback_to_route_tree(net_id);
         }
-        else if (((itry > 2 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && num_sinks >= t_min_incremental_reroute_fanout){
+        else if (((itry > 1 && router_opts.detailed_router == 1) || (itry > 1 && router_opts.detailed_router == 0)) && num_sinks >= t_min_incremental_reroute_fanout){
             pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
             traceback_from_route_tree(net_id, base_rt_root, num_sinks);
             pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
@@ -4114,6 +4114,9 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.global_occ_factor = router_opts.global_occ_factor;
 	//cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
 	cost_params.leak = routing_predictor.get_leak_flag();
+	if (num_sinks > 500) {
+	     cost_params.leak = false;
+	}
 	cost_params.intra_tile_connection = false;
         
 	//if (golden_net_order.find(size_t(net_id)) != golden_net_order.end()){
@@ -4169,7 +4172,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     
             int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
             bool intra_tile_connection = steiner_ctx.net_connection_intra_tile[net_id][target_pin]; 
-            VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
 	    if (router_opts.detailed_router == 1 && intra_tile_connection == false) {
 	        //corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
 	        corridor_data.corridors_per_connection = steiner_ctx.all_corridors[net_id][target_pin];
@@ -4180,12 +4182,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 		cost_params.intra_tile_connection = true;
                 //cost_params.detailed_router = 0;
 	    }
-	    //if (size_t(net_id) == 415 || size_t(net_id) == 0 || size_t(net_id) == 1){
-            //for (size_t i = 0; i < corridor_data.corridors_per_connection.size(); ++i) {
-            //    const Corridor& c = corridor_data.corridors_per_connection[i];
-            //    VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
-            //        i, c.from_x, c.from_y, c.to_x, c.to_y);
-            //}
+	    //if (size_t(net_id) == 2488 || size_t(net_id) == 4186 || size_t(net_id) == 1){
+            VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
+            for (size_t i = 0; i < corridor_data.corridors_per_connection.size(); ++i) {
+                const Corridor& c = corridor_data.corridors_per_connection[i];
+                VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
+                    i, c.from_x, c.from_y, c.to_x, c.to_y);
+            }
 	    //}
 
             /*if (router_opts.detailed_router == 1){

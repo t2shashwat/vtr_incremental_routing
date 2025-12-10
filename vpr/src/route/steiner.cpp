@@ -910,7 +910,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
     std::unordered_map<int, std::vector<unsigned short>> corridors_lookahead;
     std::unordered_map<int, bool> connection_intra_tile;
 
-    std::unordered_map<std::string, std::string> child_to_parent;
+    std::unordered_map<std::string, std::pair<std::string, bool>> child_to_parent;
     // 1. Build reverse edge map: child → parent
 
     if (source_sb_id.empty()) {
@@ -934,6 +934,14 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
         if (y1 == y2) return (x2 > x1) ? "E" : "W";
         return ""; // invalid
     };
+    
+    auto orientation_from_to = [&parse_coords](const std::string& from, const std::string& to) -> std::string {
+        auto [x1, y1] = parse_coords(from);
+        auto [x2, y2] = parse_coords(to);
+        if (x1 == x2) return "V";
+        if (y1 == y2) return "H";
+        return ""; // invalid
+    };
 
     
     auto is_opposite = [](const std::string& dir1, const std::string& dir2) -> bool {
@@ -941,168 +949,47 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
                (dir1 == "E" && dir2 == "W") || (dir1 == "W" && dir2 == "E");
     };
     
-    // ------------------------------------------------------------------
-    
-    /*std::set<std::pair<std::string, std::string>> visited; // (node, arrival_dir)
-    std::queue<std::pair<std::string, std::string>> q;     // (current_node, parent_node)
-    
-    q.push({source_sb_id, ""});
-    visited.insert({source_sb_id, ""});
-    
-    while (!q.empty()) {
-        auto [current_node, parent_node] = q.front();
-        q.pop();
-    
-        std::string incoming_dir = parent_node.empty() ? "" : direction_from_to(parent_node, current_node);
-    
-        if (this->sb_edges.edge_map.count(current_node)) {
-            for (const auto& [neighbor_node, is_valid] : this->sb_edges.edge_map.at(current_node)) {
-    
-                if (!is_valid) continue;
-    
-                std::string outgoing_dir = direction_from_to(current_node, neighbor_node);
-    
-                // skip invalid (diagonal) edges
-                if (outgoing_dir.empty()) continue;
-    
-                // U-turn check: prevent going back in the opposite direction
-                if (!incoming_dir.empty() && is_opposite(incoming_dir, outgoing_dir)) {
-                    if (size_t(this->net_id) == 415) {
-                        VTR_LOG("Detected u-turn: %s → %s → %s (dir=%s → %s)\n",
-                                parent_node.c_str(), current_node.c_str(), neighbor_node.c_str(),
-                                incoming_dir.c_str(), outgoing_dir.c_str());
-                    }
-                    continue;
-                }
-    
-                std::pair<std::string, std::string> state = {neighbor_node, outgoing_dir};
-                if (visited.count(state)) continue; // already visited with this direction
-    
-                // mark visited with arrival direction
-                visited.insert(state);
-                child_to_parent[neighbor_node] = current_node;
-                q.push({neighbor_node, current_node});
-            }
-        }
-    }*/
- 
-    /*std::unordered_map<std::string, int> cost; // Stores the minimum cost (distance) from source
-    
-    // Priority queue to find the shortest path.
-    // Stores tuples of (cost, current_node, parent_node)
-    // std::priority_queue is a max-heap by default, so we store negative costs.
-    std::priority_queue<std::tuple<int, std::string, std::string>> pq;
-
-    cost[source_sb_id] = 0;
-    pq.push({0, source_sb_id, ""}); // Source has no parent and a cost of 0
-    int uturn_detected = 0;
-    while (!pq.empty()) {
-        auto [current_cost, current_node, parent_node] = pq.top();
-        pq.pop();
-        
-        // Skip if we've found a better path already
-        if (-current_cost > cost[current_node]) {
-            continue;
-        }
-
-        if (this->sb_edges.edge_map.count(current_node)) {
-            for (const auto& [neighbor_node, is_valid] : this->sb_edges.edge_map.at(current_node)) {
-                
-                if (!is_valid) {
-                    continue;
-                }
-		uturn_detected = 0;
-                
-                // Perform geometric u-turn check  but not for cycles A->B B->A
-                if (!parent_node.empty() && neighbor_node != parent_node) {
-                    auto [parent_x, parent_y] = parse_coords(parent_node);
-                    auto [current_x, current_y] = parse_coords(current_node);
-                    auto [neighbor_x, neighbor_y] = parse_coords(neighbor_node);
-                    
-                    bool is_horizontal_uturn = (parent_y == current_y && current_y == neighbor_y) &&
-                                               ((current_x < parent_x && neighbor_x > current_x) || 
-                                                (current_x > parent_x && neighbor_x < current_x));
-                    
-                    bool is_vertical_uturn = (parent_x == current_x && current_x == neighbor_x) &&
-                                             ((current_y < parent_y && neighbor_y > current_y) || 
-                                              (current_y > parent_y && neighbor_y < current_y));
-
-                    if (is_horizontal_uturn || is_vertical_uturn) {
-                        VTR_LOG_WARN("Detected u-turn: %s -> %s -> %s. Skipping this path.\n", 
-                            parent_node.c_str(), current_node.c_str(), neighbor_node.c_str());
-                        //uturn_detected = 1;
-			continue;
-                    }
-                }
-
-                // Calculate cost to neighbor
-                auto [current_x, current_y] = parse_coords(current_node);
-                auto [neighbor_x, neighbor_y] = parse_coords(neighbor_node);
-		if (size_t(this->net_id) == 415){
-		     VTR_LOG(" [DFS] parent: (%d, %d) -> (%d, %d) \n", current_x, current_y, neighbor_x, neighbor_y);
-		}
-
-                //int edge_cost = (uturn_detected == 1) ? std::numeric_limits<int>::max() / 4 : abs(current_x - neighbor_x) + abs(current_y - neighbor_y);
-                int edge_cost = abs(current_x - neighbor_x) + abs(current_y - neighbor_y);
-                int new_cost = -current_cost + edge_cost;
-                uturn_detected = 0;
-                // If we found a shorter path, update it
-                if (!cost.count(neighbor_node) || new_cost < cost[neighbor_node]) {
-                    cost[neighbor_node] = new_cost;
-                    child_to_parent[neighbor_node] = current_node;
-                    pq.push({-new_cost, neighbor_node, current_node});
-                }
-            }
-        }
-    }*/
-
-
-
-
     std::set<std::string> visited;
     std::queue<std::pair<std::string, std::string>> q;
     q.push({source_sb_id, ""}); // Source has no parent
     visited.insert(source_sb_id); 
 
+    bool corridor_end_point = false;
+    std::string edge_orientation;
     while (!q.empty()) {
         auto [current_node, parent_node] = q.front();
         q.pop();
-
+	corridor_end_point = false;
+	if (parent_node != "") {
+	    edge_orientation = orientation_from_to(parent_node, current_node);
+	}
         // Check for edges from the current node
         if (this->sb_edges.edge_map.count(current_node)) {
+	    int total_neighbours = this->sb_edges.edge_map.at(current_node).size();
+ 	    if (total_neighbours > 2 || (current_node == source_sb_id)) {
+		// always mark source as SP
+	    	corridor_end_point = true;
+	    }
+
+	    // this code for now marks source as a SP if it has more than two neighbours
             for (const auto& [neighbor_node, is_valid] : this->sb_edges.edge_map.at(current_node)) {
                 
 		// all edges are marked true in both directions
                 if (visited.count(neighbor_node) || !is_valid) {
                     continue;
                 }
-                
-                // Perform geometric u-turn check
-                /*if (!parent_node.empty()) {
-                    auto [parent_x, parent_y] = parse_coords(parent_node);
-                    auto [current_x, current_y] = parse_coords(current_node);
-                    auto [neighbor_x, neighbor_y] = parse_coords(neighbor_node);
-
-                    // Check for horizontal u-turn
-                    bool is_horizontal_uturn = (parent_y == current_y && current_y == neighbor_y) &&
-                                               ((current_x < parent_x && neighbor_x > current_x) || 
-                                                (current_x > parent_x && neighbor_x < current_x));
-                    
-                    // Check for vertical u-turn
-                    bool is_vertical_uturn = (parent_x == current_x && current_x == neighbor_x) &&
-                                             ((current_y < parent_y && neighbor_y > current_y) || 
-                                              (current_y > parent_y && neighbor_y < current_y));
-
-                    if (is_horizontal_uturn || is_vertical_uturn) {
-			if (size_t(this->net_id) == 415)
-			    //VTR_LOG("Detected horizontal u-turn: %s -> %s -> %s. Path segment ignored.\n", parent_node.c_str(), current_node.c_str(), neighbor_node.c_str());
-                        continue; // Skip this edge to avoid a u-turn
-                    }
-                }*/
+		// only check change of direction for neighbour 2 because if more neighbours then 
+		// it is already marked as steiner point
+		if (total_neighbours == 2 && parent_node != ""){
+		    std::string next_edge_orientation = orientation_from_to(current_node, neighbor_node);
+		    if (next_edge_orientation != edge_orientation) {
+		        corridor_end_point = true;
+		    }
+		}
                 
                 // If it passes all checks, add to tree
                 visited.insert(neighbor_node);
-                child_to_parent[neighbor_node] = current_node;
+                child_to_parent[neighbor_node] = {current_node, corridor_end_point};
                 q.push({neighbor_node, current_node});
             }
         }
@@ -1120,25 +1007,39 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
         std::vector<unsigned short> corridor_lookahead;
 
 	bool path_found = false;//(child_to_parent.count(current) || current == source_sb_id);
-        //if (path_found) {
 	unsigned short previous_distance = 0;
+
+	std::string stored_to = current;  //ipin
         while (child_to_parent.count(current)) {
-            const std::string& parent = child_to_parent.at(current);
-            auto [from_x, from_y] = parse_coords(parent);
-            auto [to_x, to_y] = parse_coords(current);
-	    // assumes that corridor are not horizontal, they are either horizontal or vertical
-	    unsigned short corridor_len = std::abs(from_x - to_x) + std::abs(from_y - to_y);
+	    const auto& [parent, parent_is_steiner_point] = child_to_parent.at(current);
+            // const std::string& parent = child_to_parent.at(current);
+	    // now, if parent is SP
+	    // we have hit end of corridor
+	    // record it in corridors like the current state of code
+	    // if parent is not SP
+	    // record only the "to" coordinate for the corridor
+	    // keep iterating until you hit a SP and for that record "from" coordinate
+	    // i should always mark source as SP above 
+            
+	    if (parent_is_steiner_point == true ) {
+                auto [to_x, to_y] = parse_coords(stored_to);
+	        auto [from_x, from_y] = parse_coords(parent);
 
-            corridor_path.emplace_back(from_x, from_y, to_x, to_y);
+	    	// assumes that corridor are not diagonal, they are either horizontal or vertical
+	    	unsigned short corridor_len = std::abs(from_x - to_x) + std::abs(from_y - to_y);
 
-	    corridor_lookahead.emplace_back(previous_distance);
+            	corridor_path.emplace_back(from_x, from_y, to_x, to_y);
 
- 	    previous_distance += corridor_len;
+	    	corridor_lookahead.emplace_back(previous_distance);
 
-            if (parent == source_sb_id) {
-                path_found = true;
-                break;
-            }
+ 	    	previous_distance += corridor_len;
+            	if (parent == source_sb_id) {
+            	    path_found = true;
+            	    break;
+            	}
+		stored_to = parent; 
+	    }
+
             current = parent;
         }
 
@@ -1329,8 +1230,8 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	    }
 	};
     	// 1. Define FastRoute grid
-    	int Gx = device_ctx.grid.width();
-    	int Gy = device_ctx.grid.height();
+    	int Gx = device_ctx.grid.width() - 2; // 168
+    	int Gy = device_ctx.grid.height() - 2; // 480
 	VTR_LOG("Width = %d height = %d\n", Gx, Gy);
     	int nLayers = 1; // FPGA-style: single layer
 
@@ -1339,7 +1240,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	fr_router.setGridsAndLayers(Gx, Gy, nLayers);
 
     	int layer = 1;
-    	int capacity = 208; // choose something; or derive from channel width
+    	int capacity = 104; // choose something; or derive from channel width
     	fr_router.addVCapacity(capacity, layer);
     	fr_router.addHCapacity(capacity, layer); 
 
@@ -1348,7 +1249,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	fr_router.addViaSpacing(1, layer);
 
     	// For physical embedding, you can keep it trivial:
-    	fr_router.setLowerLeft(0, 0);
+    	fr_router.setLowerLeft(1, 1);
     	fr_router.setTileSize(1, 1);
    
 	// 2. Count nets and set number
@@ -1485,12 +1386,12 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 	    VTR_ASSERT(nPins_fr > 1);
 
     	    int minWidth = 1; // not really important for FPGA-style use
-	    VTR_LOG("FastRoute pins for net %zu (%s), nPins=%d\n",
+	    /*VTR_LOG("FastRoute pins for net %zu (%s), nPins=%d\n",
             size_t(net_id), net_name.c_str(), nPins_fr);
             for (int i = 0; i < nPins_fr; ++i) {
         	VTR_LOG("  pin %d: (%ld,%ld,l%d)\n",
                 i, temp_pins[i].x, temp_pins[i].y, temp_pins[i].layer);
-    	    }
+    	    }*/
 	    auto& s = stored_net_names.back();
 	    if (s.size() >= 200) {
     		VTR_LOG_ERROR("FastRoute net name too long (%zu chars): %s\n",
@@ -1530,10 +1431,10 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     		//if (debug_this_net) {
     		    auto net_name = cluster_ctx.clb_nlist.net_name(net_id);
-    		//    VTR_LOG("==== (%d) FastRoute tree for net %zu (%s) ====\n",
-    		//            fr_idx, size_t(net_id), net_name.c_str());
+    		    VTR_LOG("==== (%d) FastRoute tree for net %zu (%s) ====\n",
+    		            fr_idx, size_t(net_id), net_name.c_str());
 
-    		//    VTR_LOG("Number of FR edges: %zu\n", fr_net.route.size());
+    		    VTR_LOG("Number of FR edges: %zu\n", fr_net.route.size());
     		//}
     		for (const ROUTE& r : fr_net.route) {
         		//add_edge_to_sb(net_id, r.initX, r.initY, r.finalX, r.finalY);
@@ -1544,9 +1445,9 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 			steiner_ctx.net_edges[size_t(net_id)].emplace_back(Point{x1, y1}, Point{x2, y2});
 
 		//	if (debug_this_net) {
-            	//		VTR_LOG("  edge: (%ld,%ld,l%d) -> (%ld,%ld,l%d)\n",
-                //    		r.initX, r.initY, r.initLayer,
-                //    		r.finalX, r.finalY, r.finalLayer);
+                			VTR_LOG("  edge: (%ld,%ld,l%d) -> (%ld,%ld,l%d)\n",
+                        		r.initX, r.initY, r.initLayer,
+                        		r.finalX, r.finalY, r.finalLayer);
         	//	}
     		}
     	    	

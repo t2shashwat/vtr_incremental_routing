@@ -414,10 +414,10 @@ std::vector<NET> FT::getResults() {
                                 routeLen = treeedge->route.routelen;
                                 gridsX = treeedge->route.gridsX;
                                 gridsY = treeedge->route.gridsY;
-                                gridsL = treeedge->route.gridsL;
+                                //gridsL = treeedge->route.gridsL;
                                 lastX = wTile * (gridsX[0] + 0.5) + xcorner;
                                 lastY = hTile * (gridsY[0] + 0.5) + ycorner;
-                                lastL = gridsL[0];
+                                //lastL = gridsL[0];
                                 for (i = 1; i <= routeLen; i++) {
                                         xreal = wTile * (gridsX[i] + 0.5) + xcorner;
                                         yreal = hTile * (gridsY[i] + 0.5) + ycorner;
@@ -425,13 +425,15 @@ std::vector<NET> FT::getResults() {
                                         ROUTE routing;
                                         routing.initX = lastX;
                                         routing.initY = lastY;
-                                        routing.initLayer = lastL + 1;
+                                        //routing.initLayer = lastL + 1;
+                                        routing.initLayer = 1;
                                         routing.finalX = xreal;
                                         routing.finalY = yreal;
-                                        routing.finalLayer = gridsL[i] + 1;
+                                        //routing.finalLayer = gridsL[i] + 1;
+                                        routing.finalLayer = 1;
                                         lastX = xreal;
                                         lastY = yreal;
-                                        lastL = gridsL[i];
+                                        //lastL = gridsL[i];
                                         currentNet.route.push_back(routing);
                                 }
                         }
@@ -784,7 +786,7 @@ int FT::run(std::vector<NET> &result) {
         getOverflow2Dmaze(&maxOverflow, &tUsage);
 
         printf("\nLayer Assignment Begins\n\n\n");
-        newLA();
+        //newLA();
         printf("layer assignment finished\n");
 
         t2 = clock();
@@ -813,10 +815,10 @@ int FT::run(std::vector<NET> &result) {
                 printf("Post Processsing finished, starting via filling\n");
         }
 
-        fillVIA();
-        finallength = getOverflow3D();
-        numVia = threeDVIA();
-        checkRoute3D();
+        //fillVIA();
+        //finallength = getOverflow3D();
+        //numVia = threeDVIA();
+        //checkRoute3D();
 
         if (needOUTPUT) {
                 writeRoute3D(routingFile);
@@ -837,7 +839,7 @@ int FT::run(std::vector<NET> &result) {
         /* TODO:  <11-07-19, this function leads to a segfault, but as the OS
          * frees all memory after the application end (next line) we can omit
          * this function call for now.> */
-        /* freeAllMemory(); */
+         freeAllMemory();
         return (1);
 }
 
