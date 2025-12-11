@@ -2774,18 +2774,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
           //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
           std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
-	
-    std::vector<ClusterNetId> first_100_nets;
-    size_t num_elements_to_copy = 138; //138;
-    first_100_nets.reserve(num_elements_to_copy);        // code to copy the last nets with fanout 1 - 10
-    //auto start_iter = sorted_nets.end() - num_elements_to_copy;        
-    std::copy_n(sorted_nets.begin(), num_elements_to_copy, std::back_inserter(first_100_nets));
-    //std::copy_n(start_iter, num_elements_to_copy, std::back_inserter(first_100_nets));        if(router_opts.shuffle_net_order == 1){
-        //std::random_device rd;  // Seed for random number generator
-        //std::mt19937 g(rd());   // Standard Mersenne Twister engine
-        //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
-        //std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());      
-    for (auto net_id : first_100_nets) {
+     
+    for (auto net_id : sorted_nets) {
         if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
 	    	continue;
 	    }
@@ -4015,18 +4005,20 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 remaining_targets_copy.pop_back();
             }
 
-            bool incremental_allowed =
-                ((itry > 2 && router_opts.detailed_router == 1) ||
-                (itry > 1 && router_opts.detailed_router == 0));
+            std::vector<size_t> vec = {250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
+                10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};
             
-            VTR_LOG("itry=%d net=%zu itarget=%u detailed=%d incremental_allowed=%d num_sinks=%u\n",
-                    itry, size_t(net_id), itarget, router_opts.detailed_router, incremental_allowed, num_sinks);
-            
-            if (incremental_allowed) {
+            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
+                VTR_LOG("itry=%d net=%zu itarget=%u detailed=%d incremental_allowed=%d num_sinks=%u\n",
+                    itry, size_t(net_id), itarget, router_opts.detailed_router, true, num_sinks);
+
                 auto& cluster_ctx = g_vpr_ctx.clustering();
                 auto& m_route_ctx = g_vpr_ctx.mutable_routing();
                 
-                greedy_base_rt_root = traceback_to_route_tree(net_id);
+                if (num_sinks - remaining_targets_copy.size() == 0)
+                    greedy_base_rt_root = init_route_tree_to_source(net_id);
+                else
+                    greedy_base_rt_root = traceback_to_route_tree(net_id);
             
                 int sinkIdx = 0;
                 int best_total_detailed_nodes = std::numeric_limits<int>::max();
@@ -4083,10 +4075,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                         return false;
                     }
 
-                    auto cost = get_tree_cost(route_ctx.trace[net_id].head);
+                    int bends, wirelength, segments;
+                    get_num_bends_and_length(net_id, &bends, &wirelength, &segments);
             
-                    if (cost.first < best_total_detailed_nodes) {
-                        best_total_detailed_nodes = cost.first;
+                    if (wirelength < best_total_detailed_nodes) {
+                        best_total_detailed_nodes = wirelength;
                         sinkIdx = static_cast<int>(i);
                     }
                     free_route_tree(tmp_rt_root);
