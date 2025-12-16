@@ -3970,7 +3970,118 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
         auto remaining_targets_copy = remaining_targets;
         t_rt_node* greedy_base_rt_root = nullptr; // need to be freed
-    // explore in order of decreasing criticality (no longer need sink_order array)
+
+        auto& cluster_ctx = g_vpr_ctx.clustering();
+        auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+        
+        if (num_sinks - remaining_targets_copy.size() == 0)
+            greedy_base_rt_root = init_route_tree_to_source(net_id);
+        else
+            greedy_base_rt_root = traceback_to_route_tree(net_id);
+        
+        int sinkIdx = 0;
+        
+        // NEW: hold (pin, wirelength) pairs
+        std::vector<std::pair<int,int>> pin_wl_pairs;
+        pin_wl_pairs.reserve(remaining_targets_copy.size());
+        
+        for (size_t i = 0; i < remaining_targets_copy.size(); ++i) {
+            pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
+            free_traceback(net_id);
+        
+            traceback_from_route_tree(net_id,
+                                    greedy_base_rt_root,
+                                    num_sinks - remaining_targets_copy.size());
+        
+            pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
+        
+            t_rt_node* tmp_rt_root = traceback_to_route_tree(net_id);
+            load_new_subtree_R_upstream(tmp_rt_root);
+            load_new_subtree_C_downstream(tmp_rt_root);
+            add_route_tree_to_rr_node_lookup(tmp_rt_root);
+            load_route_tree_Tdel(tmp_rt_root, 0);
+            load_route_tree_rr_route_inf(tmp_rt_root);
+            mark_remaining_ends(net_id, remaining_targets_copy);
+        
+            int candidate_pin;
+            if (i == remaining_targets_copy.size()) {
+                candidate_pin = remaining_targets_copy[sinkIdx];
+            } else {
+                candidate_pin = remaining_targets_copy[i];
+            }
+        
+            int target_pin = candidate_pin;
+            cost_params.criticality = pin_criticality[target_pin];
+            cost_params.bias        = router_opts.sbNode_lookahead_factor;
+        
+            std::set<int> branch_nodes;
+        
+            int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
+            SpatialRouteTreeLookup tmp_spatial_route_tree_lookup;
+            if (high_fanout) {
+                tmp_spatial_route_tree_lookup =
+                    build_route_tree_spatial_lookup(net_id, tmp_rt_root);
+            }
+        
+            if (!timing_driven_route_sink(
+                    router,
+                    net_id,
+                    0,
+                    target_pin,
+                    cost_params,
+                    router_opts,
+                    tmp_rt_root,
+                    rt_node_of_sink,
+                    tmp_spatial_route_tree_lookup,
+                    router_stats,
+                    budgeting_inf,
+                    routing_predictor,
+                    is_flat,
+                    branch_nodes,
+                    itry)) {
+                return false;
+            }
+        
+            int bends, wirelength, segments;
+            get_num_bends_and_length(net_id, &bends, &wirelength, &segments);
+        
+            // NEW: store (pin, wirelength)
+            pin_wl_pairs.emplace_back(candidate_pin, wirelength);
+        
+            free_route_tree(tmp_rt_root);
+        }
+        
+        // NEW: sort by wirelength increasing
+        std::sort(pin_wl_pairs.begin(), pin_wl_pairs.end(),
+                [](const auto& a, const auto& b){
+                    return a.second < b.second; // compare wirelength
+                });
+        
+        // NEW: extract ONLY pin IDs into final vector
+        remaining_targets.clear();
+        remaining_targets.reserve(pin_wl_pairs.size());
+        
+        for (auto& p : pin_wl_pairs) {
+            remaining_targets.push_back(p.first);
+        }
+
+        pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
+        free_traceback(net_id);
+    
+        traceback_from_route_tree(net_id,
+                                greedy_base_rt_root,
+                                num_sinks - remaining_targets_copy.size());
+    
+        pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
+    
+        rt_root = traceback_to_route_tree(net_id);
+        load_new_subtree_R_upstream(rt_root);
+        load_new_subtree_C_downstream(rt_root);
+        add_route_tree_to_rr_node_lookup(rt_root);
+        load_route_tree_Tdel(rt_root, 0);
+        load_route_tree_rr_route_inf(rt_root);
+        mark_remaining_ends(net_id, remaining_targets_copy);
+
         for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
             int target_pin = remaining_targets[itarget];
 
@@ -4003,93 +4114,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 
                 remaining_targets_copy[best_idx] = remaining_targets_copy.back();
                 remaining_targets_copy.pop_back();
-            }
-
-            std::vector<size_t> vec = {250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
-                10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};
-            
-            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
-                VTR_LOG("itry=%d net=%zu itarget=%u detailed=%d incremental_allowed=%d num_sinks=%u\n",
-                    itry, size_t(net_id), itarget, router_opts.detailed_router, true, num_sinks);
-
-                auto& cluster_ctx = g_vpr_ctx.clustering();
-                auto& m_route_ctx = g_vpr_ctx.mutable_routing();
-                
-                if (num_sinks - remaining_targets_copy.size() == 0)
-                    greedy_base_rt_root = init_route_tree_to_source(net_id);
-                else
-                    greedy_base_rt_root = traceback_to_route_tree(net_id);
-            
-                int sinkIdx = 0;
-                int best_total_detailed_nodes = std::numeric_limits<int>::max();
-
-                for (size_t i = 0; i < remaining_targets_copy.size() + 1; ++i) {
-                    pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, -1);
-                    free_traceback(net_id);
-            
-                    traceback_from_route_tree(net_id, greedy_base_rt_root, num_sinks - remaining_targets_copy.size());
-            
-                    pathfinder_update_path_occupancy(route_ctx.trace[net_id].head, 1);
-            
-                    t_rt_node* tmp_rt_root = traceback_to_route_tree(net_id);
-                    load_new_subtree_R_upstream(tmp_rt_root);
-                    load_new_subtree_C_downstream(tmp_rt_root);
-                    add_route_tree_to_rr_node_lookup(tmp_rt_root);
-                    load_route_tree_Tdel(tmp_rt_root, 0);
-                    load_route_tree_rr_route_inf(tmp_rt_root);
-                    mark_remaining_ends(net_id, remaining_targets_copy);
-                        
-                    int candidate_pin;
-                    if (i == remaining_targets_copy.size()) {
-                        candidate_pin = remaining_targets_copy[sinkIdx];
-                    } else {
-                        candidate_pin = remaining_targets_copy[i];
-                    }
-            
-                    target_pin = candidate_pin;
-                    cost_params.criticality = pin_criticality[target_pin];
-                    cost_params.bias = router_opts.sbNode_lookahead_factor;
-            
-                    std::set<int> branch_nodes;
-
-                    int sink_rr = route_ctx.net_rr_terminals[net_id][target_pin];
-                    SpatialRouteTreeLookup tmp_spatial_route_tree_lookup;
-                    if (high_fanout) {
-                        tmp_spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, tmp_rt_root);
-                    }
-
-                    if (!timing_driven_route_sink(router,
-                                                net_id,
-                                                itarget,
-                                                target_pin,
-                                                cost_params,
-                                                router_opts,
-                                                tmp_rt_root, rt_node_of_sink,
-                                                tmp_spatial_route_tree_lookup,
-                                                router_stats,
-                                                budgeting_inf,
-                                                routing_predictor,
-                                                is_flat,
-                                                branch_nodes,
-                                                itry)) {
-                        return false;
-                    }
-
-                    int bends, wirelength, segments;
-                    get_num_bends_and_length(net_id, &bends, &wirelength, &segments);
-            
-                    if (wirelength < best_total_detailed_nodes) {
-                        best_total_detailed_nodes = wirelength;
-                        sinkIdx = static_cast<int>(i);
-                    }
-                    free_route_tree(tmp_rt_root);
-                }
-            
-                VTR_LOG("After candidate loop: chosen sinkIdx=%d, best_total_nodes=%d, remaining_targets_copy.size()=%zu\n",
-                        sinkIdx, best_total_detailed_nodes, remaining_targets_copy.size());
-                remaining_targets_copy[sinkIdx] = remaining_targets_copy.back();
-                remaining_targets_copy.pop_back();
-                continue;
             }
 
             std::set<int> branch_nodes;
