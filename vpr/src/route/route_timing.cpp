@@ -4242,7 +4242,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         m_route_ctx.distances.clear();
         m_route_ctx.distances.reserve(remaining_targets.size());
         for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
-            int terminal = route_ctx.net_rr_terminals[net_id][itarget];
+            int terminal = route_ctx.net_rr_terminals[net_id][remaining_targets[itarget]];
             m_route_ctx.distances[itarget] = {{device_ctx.rr_graph.node_xlow(RRNodeId(terminal)), 
                 device_ctx.rr_graph.node_ylow(RRNodeId(terminal))}, std::numeric_limits<int>::max()};
         }
