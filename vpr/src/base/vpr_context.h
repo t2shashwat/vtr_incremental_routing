@@ -422,6 +422,7 @@ struct RoutingContext : public Context {
     // (PARSA) Julien, 2025
     size_t partial_tree_size;
     vtr::Point<double> geometric_center{0.0, 0.0};
+    std::unordered_map<int, std::pair<std::pair<int,int>, int>> distances;
 };
 
 // (PARSA) Luka, 2025

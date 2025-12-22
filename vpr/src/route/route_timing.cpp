@@ -4003,6 +4003,24 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 remaining_targets_copy.pop_back();
             }
 
+            if (true) {
+                strategy = "SPH";
+                auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+
+                size_t best_idx = 0;
+                int min_dist = std::numeric_limits<int>::max();
+                for (auto& [key, value] : m_route_ctx.distances) {
+                    if (value.second < min_dist) {
+                        min_dist = value.second;
+                        best_idx = key;
+                    }
+                }
+            
+                target_pin = remaining_targets[best_idx];
+
+                m_route_ctx.distances.erase(key);
+            }
+
             std::set<int> branch_nodes;
             if (router_opts.detailed_router == 1){
                     branch_nodes = branch_node_map[net_id][target_pin]; // all nodesare part of same global node
@@ -4170,6 +4188,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
      *	mark the rr_node sinks as targets to be reached */
 
     auto& route_ctx = g_vpr_ctx.routing();
+    auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+    auto& device_ctx = g_vpr_ctx.device();
+
     t_rt_node* rt_root;
     // for nets below a certain size (min_incremental_reroute_fanout), rip up any old routing
     // otherwise, we incrementally reroute by reusing legal parts of the previous iteration
@@ -4204,13 +4225,20 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         // of their versions that act on node indices directly like mark_remaining_ends
         mark_ends(net_id);
 
-        auto& m_route_ctx = g_vpr_ctx.mutable_routing();
-        auto& device_ctx = g_vpr_ctx.device();
         m_route_ctx.geometric_center.set_x((device_ctx.rr_graph.node_xlow(RRNodeId(rt_root->inode))
             + device_ctx.rr_graph.node_xhigh(RRNodeId(rt_root->inode))) / 2.0);
         m_route_ctx.geometric_center.set_y((device_ctx.rr_graph.node_ylow(RRNodeId(rt_root->inode))
             + device_ctx.rr_graph.node_yhigh(RRNodeId(rt_root->inode))) / 2.0);
         m_route_ctx.partial_tree_size = 1; // only the source node
+
+        auto& remaining_targets = connections_inf.get_remaining_targets();
+        m_route_ctx.distances.clear();
+        m_route_ctx.distances.reserve(remaining_targets.size());
+        for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
+            int terminal = route_ctx.net_rr_terminals[net_id][itarget];
+            m_route_ctx.distances[itarget] = {{device_ctx.rr_graph.node_xlow(RRNodeId(terminal)), 
+                device_ctx.rr_graph.node_ylow(RRNodeId(terminal))}, std::numeric_limits<int>::max()};
+        }
         
     } else {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
@@ -4292,6 +4320,14 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         m_route_ctx.geometric_center.set_x(0);
         m_route_ctx.geometric_center.set_y(0);
         m_route_ctx.partial_tree_size = 0;
+
+        m_route_ctx.distances.clear();
+        m_route_ctx.distances.reserve(remaining_targets.size());
+        for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
+            int terminal = route_ctx.net_rr_terminals[net_id][itarget];
+            m_route_ctx.distances[itarget] = {{device_ctx.rr_graph.node_xlow(RRNodeId(terminal)), 
+                device_ctx.rr_graph.node_ylow(RRNodeId(terminal))}, std::numeric_limits<int>::max()};
+        }
 
         //Record current routing
         add_route_tree_to_rr_node_lookup(rt_root);

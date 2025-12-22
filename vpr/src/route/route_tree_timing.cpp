@@ -296,6 +296,19 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
             / route_ctx.partial_tree_size
         );
 
+        int x = device_ctx.rr_graph.node_xlow(RRNodeId(node->inode));
+        int y = device_ctx.rr_graph.node_ylow(RRNodeId(node->inode));
+        for (auto& [key, value] : route_ctx.distances) {
+            const auto& pos = value.first;
+            int& best_dist = value.second;
+
+            int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
+
+            if (dis < best_dist) {
+                best_dist = dis;
+            }
+        }
+
         for (auto edge = node->u.child_list; edge != nullptr; edge = edge->next) {
             add_route_tree_to_rr_node_lookup(edge->child);
         }
@@ -368,6 +381,20 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
                 + device_ctx.rr_graph.node_yhigh(RRNodeId(inode))) / 2.0)
             / route_ctx.partial_tree_size
         );
+
+        int x = device_ctx.rr_graph.node_xlow(RRNodeId(inode));
+        int y = device_ctx.rr_graph.node_ylow(RRNodeId(inode));
+        for (auto& [key, value] : route_ctx.distances) {
+            const auto& pos = value.first;
+            int& best_dist = value.second;
+
+            int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
+
+            if (dis < best_dist) {
+                best_dist = dis;
+            }
+        }
+
 
         linked_rt_edge = alloc_linked_rt_edge();
         linked_rt_edge->child = downstream_rt_node;
