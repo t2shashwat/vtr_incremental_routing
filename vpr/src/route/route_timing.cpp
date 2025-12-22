@@ -4002,23 +4002,30 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 remaining_targets_copy[best_idx] = remaining_targets_copy.back();
                 remaining_targets_copy.pop_back();
             }
-
-            if (true) {
+            std::vector<size_t> vec = {415, 250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
+                10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};          
+            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
                 strategy = "SPH";
                 auto& m_route_ctx = g_vpr_ctx.mutable_routing();
 
                 size_t best_idx = 0;
                 int min_dist = std::numeric_limits<int>::max();
+                VTR_LOG("SPH distances (idx : dist): ");
                 for (auto& [key, value] : m_route_ctx.distances) {
+                    VTR_LOG("%zu:%d ", key, value.second);
                     if (value.second < min_dist) {
                         min_dist = value.second;
                         best_idx = key;
                     }
                 }
+                VTR_LOG("\n");
             
                 target_pin = remaining_targets[best_idx];
 
-                m_route_ctx.distances.erase(key);
+                VTR_LOG("SPH: selected target_idx=%zu target_pin=%d min_dist=%d actual dist=%d\n",
+                    best_idx, target_pin, min_dist, m_route_ctx.distances[best_idx]);
+
+                m_route_ctx.distances.erase(best_idx);
             }
 
             std::set<int> branch_nodes;
