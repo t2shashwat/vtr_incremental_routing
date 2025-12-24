@@ -30,6 +30,8 @@
 #include "noc_storage.h"
 #include "noc_traffic_flows.h"
 #include "noc_routing.h"
+#include "connection_router_interface.h"
+
 
 /**
  * @brief A Context is collection of state relating to a particular part of VPR
@@ -422,7 +424,9 @@ struct RoutingContext : public Context {
     // (PARSA) Julien, 2025
     size_t partial_tree_size;
     vtr::Point<double> geometric_center{0.0, 0.0};
-    std::unordered_map<int, std::pair<std::pair<int,int>, int>> distances;
+    std::unordered_map<int, std::pair<int, int>> distances;
+    const RouterLookahead* lookahead;
+    t_conn_cost_params cost_params;
 };
 
 // (PARSA) Luka, 2025

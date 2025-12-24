@@ -296,13 +296,11 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
             / route_ctx.partial_tree_size
         );
 
-        int x = device_ctx.rr_graph.node_xlow(RRNodeId(node->inode));
-        int y = device_ctx.rr_graph.node_ylow(RRNodeId(node->inode));
         for (auto& [key, value] : route_ctx.distances) {
             const auto& pos = value.first;
             int& best_dist = value.second;
 
-            int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
+            int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(node->inode), RRNodeId(pos), route_ctx.cost_params, 0);
 
             if (dis < best_dist) {
                 best_dist = dis;
@@ -382,13 +380,11 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
             / route_ctx.partial_tree_size
         );
 
-        int x = device_ctx.rr_graph.node_xlow(RRNodeId(inode));
-        int y = device_ctx.rr_graph.node_ylow(RRNodeId(inode));
         for (auto& [key, value] : route_ctx.distances) {
             const auto& pos = value.first;
             int& best_dist = value.second;
 
-            int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
+            int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(inode), RRNodeId(pos), route_ctx.cost_params, 0);
 
             if (dis < best_dist) {
                 best_dist = dis;

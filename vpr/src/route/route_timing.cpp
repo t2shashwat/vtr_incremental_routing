@@ -2386,6 +2386,18 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     float pres_fac = update_pres_fac(router_opts.first_iter_pres_fac); /* Typically 0 -> ignore cong. */
     int bb_fac = router_opts.bb_factor;
 
+    t_conn_delay_budget conn_delay_budget;
+    route_ctx.lookahead = router_lookahead;
+    route_ctx.cost_params.astar_fac = router_opts.astar_fac;
+    route_ctx.cost_params.bend_cost = router_opts.bend_cost;
+    route_ctx.cost_params.pres_fac = pres_fac;
+    route_ctx.cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
+    route_ctx.cost_params.bias = router_opts.sbNode_lookahead_factor;
+    route_ctx.cost_params.offpath_penalty = router_opts.offpath_penalty;
+    route_ctx.cost_params.detailed_router = router_opts.detailed_router;
+    route_ctx.cost_params.relax_hop_order = router_opts.relax_hop_order;
+    route_ctx.cost_params.global_occ_factor = router_opts.global_occ_factor;
+
     //When routing conflicts are detected the bounding boxes are scaled
     //by BB_SCALE_FACTOR every BB_SCALE_ITER_COUNT iterations
     constexpr float BB_SCALE_FACTOR = 2;
@@ -4004,27 +4016,27 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             }
             std::vector<size_t> vec = {415, 250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
                 10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};          
-            //if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
-            if (true) {  
+            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
+            //if (true) {  
                 strategy = "SPH";
                 auto& m_route_ctx = g_vpr_ctx.mutable_routing();
 
                 size_t best_idx = 0;
                 int min_dist = std::numeric_limits<int>::max();
-                //VTR_LOG("SPH distances (idx : dist): ");
+                VTR_LOG("SPH distances (idx : dist): ");
                 for (auto& [key, value] : m_route_ctx.distances) {
-                    //VTR_LOG("%zu:%d ", key, value.second);
+                    VTR_LOG("%zu:%d ", key, value.second);
                     if (value.second < min_dist) {
                         min_dist = value.second;
                         best_idx = key;
                     }
                 }
-                //VTR_LOG("\n");
+                VTR_LOG("\n");
             
                 target_pin = remaining_targets[best_idx];
 
-                //VTR_LOG("SPH: selected target_idx=%zu target_pin=%d min_dist=%d actual dist=%d\n",
-                //    best_idx, target_pin, min_dist, m_route_ctx.distances[best_idx]);
+                VTR_LOG("SPH: selected target_idx=%zu target_pin=%d min_dist=%d actual dist=%d\n",
+                    best_idx, target_pin, min_dist, m_route_ctx.distances[best_idx]);
 
                 m_route_ctx.distances.erase(best_idx);
             }
@@ -4244,17 +4256,14 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         m_route_ctx.distances.reserve(remaining_targets.size());
         for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
             int terminal = route_ctx.net_rr_terminals[net_id][remaining_targets[itarget]];
-            m_route_ctx.distances[itarget] = {{device_ctx.rr_graph.node_xlow(RRNodeId(terminal)), 
-                device_ctx.rr_graph.node_ylow(RRNodeId(terminal))}, std::numeric_limits<int>::max()};
+            m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<int>::max()};
         }
-        
-        int x = device_ctx.rr_graph.node_xlow(RRNodeId(rt_root->inode));
-        int y = device_ctx.rr_graph.node_ylow(RRNodeId(rt_root->inode));
+
         for (auto& [key, value] : m_route_ctx.distances) {
             const auto& pos = value.first;
             int& best_dist = value.second;
 
-            int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
+            int dis = m_route_ctx.lookahead->get_expected_cost(RRNodeId(rt_root->inode), RRNodeId(pos), m_route_ctx.cost_params, 0);
 
             if (dis < best_dist) {
                 best_dist = dis;
@@ -4346,8 +4355,7 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         m_route_ctx.distances.reserve(remaining_targets.size());
         for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
             int terminal = route_ctx.net_rr_terminals[net_id][remaining_targets[itarget]];
-            m_route_ctx.distances[itarget] = {{device_ctx.rr_graph.node_xlow(RRNodeId(terminal)), 
-                device_ctx.rr_graph.node_ylow(RRNodeId(terminal))}, std::numeric_limits<int>::max()};
+            m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<int>::max()};
         }
 
         //Record current routing
