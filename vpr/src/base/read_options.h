@@ -211,9 +211,7 @@ struct t_options {
     argparse::ArgValue<int> target_bracket;
     //==========================================
     // (PARSA) Julien, 2025
-    argparse::ArgValue<bool> closest_to_farthest;
-    argparse::ArgValue<bool> farthest_to_closest;
-    argparse::ArgValue<bool> closest_to_partial;
+    argparse::ArgValue<std::string> sink_order_strategy;
     //==========================================
 
     /* Timing-driven router options only */

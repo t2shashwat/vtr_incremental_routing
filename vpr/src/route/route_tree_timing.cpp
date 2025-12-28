@@ -255,6 +255,46 @@ t_rt_node* update_route_tree(t_heap* hptr, int target_net_pin_index, SpatialRout
     return (sink_rt_node);
 }
 
+// (PARSA) Julien, 2025
+// Update the geometric center for the geometric sink order startegy
+void update_geometric_center(int inode) {
+    auto& device_ctx = g_vpr_ctx.device();
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
+
+    int old_size = route_ctx.partial_tree_size++;
+        route_ctx.geometric_center.set_x(
+            (route_ctx.geometric_center.x() * old_size
+            + (device_ctx.rr_graph.node_xlow(RRNodeId(inode))
+                + device_ctx.rr_graph.node_xhigh(RRNodeId(inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
+
+    route_ctx.geometric_center.set_y(
+            (route_ctx.geometric_center.y() * old_size
+            + (device_ctx.rr_graph.node_ylow(RRNodeId(inode))
+                + device_ctx.rr_graph.node_yhigh(RRNodeId(inode))) / 2.0)
+            / route_ctx.partial_tree_size
+        );
+}
+
+// (PARSA) Julien, 2025
+// Update the shortest distances to partial route tree for remaining targets.
+// SPH sink order startegy.
+void update_shortest_distances(int inode) {
+    auto& route_ctx = g_vpr_ctx.mutable_routing();
+    
+    for (auto& [key, value] : route_ctx.distances) {
+        const auto& pos = value.first;
+        int& best_dist = value.second;
+
+        int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(inode), RRNodeId(pos), route_ctx.cost_params, 0);
+
+        if (dis < best_dist) {
+            best_dist = dis;
+        }
+    }
+}
+
 /* Records all nodes from the current routing (rt_tree) into the rr_node_to_rt_node
  * lookup, which maps the node's corresponding rr_node index (inode) to the node
  * itself. This is done recursively, starting from the root of the tree to its leafs
@@ -271,7 +311,7 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
     if (node) {
         auto& device_ctx = g_vpr_ctx.device();
         const auto& rr_graph = device_ctx.rr_graph;
-        auto& route_ctx = g_vpr_ctx.mutable_routing();
+        auto& route_ctx = g_vpr_ctx.routing();
         if (rr_graph.node_type(RRNodeId(node->inode)) == SINK) {
             VTR_ASSERT(rr_node_to_rt_node[node->inode] == nullptr || rr_node_to_rt_node[node->inode]->inode == node->inode);
         } else {
@@ -281,31 +321,12 @@ void add_route_tree_to_rr_node_lookup(t_rt_node* node) {
         rr_node_to_rt_node[node->inode] = node;
 
         // (PARSA) Julien, 2025
-        int old_size = route_ctx.partial_tree_size++;
-        route_ctx.geometric_center.set_x(
-            (route_ctx.geometric_center.x() * old_size
-            + (device_ctx.rr_graph.node_xlow(RRNodeId(node->inode))
-                + device_ctx.rr_graph.node_xhigh(RRNodeId(node->inode))) / 2.0)
-            / route_ctx.partial_tree_size
-        );
-
-        route_ctx.geometric_center.set_y(
-            (route_ctx.geometric_center.y() * old_size
-            + (device_ctx.rr_graph.node_ylow(RRNodeId(node->inode))
-                + device_ctx.rr_graph.node_yhigh(RRNodeId(node->inode))) / 2.0)
-            / route_ctx.partial_tree_size
-        );
-
-        for (auto& [key, value] : route_ctx.distances) {
-            const auto& pos = value.first;
-            int& best_dist = value.second;
-
-            int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(node->inode), RRNodeId(pos), route_ctx.cost_params, 0);
-
-            if (dis < best_dist) {
-                best_dist = dis;
-            }
-        }
+        // ===================================================
+        if (route_ctx.sink_order_strategy == sink_order::GEO)
+            update_geometric_center(node->inode);
+        if (route_ctx.sink_order_strategy == sink_order::SPH)
+            update_shortest_distances(node->inode);
+        // ===================================================
 
         for (auto edge = node->u.child_list; edge != nullptr; edge = edge->next) {
             add_route_tree_to_rr_node_lookup(edge->child);
@@ -365,31 +386,12 @@ add_subtree_to_route_tree(t_heap* hptr, int target_net_pin_index, t_rt_node** si
         all_visited.insert(inode);
 
         // (PARSA) Julien, 2025
-        int old_size = route_ctx.partial_tree_size++;
-        route_ctx.geometric_center.set_x(
-            (route_ctx.geometric_center.x() * old_size
-            + (device_ctx.rr_graph.node_xlow(RRNodeId(inode))
-                + device_ctx.rr_graph.node_xhigh(RRNodeId(inode))) / 2.0)
-            / route_ctx.partial_tree_size
-        );
-
-        route_ctx.geometric_center.set_y(
-            (route_ctx.geometric_center.y() * old_size
-            + (device_ctx.rr_graph.node_ylow(RRNodeId(inode))
-                + device_ctx.rr_graph.node_yhigh(RRNodeId(inode))) / 2.0)
-            / route_ctx.partial_tree_size
-        );
-
-        for (auto& [key, value] : route_ctx.distances) {
-            const auto& pos = value.first;
-            int& best_dist = value.second;
-
-            int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(inode), RRNodeId(pos), route_ctx.cost_params, 0);
-
-            if (dis < best_dist) {
-                best_dist = dis;
-            }
-        }
+        // ===================================================
+        if (route_ctx.sink_order_strategy == sink_order::GEO)
+            update_geometric_center(inode);
+        if (route_ctx.sink_order_strategy == sink_order::SPH)
+            update_shortest_distances(inode);
+        // ===================================================
 
 
         linked_rt_edge = alloc_linked_rt_edge();
@@ -1073,7 +1075,8 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
 
     while (edge) {
         t_rt_node* child = prune_route_tree_recurr(edge->child,
-                                                   connections_inf, force_prune, non_config_node_set_usage, depth + length);
+                                                   connections_inf, force_prune, non_config_node_set_usage, 
+                                                   route_ctx.sink_order_strategy == sink_order::C2FA ? depth + length : -1); // (PARSA) Julien, 2025
 
         if (!child) { //Child was pruned
 
@@ -1120,7 +1123,8 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
             VTR_ASSERT(force_prune);
 
             //Record as not reached
-            connections_inf.toreach_rr_sink(node->net_pin_index, depth);
+            connections_inf.toreach_rr_sink(node->net_pin_index, 
+                route_ctx.sink_order_strategy == sink_order::C2FA ? depth + length : -1); // (PARSA) Julien, 2025
 
             free_rt_node(&node);
             return nullptr; //Pruned
@@ -1217,7 +1221,8 @@ static t_rt_node* prune_route_tree_recurr(t_rt_node* node, CBRR& connections_inf
             //  prune_route_tree_recurr visits 2, 3 and 4, the node set usage
             //  will be 0, so everything can be pruned.
             return prune_route_tree_recurr(node, connections_inf,
-                                           /*force_prune=*/false, non_config_node_set_usage, depth);
+                                           /*force_prune=*/false, non_config_node_set_usage, 
+                                           route_ctx.sink_order_strategy == sink_order::C2FA ? depth + length : -1); // (PARSA) Julien, 2025
         }
 
         //An unpruned intermediate node
@@ -1250,7 +1255,8 @@ t_rt_node* prune_route_tree(t_rt_node* rt_root, CBRR& connections_inf, std::vect
     VTR_ASSERT_MSG(route_ctx.rr_node_route_inf[rt_root->inode].occ() <= rr_graph.node_capacity(RRNodeId(rt_root->inode)),
                    "Route tree root/SOURCE should never be congested");
 
-    return prune_route_tree_recurr(rt_root, connections_inf, false, non_config_node_set_usage, 0);
+    return prune_route_tree_recurr(rt_root, connections_inf, false, non_config_node_set_usage, 
+                                    route_ctx.sink_order_strategy == sink_order::C2FA ? 0 : -1); // (PARSA) Julien, 2025
 }
 
 void pathfinder_update_cost_from_route_tree(const t_rt_node* rt_root, int add_or_sub) {

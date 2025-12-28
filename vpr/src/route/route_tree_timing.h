@@ -36,6 +36,9 @@ void load_route_tree_rr_route_inf(t_rt_node* root);
 
 t_rt_node* init_route_tree_to_source_no_net(int inode);
 
+// (PARSA) Julien, 2025
+void update_shortest_distances(int inode);
+
 void add_route_tree_to_rr_node_lookup(t_rt_node* node);
 
 bool verify_route_tree(t_rt_node* root);

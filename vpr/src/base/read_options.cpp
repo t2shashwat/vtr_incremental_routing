@@ -2338,22 +2338,10 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
     // (PARSA) Julien, 2025   
-    route_grp.add_argument(args.closest_to_farthest, "--closest_to_farthest")
+    route_grp.add_argument(args.sink_order_strategy, "--sink_order_strategy")
             .help(
-                "Use closest to farthest sink order")
-            .default_value("false")
-            .show_in(argparse::ShowIn::HELP_ONLY);
-    
-    route_grp.add_argument(args.farthest_to_closest, "--farthest_to_closest")
-            .help(
-                "Use farthest to closest sink order")
-            .default_value("false")
-            .show_in(argparse::ShowIn::HELP_ONLY);
-    
-    route_grp.add_argument(args.closest_to_partial, "--closest_to_partial")
-            .help(
-                "Use closest to patrial tree sink order")
-            .default_value("false")
+                "Choose the sink order strategy")
+            .default_value("default")
             .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")

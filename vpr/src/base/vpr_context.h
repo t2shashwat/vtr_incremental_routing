@@ -422,6 +422,7 @@ struct RoutingContext : public Context {
         cached_router_lookahead_;
 
     // (PARSA) Julien, 2025
+    sink_order sink_order_strategy = sink_order::DEFAULT;
     size_t partial_tree_size;
     vtr::Point<double> geometric_center{0.0, 0.0};
     std::unordered_map<int, std::pair<int, int>> distances;

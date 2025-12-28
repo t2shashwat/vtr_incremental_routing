@@ -1183,6 +1183,16 @@ enum class e_incr_reroute_delay_ripup {
 
 constexpr int NO_FIXED_CHANNEL_WIDTH = -1;
 
+// (PARSA) Julien, 2025:
+enum class sink_order {
+    DEFAULT,
+    C2F,
+    F2C,
+    GEO,
+    C2FA,
+    SPH
+};
+
 struct t_router_opts {
     bool read_rr_edge_metadata = false;
     bool do_check_rr_graph = true;
@@ -1276,9 +1286,7 @@ struct t_router_opts {
     int target_bracket = 0;
     //==========================================
     // (PARSA) Julien, 2025:
-    bool closest_to_farthest = false;
-    bool farthest_to_closest = false;
-    bool closest_to_partial = false;
+    sink_order sink_order_strategy = sink_order::DEFAULT;
     //==========================================
 };
 

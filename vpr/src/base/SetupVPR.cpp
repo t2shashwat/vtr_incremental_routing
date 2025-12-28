@@ -402,9 +402,12 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->target_bracket = Options.target_bracket;
     //==========================================
     // (PARSA) Julien, 2025
-    RouterOpts->closest_to_farthest = Options.closest_to_farthest;
-    RouterOpts->farthest_to_closest = Options.farthest_to_closest;
-    RouterOpts->closest_to_partial = Options.closest_to_partial;
+    if (Options.sink_order_strategy.value() == "default") RouterOpts->sink_order_strategy = sink_order::DEFAULT;
+    if (Options.sink_order_strategy.value() == "closest_to_farthest") RouterOpts->sink_order_strategy = sink_order::C2F;
+    if (Options.sink_order_strategy.value() == "farthest_to_closest") RouterOpts->sink_order_strategy = sink_order::F2C;
+    if (Options.sink_order_strategy.value() == "geometric") RouterOpts->sink_order_strategy = sink_order::GEO;
+    if (Options.sink_order_strategy.value() == "sph") RouterOpts->sink_order_strategy = sink_order::SPH;
+    if (Options.sink_order_strategy.value() == "closest_to_farthest_aware") RouterOpts->sink_order_strategy = sink_order::C2FA;
     //==========================================
     
     //TODO document these?

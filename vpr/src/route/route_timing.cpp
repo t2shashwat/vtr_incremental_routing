@@ -1493,7 +1493,8 @@ static t_rt_node* setup_routing_resources(int itry,
 
         rt_root = init_route_tree_to_source(net_id);
         for (unsigned int sink_pin = 1; sink_pin <= num_sinks; ++sink_pin)
-            connections_inf.toreach_rr_sink(sink_pin, 0);
+            connections_inf.toreach_rr_sink(sink_pin, 
+                route_ctx.sink_order_strategy == sink_order::C2FA ? 0 : -1); // (PARSA) Julien, 2025
         // since all connections will be rerouted for this net, clear all of net's forced reroute flags
         connections_inf.clear_force_reroute_for_net();
 
@@ -3529,6 +3530,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
+
+    // (PARSA) Julien, 2025  
+    auto& m_route_ctx = g_vpr_ctx.mutable_routing();
+    m_route_ctx.sink_order_strategy = router_opts.sink_order_strategy;
     
     printf("Routing net %d\n", size_t(net_id));
 
@@ -3807,9 +3812,16 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             else {
                 sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
             }
-        } else if (router_opts.closest_to_farthest || router_opts.farthest_to_closest) {
-            if (itry == 1) {
-                strategy = router_opts.closest_to_farthest ? "closeToFar" : "farToClose";
+        } else if (router_opts.sink_order_strategy == sink_order::C2F || router_opts.sink_order_strategy == sink_order::F2C 
+                || router_opts.sink_order_strategy == sink_order::C2FA) {
+            
+            // Due to partial rip-ups, we have to resort every time for C2F and F2C. With C2FA, since we use the previous partial route-tree
+            // after iteration 1, we only do the sorting in firt iteration.
+            if (router_opts.sink_order_strategy != sink_order::C2FA || itry == 1) {
+                // (PARSA) Julien, 2025  
+                // Closest to farthest / Farthest to closest strategy
+
+                strategy = router_opts.sink_order_strategy == sink_order::F2C ? "farToClose" : "closeToFar";
                 const int source_x = device_ctx.rr_graph.node_xlow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
                 const int source_y = device_ctx.rr_graph.node_ylow(RRNodeId(route_ctx.net_rr_terminals[net_id][0]));
             
@@ -3824,7 +3836,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     [&](int a, int b) {
                         int dist_a = distance_to_source(a);
                         int dist_b = distance_to_source(b);
-                        return router_opts.closest_to_farthest ? dist_a < dist_b : dist_a > dist_b;
+                        return router_opts.sink_order_strategy == sink_order::F2C ? dist_a > dist_b : dist_a < dist_b;
                     });
             }
         }
@@ -3985,8 +3997,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
             int target_pin = remaining_targets[itarget];
 
-            if (router_opts.closest_to_partial) {
-                strategy = "closestToPartial";
+            if (router_opts.sink_order_strategy == sink_order::GEO) {
+                strategy = "geometric";
                 // (PARSA) Julien, 2025
                 const int partial_tree_center_x = static_cast<int>(route_ctx.geometric_center.x());
                 const int partial_tree_center_y = static_cast<int>(route_ctx.geometric_center.y());
@@ -4014,12 +4026,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 remaining_targets_copy[best_idx] = remaining_targets_copy.back();
                 remaining_targets_copy.pop_back();
             }
-            std::vector<size_t> vec = {415, 250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
-                10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};          
-            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
-            //if (true) {  
+            if (router_opts.sink_order_strategy == sink_order::SPH) {
                 strategy = "SPH";
-                auto& m_route_ctx = g_vpr_ctx.mutable_routing();
 
                 size_t best_idx = 0;
                 int min_dist = std::numeric_limits<int>::max();
@@ -4236,7 +4244,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
 
         rt_root = init_route_tree_to_source(net_id);
         for (unsigned int sink_pin = 1; sink_pin <= num_sinks; ++sink_pin)
-            connections_inf.toreach_rr_sink(sink_pin, 0);
+            connections_inf.toreach_rr_sink(sink_pin, 
+                route_ctx.sink_order_strategy == sink_order::C2FA ? 0 : -1); // (PARSA) Julien, 2025
+
         // since all connections will be rerouted for this net, clear all of net's forced reroute flags
         connections_inf.clear_force_reroute_for_net();
 
@@ -4245,12 +4255,16 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         // of their versions that act on node indices directly like mark_remaining_ends
         mark_ends(net_id);
 
+        // (PARSA) Julien, 2025
+        // ========================================================================================
+        // GEO: Reset Geometric center to only the root
         m_route_ctx.geometric_center.set_x((device_ctx.rr_graph.node_xlow(RRNodeId(rt_root->inode))
             + device_ctx.rr_graph.node_xhigh(RRNodeId(rt_root->inode))) / 2.0);
         m_route_ctx.geometric_center.set_y((device_ctx.rr_graph.node_ylow(RRNodeId(rt_root->inode))
             + device_ctx.rr_graph.node_yhigh(RRNodeId(rt_root->inode))) / 2.0);
         m_route_ctx.partial_tree_size = 1; // only the source node
 
+        // SPH: Add the remaining targets to our distance state
         auto& remaining_targets = connections_inf.get_remaining_targets();
         m_route_ctx.distances.clear();
         m_route_ctx.distances.reserve(remaining_targets.size());
@@ -4259,16 +4273,9 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
             m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<int>::max()};
         }
 
-        for (auto& [key, value] : m_route_ctx.distances) {
-            const auto& pos = value.first;
-            int& best_dist = value.second;
-
-            int dis = m_route_ctx.lookahead->get_expected_cost(RRNodeId(rt_root->inode), RRNodeId(pos), m_route_ctx.cost_params, 0);
-
-            if (dis < best_dist) {
-                best_dist = dis;
-            }
-        }
+        // SPH: Compute distance to source
+        update_shortest_distances(rt_root->inode);
+        // ========================================================================================
         
     } else {
         /*for (int illegal_net_i = 0; illegal_net_i < total_illegal_nets; illegal_net_i++){
@@ -4345,18 +4352,23 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
         VTR_ASSERT(reached_rt_sinks.size() + remaining_targets.size() == num_sinks);
 
         // (PARSA) Julien, 2025
-        //Reset geometric center and partial_tree_size
+        // (PARSA) Julien, 2025
+        // ========================================================================================
+        // GEO: Reset geometric center and partial_tree_size
         auto& m_route_ctx = g_vpr_ctx.mutable_routing();
         m_route_ctx.geometric_center.set_x(0);
         m_route_ctx.geometric_center.set_y(0);
         m_route_ctx.partial_tree_size = 0;
 
+        // SPH: Add the remaining targets to our distance state
         m_route_ctx.distances.clear();
         m_route_ctx.distances.reserve(remaining_targets.size());
         for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
             int terminal = route_ctx.net_rr_terminals[net_id][remaining_targets[itarget]];
             m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<int>::max()};
         }
+        // ========================================================================================
+
 
         //Record current routing
         add_route_tree_to_rr_node_lookup(rt_root);

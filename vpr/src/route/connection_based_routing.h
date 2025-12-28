@@ -34,18 +34,24 @@ class Connection_based_routing_resources {
     Connection_based_routing_resources();
     // adding to the resources when they are reached during pruning
     // mark rr sink node as something that still needs to be reached
+    // (PARSA) Julien, 2025: 
+    // Use depth = -1 for default ordering, depth is used for C2FA ordering
     void toreach_rr_sink(int rr_sink_node, int depth) {
-      auto it = std::upper_bound(remaining_targets_with_depth.begin(),
+      if (depth == -1) {
+        remaining_targets.push_back(rr_sink_node);
+      } else {
+        auto it = std::upper_bound(remaining_targets_with_depth.begin(),
                                  remaining_targets_with_depth.end(),
                                  depth,
                                  [](int d, const std::pair<int,int>& p) {
                                      return d < p.second;
                                  });
   
-      auto idx = static_cast<size_t>(std::distance(remaining_targets_with_depth.begin(), it));
-  
-      remaining_targets_with_depth.insert(it, std::make_pair(rr_sink_node, depth));
-      remaining_targets.insert(remaining_targets.begin() + idx, rr_sink_node);
+        auto idx = static_cast<size_t>(std::distance(remaining_targets_with_depth.begin(), it));
+    
+        remaining_targets_with_depth.insert(it, std::make_pair(rr_sink_node, depth));
+        remaining_targets.insert(remaining_targets.begin() + idx, rr_sink_node);
+      }
   }
     // mark rt sink node as something that has been legally reached
     void reached_rt_sink(t_rt_node* rt_sink) { reached_rt_sinks.push_back(rt_sink); }
