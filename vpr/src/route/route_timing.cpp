@@ -3873,7 +3873,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 std::shuffle(begin(remaining_targets), end(remaining_targets), g);
             }
             else if (sink_order_itr == 0) {
-                //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             /*if (size_t(net_id) == 6366) {
                     VTR_LOG("  order:"); 
                     for (unsigned itarget = 0; itarget < remaining_targets.size(); ++itarget) {
