@@ -1643,14 +1643,30 @@ void update_rr_base_costs(int fanout) {
     size_t index;
 
     /* Other reasonable values for factor include fanout and 1 */
-    factor = sqrt(fanout);
+    //factor = sqrt(fanout);
 
-    for (index = CHANX_COST_INDEX_START; index < device_ctx.rr_indexed_data.size(); index++) {
-        if (device_ctx.rr_indexed_data[RRIndexedDataId(index)].T_quadratic > 0.) { /* pass transistor */
+    /*for (index = CHANX_COST_INDEX_START; index < device_ctx.rr_indexed_data.size(); index++) {
+        if (device_ctx.rr_indexed_data[RRIndexedDataId(index)].T_quadratic > 0.) {
             device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = device_ctx.rr_indexed_data[RRIndexedDataId(index)].saved_base_cost * factor;
         } else {
             device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = device_ctx.rr_indexed_data[RRIndexedDataId(index)].saved_base_cost;
         }
+    }*/
+    for (index = CHANX_COST_INDEX_START; index < device_ctx.rr_indexed_data.size(); index++) {
+        float length = (1 / device_ctx.rr_indexed_data[RRIndexedDataId(index)].inv_length);
+        if (length == 1) {
+           device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = 0.2;
+        }
+        else if (length == 2) {
+            device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+        }
+        else if (length == 4) {
+            device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
+        }
+        else if (length == 12) {
+            device_ctx.rr_indexed_data[RRIndexedDataId(index)].base_cost = 2;
+        }
+    
     }
 }
 
@@ -2695,7 +2711,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	}
     	congested_nets_fp.close();
         //reading node map file
-        std::ifstream node_map_fp;
+        /*std::ifstream node_map_fp;
         std::string node_map_filename = "../gr_dr_map.map";
         node_map_fp.open(node_map_filename);
         lineno = 0;
@@ -2713,7 +2729,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 		get_detailed_nodes[gr_node_id].insert(dr_node_id);
             }
         }
-        node_map_fp.close();
+        node_map_fp.close();*/
 	// setting the initial cost of nodes equal to occupancy
         /*for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
 	    int g_occupancy = device_ctx.rr_graph.get_global_occupancy(rr_id); 
@@ -2966,23 +2982,6 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
             }
         }
 	
-	if (router_opts.detailed_router == 1 && router_opts.leak_if_needed == true && routing_predictor.get_leak_flag() == false) { // last condition ensures that once leak is allowed, leak permission is not checked again in subsquent iterations or nets
-	    routing_predictor.set_leak_flag(routing_predictor.is_leaking_allowed());
-	    if (itry >= router_opts.leak_iteration){
-	        routing_predictor.set_leak_flag(true);
-	    }
-	    if (routing_predictor.get_leak_flag() == true) {
-	        VTR_LOG("[SHA] Leak allowed after this iteration %d.\n", itry);
-
-		// below code was used to load any arbitrary occupancy for the leaking iteration
-		// setting the node occupancy same as in vanilla
-		// ad hoc
-	        //for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
-                //    size_t dr_node_id = (size_t)rr_id;
-                //    route_ctx.rr_node_route_inf[dr_node_id].set_occ(history_cost_map[dr_node_id]);
-                //} 
-	    }
-	}
 
         /*
             (PARSA) Luka, 2025: This has no use in the RSMT constrained setting, so && !steiner_constraints was added.
@@ -3129,18 +3128,50 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         //Update resource costs and overuse info
         if (router_opts.incr_route == 0 && itry == 1) {
 	    if (router_opts.first_iter_pres_fac != 0) {
-            	pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info); /* Acc_fac=0 for first iter. */
+		if (router_opts.detailed_router == 1 && routing_predictor.get_leak_flag() == false) { // within gr
+            	    pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac_within_gr_first_iter, overuse_info); 
+            	    VTR_LOG("acc_fac: %f (itry: %d)\n", router_opts.acc_fac_within_gr_first_iter, itry);
+		}
+		else {
+            	    pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info); /* Acc_fac=0 for first iter. */
+            	    VTR_LOG("acc_fac: %f  (itry: %d)\n", router_opts.acc_fac, itry);
+		}
 	    }
 	    else {
             	pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); /* Acc_fac=0 for first iter. */
 	    }
-
         } else if (router_opts.incr_route == 0 && itry > 1){
-            	pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
+		if (router_opts.detailed_router == 1 && routing_predictor.get_leak_flag() == false) {
+            	    pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac_within_gr, overuse_info);
+            	    VTR_LOG("acc_fac: %f  (itry: %d)\n", router_opts.acc_fac_within_gr, itry);
+		}
+		else {
+            	    pathfinder_update_acc_cost_and_overuse_info(router_opts.acc_fac, overuse_info);
+            	    VTR_LOG("acc_fac: %f  (itry: %d)\n", router_opts.acc_fac, itry);
+		
+		}
         }
 
         wirelength_info = calculate_wirelength_info(available_wirelength);
         routing_predictor.add_iteration_overuse(itry, overuse_info.overused_nodes);
+	
+	if (router_opts.detailed_router == 1 && router_opts.leak_if_needed == true && routing_predictor.get_leak_flag() == false) { // last condition ensures that once leak is allowed, leak permission is not checked again in subsquent iterations or nets
+	    routing_predictor.set_leak_flag(routing_predictor.is_leaking_allowed());
+	    if (itry >= router_opts.leak_iteration){
+	        routing_predictor.set_leak_flag(true);
+	    }
+	    if (routing_predictor.get_leak_flag() == true) {
+	        VTR_LOG("[SHA] Leak allowed after this (%d) iteration.\n", itry);
+
+		// below code was used to load any arbitrary occupancy for the leaking iteration
+		// setting the node occupancy same as in vanilla
+		// ad hoc
+	        //for (const RRNodeId& rr_id : device_ctx.rr_graph.nodes()) {
+                //    size_t dr_node_id = (size_t)rr_id;
+                //    route_ctx.rr_node_route_inf[dr_node_id].set_occ(history_cost_map[dr_node_id]);
+                //} 
+	    }
+	}
 
         if (timing_info) {
             //Update timing based on the new routing
@@ -3454,9 +3485,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         if (router_opts.fanout_analysis) profiling::time_on_fanout_analysis();
         // profiling::time_on_criticality_analysis();
 	
-    	if (router_opts.detailed_router == 0) {
+    	//if (router_opts.detailed_router == 0) {
             net_order_file << "\n";
-    	}
+    	//}
     }
     
     net_order_file.close();
@@ -3609,7 +3640,9 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
     } 
     // For locking and loading branch changing nets
     //else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
-    else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0 && (itry > 2 || router_opts.detailed_router == 0)) {
+    //For FCCM
+    //else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0 && (itry > 2 || router_opts.detailed_router == 0)) {
+    else if (!(reroute_for_hold) && should_route_net(net_id, connections_inf, true) == false && router_opts.ripup_all_nets == 0) {
         is_routed = true;
     } 
     else {
@@ -3804,6 +3837,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         bool high_fanout = is_high_fanout(num_sinks, router_opts.high_fanout_threshold);
 
         SpatialRouteTreeLookup spatial_route_tree_lookup;
+	// can optimize by not calling during detailed routing
         if (high_fanout) {
             spatial_route_tree_lookup = build_route_tree_spatial_lookup(net_id, rt_root);
         }
@@ -3873,18 +3907,22 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         int min_total_detailed_nodes;
         float min_total_cong_cost;
 
-        if (router_opts.steiner_constraints) {
-            /*
-                (PARSA) Luka, 2025: When routing along RSMT constrained regions, in order to minimize wirecount
-                and router effort (since lookahead is not helpful in this case, we minimize heap pops by making sure
-                to route to the sink closes to the current partial route tree).
-            */
+	// this piece's sink order is is overwritten later
+	// in princple if I remove this, the results of sink order and wirelength should not change at all, rather we should get some runtime gains
+
+	// commnetd out on 20Dec2025
+        /*if (router_opts.steiner_constraints) {
+            
+            //    (PARSA) Luka, 2025: When routing along RSMT constrained regions, in order to minimize wirecount
+            //    and router effort (since lookahead is not helpful in this case, we minimize heap pops by making sure
+            //    to route to the sink closes to the current partial route tree).
+            
             std::unordered_map<int, int> rsmt_sink_order = g_vpr_ctx.mutable_steiner().steiner_sink_orders[size_t(net_id)];
             std::sort(remaining_targets.begin(), remaining_targets.end(),
                     [&](int a, int b) {
                         return rsmt_sink_order[a] < rsmt_sink_order[b];
                     });
-        }
+        }*/
 
         if (router_opts.shuffle_first_iteration) {
             /*
@@ -3988,6 +4026,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
             //sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             if (router_opts.detailed_router == 1 && router_opts.preorder_sink_order == 1) {
 		// the below code was used to load sink order for the leaking iteration
+		VTR_LOG("Entering code to load sink order\n");
                 if (routing_predictor.get_leak_flag() == false) {
                     sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
                 }
@@ -4100,7 +4139,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         }
         
         /* Update base costs according to fanout and criticality rules */
-        update_rr_base_costs(num_sinks);
+        //update_rr_base_costs(num_sinks);
 
         t_conn_delay_budget conn_delay_budget;
         t_conn_cost_params cost_params;
@@ -4114,10 +4153,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.global_occ_factor = router_opts.global_occ_factor;
 	//cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
 	cost_params.leak = routing_predictor.get_leak_flag();
-	if (num_sinks > 500) {
+	/*if (num_sinks > 500) {
 	     cost_params.leak = false;
-	}
+	}*/
 	cost_params.intra_tile_connection = false;
+	/*if (router_opts.detailed_router == 1 && cost_params.leak == true){
+            update_rr_base_costs(num_sinks);
+	}*/
         
 	//if (golden_net_order.find(size_t(net_id)) != golden_net_order.end()){
 	// TODO: Disabling privilege routing support
@@ -4183,12 +4225,12 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 //cost_params.detailed_router = 0;
 	    }
 	    //if (size_t(net_id) == 2488 || size_t(net_id) == 4186 || size_t(net_id) == 1){
-            VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
-            for (size_t i = 0; i < corridor_data.corridors_per_connection.size(); ++i) {
-                const Corridor& c = corridor_data.corridors_per_connection[i];
-                VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
-                    i, c.from_x, c.from_y, c.to_x, c.to_y);
-            }
+            //VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
+            //for (size_t i = 0; i < corridor_data.corridors_per_connection.size(); ++i) {
+            //    const Corridor& c = corridor_data.corridors_per_connection[i];
+            //    VTR_LOG("  Corridor %zu: (%d, %d) to (%d, %d)\n", 
+            //        i, c.from_x, c.from_y, c.to_x, c.to_y);
+            //}
 	    //}
 
             /*if (router_opts.detailed_router == 1){

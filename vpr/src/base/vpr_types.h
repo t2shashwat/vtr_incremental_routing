@@ -1279,6 +1279,9 @@ struct t_router_opts {
     int target_bracket = 0;
     bool dump_raw_flute_trees = false;
     enum e_global_router_type global_router_algorithm;
+    int global_channel_capacity = 0;
+    float acc_fac_within_gr = 1.0;
+    float acc_fac_within_gr_first_iter = 1.0;
     //==========================================
 };
 

@@ -6,7 +6,7 @@
 #include "vtr_assert.h"
 
 #include "routing_predictor.h"
-
+#include <cstdio>
 class LinearModel {
   public:
     LinearModel(float slope = std::numeric_limits<float>::quiet_NaN(), float y_intercept = std::numeric_limits<float>::quiet_NaN())
@@ -218,7 +218,11 @@ bool RoutingPredictor::is_leaking_allowed() const {
 	double threshold = 0.1;    
         size_t prev_iteration_overuse         = iteration_overused_rr_node_counts_.back();
         size_t penultimate_iteration_overuse  = iteration_overused_rr_node_counts_[iterations_.size() - 2];
-	double rel = std::abs(double(penultimate_iteration_overuse - prev_iteration_overuse)) / penultimate_iteration_overuse;
+	double rel = std::abs(double(static_cast<double>(penultimate_iteration_overuse) - static_cast<double>(prev_iteration_overuse))) / static_cast<double>(penultimate_iteration_overuse);
+	printf("overuse: %zu -> %zu, rel=%.6f\n",
+        penultimate_iteration_overuse,
+        prev_iteration_overuse,
+        rel);
         return (rel <= threshold) ? true : false;
     }
 }

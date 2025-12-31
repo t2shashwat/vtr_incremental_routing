@@ -35,7 +35,7 @@
 #include "DataType.h"
 #include "flute.h"
 #include "DataProc.h"
-
+#include "vtr_log.h"
 namespace FastRoute {
 
 // Global variables
@@ -192,56 +192,56 @@ void freeAllMemory() {
     int i, deg, numEdges, edgeID;
     TreeEdge* treeedge;
 
-    printf("freeAllMemory: starting\n");
+    VTR_LOG("freeAllMemory: starting\n");
 
     // ===== nets =====
     for (i = 0; i < numValidNets; i++) {
-        printf("freeAllMemory: freeing nets[%d]->pinX=%p\n", i, (void*)nets[i]->pinX);
+        //VTR_LOG("freeAllMemory: freeing nets[%d]->pinX=%p\n", i, (void*)nets[i]->pinX);
         free(nets[i]->pinX);
 
-        printf("freeAllMemory: freeing nets[%d]->pinY=%p\n", i, (void*)nets[i]->pinY);
+        //VTR_LOG("freeAllMemory: freeing nets[%d]->pinY=%p\n", i, (void*)nets[i]->pinY);
         free(nets[i]->pinY);
 
-        printf("freeAllMemory: freeing nets[%d]->pinL=%p\n", i, (void*)nets[i]->pinL);
+        //VTR_LOG("freeAllMemory: freeing nets[%d]->pinL=%p\n", i, (void*)nets[i]->pinL);
         free(nets[i]->pinL);
 
-        printf("freeAllMemory: freeing nets[%d]=%p\n", i, (void*)nets[i]);
+        //VTR_LOG("freeAllMemory: freeing nets[%d]=%p\n", i, (void*)nets[i]);
         free(nets[i]);
     }
 
     // ===== seglist + edges =====
-    printf("freeAllMemory: freeing seglistIndex=%p\n", (void*)seglistIndex);
+    //VTR_LOG("freeAllMemory: freeing seglistIndex=%p\n", (void*)seglistIndex);
     free(seglistIndex);
 
-    printf("freeAllMemory: freeing seglistCnt=%p\n", (void*)seglistCnt);
+    //VTR_LOG("freeAllMemory: freeing seglistCnt=%p\n", (void*)seglistCnt);
     free(seglistCnt);
 
-    printf("freeAllMemory: freeing seglist=%p\n", (void*)seglist);
+    //VTR_LOG("freeAllMemory: freeing seglist=%p\n", (void*)seglist);
     free(seglist);
 
-    printf("freeAllMemory: freeing h_edges=%p\n", (void*)h_edges);
+    //VTR_LOG("freeAllMemory: freeing h_edges=%p\n", (void*)h_edges);
     free(h_edges);
 
-    printf("freeAllMemory: freeing v_edges=%p\n", (void*)v_edges);
+    //VTR_LOG("freeAllMemory: freeing v_edges=%p\n", (void*)v_edges);
     free(v_edges);
 
-    printf("freeAllMemory: freeing h_edges3D=%p\n", (void*)h_edges3D);
+    //VTR_LOG("freeAllMemory: freeing h_edges3D=%p\n", (void*)h_edges3D);
     free(h_edges3D);
 
-    printf("freeAllMemory: freeing v_edges3D=%p\n", (void*)v_edges3D);
+    //VTR_LOG("freeAllMemory: freeing v_edges3D=%p\n", (void*)v_edges3D);
     free(v_edges3D);
 
-    printf("freeAllMemory: freeing segOrder=%p\n", (void*)segOrder);
+    //VTR_LOG("freeAllMemory: freeing segOrder=%p\n", (void*)segOrder);
     free(segOrder);
 
     // ===== trees[].branch and trees =====
 /*    for (i = 0; i < numValidNets; i++) {
-        printf("freeAllMemory: freeing trees[%d].branch=%p\n",
+        VTR_LOG("freeAllMemory: freeing trees[%d].branch=%p\n",
                i, (void*)trees[i].branch);
         free(trees[i].branch);
     }*/
 
-    printf("freeAllMemory: freeing trees=%p\n", (void*)trees);
+    //VTR_LOG("freeAllMemory: freeing trees=%p\n", (void*)trees);
     free(trees);
 
     // ===== sttrees: nodes, edges, per-edge routes =====
@@ -253,69 +253,69 @@ void freeAllMemory() {
             treeedge = &(sttrees[i].edges[edgeID]);
 
             if (treeedge->len > 0) {
-                printf("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsX=%p\n",
-                        i, edgeID, (void*)treeedge->route.gridsX);
+                //VTR_LOG("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsX=%p\n",
+                //        i, edgeID, (void*)treeedge->route.gridsX);
                 free(treeedge->route.gridsX);
 
-                printf("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsY=%p\n",
-                        i, edgeID, (void*)treeedge->route.gridsY);
+                //VTR_LOG("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsY=%p\n",
+                //        i, edgeID, (void*)treeedge->route.gridsY);
                 free(treeedge->route.gridsY);
 
-                //printf("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsL=%p\n",
+                //VTR_LOG("freeAllMemory: freeing sttrees[%d].edges[%d].route.gridsL=%p\n",
                 //        i, edgeID, (void*)treeedge->route.gridsL);
                 //free(treeedge->route.gridsL);
             }
         }
 
-        printf("freeAllMemory: freeing sttrees[%d].nodes=%p\n",
-               i, (void*)sttrees[i].nodes);
+        //VTR_LOG("freeAllMemory: freeing sttrees[%d].nodes=%p\n",
+        //       i, (void*)sttrees[i].nodes);
         //free(sttrees[i].nodes);
 
-        printf("freeAllMemory: freeing sttrees[%d].edges=%p\n",
-               i, (void*)sttrees[i].edges);
+        //VTR_LOG("freeAllMemory: freeing sttrees[%d].edges=%p\n",
+        //       i, (void*)sttrees[i].edges);
         //free(sttrees[i].edges);
     }
 
-    printf("freeAllMemory: freeing sttrees=%p\n", (void*)sttrees);
+    //VTR_LOG("freeAllMemory: freeing sttrees=%p\n", (void*)sttrees);
     free(sttrees);
 
     // ===== parents =====
     for (i = 0; i < yGrid; i++) {
-        printf("freeAllMemory: freeing parentX1[%d]=%p\n", i, (void*)parentX1[i]);
+        //VTR_LOG("freeAllMemory: freeing parentX1[%d]=%p\n", i, (void*)parentX1[i]);
         free(parentX1[i]);
 
-        printf("freeAllMemory: freeing parentY1[%d]=%p\n", i, (void*)parentY1[i]);
+        //VTR_LOG("freeAllMemory: freeing parentY1[%d]=%p\n", i, (void*)parentY1[i]);
         free(parentY1[i]);
 
-        printf("freeAllMemory: freeing parentX3[%d]=%p\n", i, (void*)parentX3[i]);
+        //VTR_LOG("freeAllMemory: freeing parentX3[%d]=%p\n", i, (void*)parentX3[i]);
         free(parentX3[i]);
 
-        printf("freeAllMemory: freeing parentY3[%d]=%p\n", i, (void*)parentY3[i]);
+        //VTR_LOG("freeAllMemory: freeing parentY3[%d]=%p\n", i, (void*)parentY3[i]);
         free(parentY3[i]);
     }
 
-    printf("freeAllMemory: freeing parentX1=%p\n", (void*)parentX1);
+    //VTR_LOG("freeAllMemory: freeing parentX1=%p\n", (void*)parentX1);
     free(parentX1);
 
-    printf("freeAllMemory: freeing parentY1=%p\n", (void*)parentY1);
+    //VTR_LOG("freeAllMemory: freeing parentY1=%p\n", (void*)parentY1);
     free(parentY1);
 
-    printf("freeAllMemory: freeing parentX3=%p\n", (void*)parentX3);
+    //VTR_LOG("freeAllMemory: freeing parentX3=%p\n", (void*)parentX3);
     free(parentX3);
 
-    printf("freeAllMemory: freeing parentY3=%p\n", (void*)parentY3);
+    //VTR_LOG("freeAllMemory: freeing parentY3=%p\n", (void*)parentY3);
     free(parentY3);
 
-    printf("freeAllMemory: freeing pop_heap2=%p\n", (void*)pop_heap2);
+    //VTR_LOG("freeAllMemory: freeing pop_heap2=%p\n", (void*)pop_heap2);
     free(pop_heap2);
 
-    printf("freeAllMemory: freeing heap1=%p\n", (void*)heap1);
+    //VTR_LOG("freeAllMemory: freeing heap1=%p\n", (void*)heap1);
     free(heap1);
 
-    printf("freeAllMemory: freeing heap2=%p\n", (void*)heap2);
+    //VTR_LOG("freeAllMemory: freeing heap2=%p\n", (void*)heap2);
     free(heap2);
 
-    printf("freeAllMemory: finished\n");
+    VTR_LOG("freeAllMemory: finished\n");
 }
 
 }  // namespace FastRoute

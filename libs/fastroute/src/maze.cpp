@@ -42,7 +42,7 @@
 #include "utility.h"
 #include "RSMT.h"
 #include "EdgeShift.h"
-
+#include "vtr_log.h"
 namespace FastRoute {
 
 #define PARENT(i) (i - 1) / 2
@@ -286,7 +286,7 @@ void updateCongestionHistory(int round, int upType) {
 
         maxlimit = 0;
 
-        printf("updateType %d\n", upType);
+        VTR_LOG("updateType %d\n", upType);
 
         if (upType == 1) {
                 for (i = 0; i < yGrid; i++) {
@@ -572,7 +572,7 @@ void setupHeap(int netID, int edgeID, int *heapLen1, int *heapLen2, int regionX1
                                                                                 }
                                                                         }  // if MAZEROUTE
                                                                         else {
-                                                                                printf("Setup Heap: not maze routing\n");
+                                                                                VTR_LOG("Setup Heap: not maze routing\n");
                                                                         }
                                                                 }  // if not a degraded edge (len>0)
 
@@ -656,7 +656,7 @@ void setupHeap(int netID, int edgeID, int *heapLen1, int *heapLen2, int regionX1
                                                                                 }
                                                                         }  // if MAZEROUTE
                                                                         else {
-                                                                                printf("Setup Heap: not maze routing\n");
+                                                                                VTR_LOG("Setup Heap: not maze routing\n");
                                                                         }
                                                                 }  // if the edge is not degraded (len>0)
 
@@ -953,7 +953,7 @@ void reInitTree(int netID) {
         int x[nets[netID]->numPins];
         int y[nets[netID]->numPins];
 
-        //printf("re init tree for net %d\n",netID);
+        //VTR_LOG("re init tree for net %d\n",netID);
 
         newRipupNet(netID);
 
@@ -970,39 +970,39 @@ void reInitTree(int netID) {
         free(sttrees[netID].nodes);
         free(sttrees[netID].edges);
 
-        //printf("old tree component freed\n");
+        //VTR_LOG("old tree component freed\n");
         //fflush(stdout);
 
         d = nets[netID]->deg;
-        //printf("net deg %d\n",d);
+        //VTR_LOG("net deg %d\n",d);
         //fflush(stdout);
         for (j = 0; j < d; j++) {
                 x[j] = nets[netID]->pinX[j];
                 y[j] = nets[netID]->pinY[j];
         }
-        //printf("before flute\n");
+        //VTR_LOG("before flute\n");
         //fflush(stdout);
         fluteCongest(netID, d, x, y, 2, 1.2, &rsmt);
-        //printf("fluted worked\n");
+        //VTR_LOG("fluted worked\n");
         //fflush(stdout);
         if (d > 3) {
                 edgeShiftNew(&rsmt, netID);
         }
         //fflush(stdout);
         copyStTree(netID, rsmt);
-        //printf("tree copied\n");
+        //VTR_LOG("tree copied\n");
         //fflush(stdout);
         newrouteLInMaze(netID);
-        //printf("L routing worked\n");
+        //VTR_LOG("L routing worked\n");
         //fflush(stdout);
         //newrouteZ(netID, 10);
-        //printf("Z routign worked\n");
+        //VTR_LOG("Z routign worked\n");
         //fflush(stdout);
         convertToMazerouteNet(netID);
-        //printf("L to mzed converted\n");
+        //VTR_LOG("L to mzed converted\n");
         //fflush(stdout);
         //checkRoute2DTree(netID);
-        //printf("tree double checked\n");
+        //VTR_LOG("tree double checked\n");
         //fflush(stdout);
 }
 
@@ -1718,14 +1718,14 @@ int getOverflow2Dmaze(int *maxOverflow, int *tUsage) {
         totalOverflow = H_overflow + V_overflow;
         *maxOverflow = max_overflow;
 
-        printf("total Usage   : %d\n", (int)total_usage);
-        printf("Max H Overflow: %d\n", max_H_overflow);
-        printf("Max V Overflow: %d\n", max_V_overflow);
-        printf("Max Overflow  : %d\n", max_overflow);
-        printf("Num Overflow e: %d\n", numedges);
-        printf("H   Overflow  : %d\n", H_overflow);
-        printf("V   Overflow  : %d\n", V_overflow);
-        printf("Final Overflow: %d\n\n", totalOverflow);
+        VTR_LOG("total Usage   : %d\n", (int)total_usage);
+        VTR_LOG("Max H Overflow: %d\n", max_H_overflow);
+        VTR_LOG("Max V Overflow: %d\n", max_V_overflow);
+        VTR_LOG("Max Overflow  : %d\n", max_overflow);
+        VTR_LOG("Num Overflow e: %d\n", numedges);
+        VTR_LOG("H   Overflow  : %d\n", H_overflow);
+        VTR_LOG("V   Overflow  : %d\n", V_overflow);
+        VTR_LOG("Final Overflow: %d\n\n", totalOverflow);
 
         *tUsage = total_usage;
 
@@ -1789,16 +1789,16 @@ int getOverflow2D(int *maxOverflow) {
                 ahTH = 20;
         }
 
-        printf("total hCap    : %d\n", hCap);
-        printf("total vCap    : %d\n", vCap);
-        printf("total Usage   : %d\n", (int)total_usage);
-        printf("Max H Overflow: %d\n", max_H_overflow);
-        printf("Max V Overflow: %d\n", max_V_overflow);
-        printf("Max Overflow  : %d\n", max_overflow);
-        printf("Num Overflow e: %d\n", numedges);
-        printf("H   Overflow  : %d\n", H_overflow);
-        printf("V   Overflow  : %d\n", V_overflow);
-        printf("Final Overflow: %d\n\n", totalOverflow);
+        VTR_LOG("total hCap    : %d\n", hCap);
+        VTR_LOG("total vCap    : %d\n", vCap);
+        VTR_LOG("total Usage   : %d\n", (int)total_usage);
+        VTR_LOG("Max H Overflow: %d\n", max_H_overflow);
+        VTR_LOG("Max V Overflow: %d\n", max_V_overflow);
+        VTR_LOG("Max Overflow  : %d\n", max_overflow);
+        VTR_LOG("Num Overflow e: %d\n", numedges);
+        VTR_LOG("H   Overflow  : %d\n", H_overflow);
+        VTR_LOG("V   Overflow  : %d\n", V_overflow);
+        VTR_LOG("Final Overflow: %d\n\n", totalOverflow);
 
         return (totalOverflow);
 }
@@ -1847,14 +1847,14 @@ int getOverflow3D(void) {
         max_overflow = std::max(max_H_overflow, max_V_overflow);
         totalOverflow = H_overflow + V_overflow;
 
-        printf("total Usage   : %d\n", total_usage);
-        printf("Total Capacity: %d\n", cap);
-        printf("Max H Overflow: %d\n", max_H_overflow);
-        printf("Max V Overflow: %d\n", max_V_overflow);
-        printf("Max Overflow  : %d\n", max_overflow);
-        printf("H   Overflow  : %d\n", H_overflow);
-        printf("V   Overflow  : %d\n", V_overflow);
-        printf("Final Overflow: %d\n\n", totalOverflow);
+        VTR_LOG("total Usage   : %d\n", total_usage);
+        VTR_LOG("Total Capacity: %d\n", cap);
+        VTR_LOG("Max H Overflow: %d\n", max_H_overflow);
+        VTR_LOG("Max V Overflow: %d\n", max_V_overflow);
+        VTR_LOG("Max Overflow  : %d\n", max_overflow);
+        VTR_LOG("H   Overflow  : %d\n", H_overflow);
+        VTR_LOG("V   Overflow  : %d\n", V_overflow);
+        VTR_LOG("Final Overflow: %d\n\n", totalOverflow);
 
         return (total_usage);
 }

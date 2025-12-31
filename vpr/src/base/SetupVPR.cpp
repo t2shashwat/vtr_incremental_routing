@@ -405,6 +405,9 @@ static void SetupRouterOpts(const t_options& Options, t_router_opts* RouterOpts)
     RouterOpts->target_bracket = Options.target_bracket;
     RouterOpts->dump_raw_flute_trees = Options.dump_raw_flute_trees;
     RouterOpts->global_router_algorithm= Options.global_router_algorithm;
+    RouterOpts->global_channel_capacity = Options.global_channel_capacity;
+    RouterOpts->acc_fac_within_gr =  Options.acc_fac_within_gr;
+    RouterOpts->acc_fac_within_gr_first_iter =  Options.acc_fac_within_gr_first_iter;
     //==========================================
 
     //TODO document these?

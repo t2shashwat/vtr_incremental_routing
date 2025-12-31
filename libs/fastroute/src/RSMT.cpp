@@ -40,7 +40,7 @@
 #include "EdgeShift.h"
 #include "route.h"
 #include "RipUp.h"
-
+#include "vtr_log.h"
 namespace FastRoute {
 
 #define FLUTEACCURACY 2
@@ -147,7 +147,7 @@ int mapxy(int nx, int xs[], int nxs[], int d) {
                         min = mid + 1;
         }
 
-        if (min > max) printf("mapping error\n");
+        if (min > max) VTR_LOG("mapping error\n");
 }
 
 void copyStTree(int ind, Flute::Tree rsmt) {
@@ -174,7 +174,7 @@ void copyStTree(int ind, Flute::Tree rsmt) {
         for (i = 0; i < numnodes; i++)
                 nbrcnt[i] = 0;
 
-        // printf("tree ind %d\n",ind);
+        // VTR_LOG("tree ind %d\n",ind);
 
         edgecnt = 0;
         // original rsmt has 2*d-2 branch (one is a loop for root), in StTree 2*d-3 edges (no original loop)
@@ -211,11 +211,11 @@ void copyStTree(int ind, Flute::Tree rsmt) {
                         nbrcnt[n]++;
                         edgecnt++;
                 }
-                if (nbrcnt[i] > 3 || nbrcnt[n] > 3) printf("wrong\n");
+                if (nbrcnt[i] > 3 || nbrcnt[n] > 3) VTR_LOG("wrong\n");
         }
         if (edgecnt != numnodes - 1) {
-                printf("copy tree wrong\n");
-                printf("num edges %d, num nodes %d\n", edgecnt, numnodes);
+                VTR_LOG("copy tree wrong\n");
+                VTR_LOG("num edges %d, num nodes %d\n", edgecnt, numnodes);
                 exit(0);
         }
 }
@@ -311,7 +311,7 @@ void fluteNormal(int netID, int d, Flute::DTYPE x[], Flute::DTYPE y[], int acc, 
                         pt[i].y = y[i];
                         ptp[i] = &pt[i];
                 }
-                //printf("OK here\n");
+                //VTR_LOG("OK here\n");
                 // sort x
 
                 if (d < 1000) {
@@ -649,7 +649,7 @@ Bool HTreeSuite(int netID) {
         xmax = ymax = 0;
         xmin = ymin = BIG_INT;
 
-        //	printf("d %d\n",deg);
+        //	VTR_LOG("d %d\n",deg);
 
         for (i = 0; i < deg; i++) {
                 if (xmin > nets[netID]->pinX[i]) {
@@ -685,7 +685,7 @@ float coeffADJ(int netID) {
         Hcap = Vcap = 0;
         Husage = Vusage = 0;
 
-        //	printf("d %d\n",deg);
+        //	VTR_LOG("d %d\n",deg);
 
         for (i = 0; i < deg; i++) {
                 if (xmin > nets[netID]->pinX[i]) {
@@ -877,12 +877,12 @@ void gen_brk_RSMT(Bool congestionDriven, Bool reRoute, Bool genTree, Bool newTyp
                 }
         }  // loop i
 
-        printf("WIRELEN : %d, WIRELEN1 : %d\n", wl, wl1);
-        printf("NumSeg  : %d\n", totalNumSeg);
-        printf("NumShift: %d\n", numShift);
-        printf("totalnon %d\n", totalnon);
-        printf("Max %f, Min %f\n", coefMax, coefMin);
-        printf("cnt1 %d, cnt2 %d, cnt3 %d\n", cnt1, cnt2, cnt3);
+        VTR_LOG("WIRELEN : %d, WIRELEN1 : %d\n", wl, wl1);
+        VTR_LOG("NumSeg  : %d\n", totalNumSeg);
+        VTR_LOG("NumShift: %d\n", numShift);
+        VTR_LOG("totalnon %d\n", totalnon);
+        VTR_LOG("Max %f, Min %f\n", coefMax, coefMin);
+        VTR_LOG("cnt1 %d, cnt2 %d, cnt3 %d\n", cnt1, cnt2, cnt3);
 }
 
 }  // namespace FastRoute

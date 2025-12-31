@@ -430,13 +430,13 @@ static void load_rr_indexed_data_base_costs(const RRGraphView& rr_graph,
                 rr_indexed_data[RRIndexedDataId(index)].base_cost = 1;
             }
             else if (length == 2) {
-                rr_indexed_data[RRIndexedDataId(index)].base_cost = 3;
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 1.8;// change date: 25.12.25 //3;
             }
             else if (length == 4) {
-                rr_indexed_data[RRIndexedDataId(index)].base_cost = 5;
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 3.4;//5;
             }
             else if (length == 12) {
-                rr_indexed_data[RRIndexedDataId(index)].base_cost = 12;
+                rr_indexed_data[RRIndexedDataId(index)].base_cost = 10;//12;
             }
             VTR_LOG("[SHA][US+] Base cost value: %d, %f\n", RRIndexedDataId(index), rr_indexed_data[RRIndexedDataId(index)].base_cost);
 

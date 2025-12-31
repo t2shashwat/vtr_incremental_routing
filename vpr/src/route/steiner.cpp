@@ -16,6 +16,7 @@
 // For purposes of creating RSMTs
 #include "flute.h"
 #include "FastRoute.h"
+#include <chrono>
 using namespace FastRoute;
 
 // For parallelization attempts
@@ -965,6 +966,14 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 	}
         // Check for edges from the current node
         if (this->sb_edges.edge_map.count(current_node)) {
+	    // 1. first check if current node is a terminal, if yes, mark as end point
+	    // this does a for loop over all sbs // can be optimized for runtime later
+	    auto [x, y] = parse_coords(current_node);
+	    int pin_id = this->loc_to_pin_id(x, y);
+	    if (pin_id > 0) {
+	        corridor_end_point = true;
+	    }
+	    // 2. if total neighbours more than two, mark as corridor end point
 	    int total_neighbours = this->sb_edges.edge_map.at(current_node).size();
  	    if (total_neighbours > 2 || (current_node == source_sb_id)) {
 		// always mark source as SP
@@ -978,6 +987,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
                 if (visited.count(neighbor_node) || !is_valid) {
                     continue;
                 }
+		// 3. check if the direction changed, if yes, mark as end of corridor
 		// only check change of direction for neighbour 2 because if more neighbours then 
 		// it is already marked as steiner point
 		if (total_neighbours == 2 && parent_node != ""){
@@ -993,6 +1003,14 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
                 q.push({neighbor_node, current_node});
             }
         }
+    }
+
+    for (const auto& [str_id, sb] : this->sb_map) {
+    
+	    // mark the terminals as SPs
+	    if (sb.pin_id > 0) {
+	    
+	    }
     }
     for (const auto& [str_id, sb] : this->sb_map) {
         if (sb.pin_id <= 0) {
@@ -1126,7 +1144,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 
 
 
-void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_router_algorithm) {
+void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_router_algorithm, int global_channel_capacity) {
     // Initialize context refereces
     const ClusteringContext& cluster_ctx = g_vpr_ctx.clustering();
     const PlacementContext& placement_ctx = g_vpr_ctx.placement();
@@ -1229,6 +1247,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
                 return a.layer < b.layer;
     	    }
 	};
+	auto start_time_fr = std::chrono::high_resolution_clock::now();
     	// 1. Define FastRoute grid
     	int Gx = device_ctx.grid.width() - 2; // 168
     	int Gy = device_ctx.grid.height() - 2; // 480
@@ -1240,7 +1259,8 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	fr_router.setGridsAndLayers(Gx, Gy, nLayers);
 
     	int layer = 1;
-    	int capacity = 104; // choose something; or derive from channel width
+    	int capacity = global_channel_capacity; // choose something; or derive from channel width
+	VTR_LOG("Global channel Capacity = %d \n", capacity);
     	fr_router.addVCapacity(capacity, layer);
     	fr_router.addHCapacity(capacity, layer); 
 
@@ -1352,7 +1372,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
                     }
                 }
 
-		if (x < 0 || y < 0 || x >= Gx || y >= Gy) {
+		if (x < 0 || y < 0 || x > Gx || y > Gy) {
     			VTR_LOG_ERROR("Pin out of bounds! x=%d, y=%d, grid=(%d,%d)\n",
                   	x, y, Gx, Gy);
 		}
@@ -1417,9 +1437,10 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 	VTR_LOG("FastRoute::run returned %d, routed_nets.size() = %zu\n",
         	fr_status, routed_nets.size());	
 	
+	double fr_runtime = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time_fr).count();
 	//fix the steiner class constructor and delete the below line
     	//Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
-	
+	auto start_time_global_tree_processing = std::chrono::high_resolution_clock::now();	
 	// 5. Extract Steiner trees and populate sb_edges
 	ClusterNetId debug_net_id = ClusterNetId(0); 
 	for (int fr_idx = 0; fr_idx < routed_nets.size(); fr_idx++) {
@@ -1437,7 +1458,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     		    VTR_LOG("Number of FR edges: %zu\n", fr_net.route.size());
     		//}
     		for (const ROUTE& r : fr_net.route) {
-        		//add_edge_to_sb(net_id, r.initX, r.initY, r.finalX, r.finalY);
 			int x1 = r.initX;
 			int y1 = r.initY;
 			int x2 = r.finalX;
@@ -1470,11 +1490,13 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	    steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
 	
 	}
+	double global_tree_processing_runtime = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time_global_tree_processing).count();
+        VTR_LOG("[FastRoute] Runtime: %lf ms\n", fr_runtime); 
+        VTR_LOG("[FastRoute post processing] Runtime: %lf ms\n", global_tree_processing_runtime); 
 
     }
 
     fluteOutfile.close();
-    
     if (create_steiner_constraints) {
         // Create "connections_per_dnode.txt"
         //create_connections_per_dnode_file(steiner_ctx);

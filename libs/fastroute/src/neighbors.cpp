@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include "global.h"
 #include "dist.h"
-
+#include "vtr_log.h"
 namespace FastRoute {
 
 long octant(
@@ -66,7 +66,7 @@ void allocate_nn_arrays(long n) {
                 sorted = (long*)realloc((void*)sorted, (size_t)n * sizeof(long));
                 aux = (long*)realloc((void*)aux, (size_t)n * sizeof(long));
                 if (!nn || !sheared || !sorted || !aux) {
-                        printf("Cannot allocate memory in allocate_nn_arrays!\n");
+                        VTR_LOG("Cannot allocate memory in allocate_nn_arrays!\n");
                         exit(1);
                 }
                 max_arrays_size = n;
@@ -440,10 +440,10 @@ void check_nn(
                                 assert(nn1[i][oct] != -1);
 
                                 if (octant(pt[i], pt[nn[i][oct]]) != oct) {
-                                        printf("WRONG OCTANT!\noct=%ld\n", oct);
-                                        printf("i=%ld, x=%ld, y=%ld\n", i, pt[i].x, pt[i].y);
+                                        VTR_LOG("WRONG OCTANT!\noct=%ld\n", oct);
+                                        VTR_LOG("i=%ld, x=%ld, y=%ld\n", i, pt[i].x, pt[i].y);
                                         j = nn[i][oct];
-                                        printf("nn=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
+                                        VTR_LOG("nn=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
                                                dist(pt[i], pt[j]));
                                 }
                                 //        assert( octant(pt[i], pt[ nn[i][oct] ]) == oct );
@@ -452,13 +452,13 @@ void check_nn(
 
                                 if (dist(pt[i], pt[nn[i][oct]]) !=
                                     dist(pt[i], pt[nn1[i][oct]])) {
-                                        printf("NNs DON'T MATCH!\noct=%ld\n", oct);
-                                        printf("i=%ld, x=%ld, y=%ld\n", i, pt[i].x, pt[i].y);
+                                        VTR_LOG("NNs DON'T MATCH!\noct=%ld\n", oct);
+                                        VTR_LOG("i=%ld, x=%ld, y=%ld\n", i, pt[i].x, pt[i].y);
                                         j = nn[i][oct];
-                                        printf("nn=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
+                                        VTR_LOG("nn=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
                                                dist(pt[i], pt[j]));
                                         j = nn1[i][oct];
-                                        printf("nn1=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
+                                        VTR_LOG("nn1=%ld, x=%ld, y=%ld, dist = %ld\n", j, pt[j].x, pt[j].y,
                                                dist(pt[i], pt[j]));
                                 }
                                 //        assert( dist(pt[i], pt[ nn[i][oct] ]) ==

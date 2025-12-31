@@ -36,7 +36,7 @@
 #include "DataType.h"
 #include "flute.h"
 #include "DataProc.h"
-
+#include "vtr_log.h"
 
 namespace FastRoute {
 
@@ -48,11 +48,11 @@ void printEdge(int netID, int edgeID) {
         edge = sttrees[netID].edges[edgeID];
         nodes = sttrees[netID].nodes;
 
-        printf("edge %d: (%d, %d)->(%d, %d)\n", edgeID, nodes[edge.n1].x, nodes[edge.n1].y, nodes[edge.n2].x, nodes[edge.n2].y);
+        VTR_LOG("edge %d: (%d, %d)->(%d, %d)\n", edgeID, nodes[edge.n1].x, nodes[edge.n1].y, nodes[edge.n2].x, nodes[edge.n2].y);
         for (i = 0; i <= edge.route.routelen; i++) {
-                printf("(%d, %d) ", edge.route.gridsX[i], edge.route.gridsY[i]);
+                VTR_LOG("(%d, %d) ", edge.route.gridsX[i], edge.route.gridsY[i]);
         }
-        printf("\n");
+        VTR_LOG("\n");
 }
 
 void plotTree(int netID) {
@@ -69,7 +69,7 @@ void plotTree(int netID) {
 
         fp = fopen("plottree", "w");
         if (fp == NULL) {
-                printf("Error in opening file plottree\n");
+                VTR_LOG("Error in opening file plottree\n");
                 exit(1);
         }
 
@@ -166,12 +166,12 @@ void getlen() {
                 for (edgeID = 0; edgeID < 2 * sttrees[i].deg - 3; edgeID++) {
                         treeedge = &(sttrees[i].edges[edgeID]);
                         if (treeedge->route.type < MAZEROUTE)
-                                printf("wrong\n");
+                                VTR_LOG("wrong\n");
                         else
                                 totlen += treeedge->route.routelen;
                 }
         }
-        printf("Routed len: %d\n", totlen);
+        VTR_LOG("Routed len: %d\n", totlen);
 }
 
 void ConvertToFull3DType2() {
@@ -407,8 +407,8 @@ void fillVIA() {
                         }
                 }
         }
-        printf("via related to pin nodes %d\n", numVIAT1);
-        printf("via related stiner nodes %d\n", numVIAT2);
+        VTR_LOG("via related to pin nodes %d\n", numVIAT1);
+        VTR_LOG("via related stiner nodes %d\n", numVIAT2);
 }
 
 int threeDVIA() {
@@ -490,7 +490,7 @@ void assignEdge(int netID, int edgeID, Bool processDIR) {
                                 gridD[l][0] = 0;
                         }
                 } else {
-                        printf("warning, start point not assigned\n");
+                        VTR_LOG("warning, start point not assigned\n");
                         fflush(stdout);
                 }
 
@@ -596,7 +596,7 @@ void assignEdge(int netID, int edgeID, Bool processDIR) {
 
                 if (treenodes[n2a].assigned) {
                         if (gridsL[routelen] > treenodes[n2a].topL || gridsL[routelen] < treenodes[n2a].botL) {
-                                printf("target ending layer out of range\n");
+                                VTR_LOG("target ending layer out of range\n");
                         }
                 }
 
@@ -947,9 +947,9 @@ void newLA() {
                 }
         }
 
-        printf("\nnode processing\n");
+        VTR_LOG("\nnode processing\n");
         newLayerAssignmentV4();
-        printf("layer assignment\n");
+        VTR_LOG("layer assignment\n");
         ConvertToFull3DType2();
 }
 
@@ -961,19 +961,19 @@ void printEdge3D(int netID, int edgeID) {
         edge = sttrees[netID].edges[edgeID];
         nodes = sttrees[netID].nodes;
 
-        printf("edge %d: n1 %d (%d, %d)-> n2 %d(%d, %d)\n", edgeID, edge.n1, nodes[edge.n1].x, nodes[edge.n1].y, edge.n2, nodes[edge.n2].x, nodes[edge.n2].y);
+        VTR_LOG("edge %d: n1 %d (%d, %d)-> n2 %d(%d, %d)\n", edgeID, edge.n1, nodes[edge.n1].x, nodes[edge.n1].y, edge.n2, nodes[edge.n2].x, nodes[edge.n2].y);
         if (edge.len > 0) {
                 for (i = 0; i <= edge.route.routelen; i++) {
-                        printf("(%d, %d,%d) ", edge.route.gridsX[i], edge.route.gridsY[i], edge.route.gridsL[i]);
+                        VTR_LOG("(%d, %d,%d) ", edge.route.gridsX[i], edge.route.gridsY[i], edge.route.gridsL[i]);
                 }
-                printf("\n");
+                VTR_LOG("\n");
         }
 }
 
 void printTree3D(int netID) {
         int edgeID, nodeID;
         for (nodeID = 0; nodeID < 2 * sttrees[netID].deg - 2; nodeID++) {
-                printf("nodeID %d,  [%d, %d]\n", nodeID, sttrees[netID].nodes[nodeID].y, sttrees[netID].nodes[nodeID].x);
+                VTR_LOG("nodeID %d,  [%d, %d]\n", nodeID, sttrees[netID].nodes[nodeID].y, sttrees[netID].nodes[nodeID].x);
         }
 
         for (edgeID = 0; edgeID < 2 * sttrees[netID].deg - 3; edgeID++) {
@@ -997,11 +997,11 @@ void checkRoute3D() {
                 for (nodeID = 0; nodeID < 2 * deg - 2; nodeID++) {
                         if (nodeID < deg) {
                                 if (treenodes[nodeID].botL != 0) {
-                                        printf("causing pin node floating\n");
+                                        VTR_LOG("causing pin node floating\n");
                                 }
 
                                 if (treenodes[nodeID].botL > treenodes[nodeID].topL) {
-                                        //printf("pin node l %d h %d wrong lid %d hid %d\n", treenodes[nodeID].botL, treenodes[nodeID].topL, treenodes[nodeID].lID, treenodes[nodeID].hID);
+                                        //VTR_LOG("pin node l %d h %d wrong lid %d hid %d\n", treenodes[nodeID].botL, treenodes[nodeID].topL, treenodes[nodeID].lID, treenodes[nodeID].hID);
                                 }
                         }
                 }
@@ -1024,25 +1024,25 @@ void checkRoute3D() {
                         gridFlag = FALSE;
 
                         if (gridsX[0] != x1 || gridsY[0] != y1) {
-                                printf("net[%d] edge[%d] start node wrong, net deg %d, n1 %d\n", netID, edgeID, deg, n1);
+                                VTR_LOG("net[%d] edge[%d] start node wrong, net deg %d, n1 %d\n", netID, edgeID, deg, n1);
                                 printEdge3D(netID, edgeID);
                         }
                         if (gridsX[edgelength] != x2 || gridsY[edgelength] != y2) {
-                                printf("net[%d] edge[%d] end node wrong, net deg %d, n2 %d\n", netID, edgeID, deg, n2);
+                                VTR_LOG("net[%d] edge[%d] end node wrong, net deg %d, n2 %d\n", netID, edgeID, deg, n2);
                                 printEdge3D(netID, edgeID);
                         }
                         for (i = 0; i < treeedge->route.routelen; i++) {
                                 distance = ADIFF(gridsX[i + 1], gridsX[i]) + ADIFF(gridsY[i + 1], gridsY[i]) + ADIFF(gridsL[i + 1], gridsL[i]);
                                 if (distance > 1 || distance < 0) {
                                         gridFlag = TRUE;
-                                        printf("net[%d] edge[%d] maze route wrong, distance %d, i %d\n", netID, edgeID, distance, i);
-                                        printf("current [%d, %d, %d], next [%d, %d, %d]", gridsL[i], gridsY[i], gridsX[i], gridsL[i + 1], gridsY[i + 1], gridsX[i + 1]);
+                                        VTR_LOG("net[%d] edge[%d] maze route wrong, distance %d, i %d\n", netID, edgeID, distance, i);
+                                        VTR_LOG("current [%d, %d, %d], next [%d, %d, %d]", gridsL[i], gridsY[i], gridsX[i], gridsL[i + 1], gridsY[i + 1], gridsX[i + 1]);
                                 }
                         }
 
                         for (i = 0; i <= treeedge->route.routelen; i++) {
                                 if (gridsL[i] < 0) {
-                                        printf("gridsL less than 0, %d\n", gridsL[i]);
+                                        VTR_LOG("gridsL less than 0, %d\n", gridsL[i]);
                                 }
                         }
                         if (gridFlag) {
@@ -1061,7 +1061,7 @@ void write3D() {
 
         fp = fopen("output.out", "w");
         if (fp == NULL) {
-                printf("Error in opening %s\n", "output.out");
+                VTR_LOG("Error in opening %s\n", "output.out");
                 exit(1);
         }
 
@@ -1171,7 +1171,7 @@ void recoverEdge(int netID, int edgeID) {
         routeLen = treeedge->route.routelen;
 
         if (treeedge->len == 0) {
-                printf("trying to recover an 0 length edge\n");
+                VTR_LOG("trying to recover an 0 length edge\n");
                 exit(0);
         }
 
@@ -1270,7 +1270,7 @@ void checkUsage() {
                                                                 redsus = TRUE;
                                                                 i = 0;
                                                                 j = 0;
-                                                                printf("redundant edge component discovered\n");
+                                                                VTR_LOG("redundant edge component discovered\n");
                                                         }
                                                 }
                                         }
@@ -1279,7 +1279,7 @@ void checkUsage() {
                 }
         }
 
-        printf("usage checked\n");
+        VTR_LOG("usage checked\n");
 }
 
 static int compareEdgeLen(const void *a, const void *b) {
@@ -1320,19 +1320,19 @@ void printEdge2D(int netID, int edgeID) {
         edge = sttrees[netID].edges[edgeID];
         nodes = sttrees[netID].nodes;
 
-        printf("edge %d: n1 %d (%d, %d)-> n2 %d(%d, %d), routeType %d\n", edgeID, edge.n1, nodes[edge.n1].x, nodes[edge.n1].y, edge.n2, nodes[edge.n2].x, nodes[edge.n2].y, edge.route.type);
+        VTR_LOG("edge %d: n1 %d (%d, %d)-> n2 %d(%d, %d), routeType %d\n", edgeID, edge.n1, nodes[edge.n1].x, nodes[edge.n1].y, edge.n2, nodes[edge.n2].x, nodes[edge.n2].y, edge.route.type);
         if (edge.len > 0) {
                 for (i = 0; i <= edge.route.routelen; i++) {
-                        printf("(%d, %d) ", edge.route.gridsX[i], edge.route.gridsY[i]);
+                        VTR_LOG("(%d, %d) ", edge.route.gridsX[i], edge.route.gridsY[i]);
                 }
-                printf("\n");
+                VTR_LOG("\n");
         }
 }
 
 void printTree2D(int netID) {
         int edgeID, nodeID;
         for (nodeID = 0; nodeID < 2 * sttrees[netID].deg - 2; nodeID++) {
-                printf("nodeID %d,  [%d, %d]\n", nodeID, sttrees[netID].nodes[nodeID].y, sttrees[netID].nodes[nodeID].x);
+                VTR_LOG("nodeID %d,  [%d, %d]\n", nodeID, sttrees[netID].nodes[nodeID].y, sttrees[netID].nodes[nodeID].x);
         }
 
         for (edgeID = 0; edgeID < 2 * sttrees[netID].deg - 3; edgeID++) {
@@ -1367,30 +1367,30 @@ Bool checkRoute2DTree(int netID) {
                 gridFlag = FALSE;
 
                 if (treeedge->len < 0) {
-                        printf("rip upped edge without edge len re assignment\n");
+                        VTR_LOG("rip upped edge without edge len re assignment\n");
                         STHwrong = TRUE;
                 }
 
                 if (treeedge->len > 0) {
                         if (treeedge->route.routelen < 1) {
-                                printf(".routelen %d len  %d\n", treeedge->route.routelen, treeedge->len);
+                                VTR_LOG(".routelen %d len  %d\n", treeedge->route.routelen, treeedge->len);
                                 STHwrong = TRUE;
-                                printf("checking failed %d\n", netID);
+                                VTR_LOG("checking failed %d\n", netID);
                                 return (TRUE);
                         }
 
                         if (gridsX[0] != x1 || gridsY[0] != y1) {
-                                printf("initial grid wrong y1 x1 [%d %d] , net start [%d %d] routelen %d\n ", y1, x1, gridsY[0], gridsX[0], treeedge->route.routelen);
+                                VTR_LOG("initial grid wrong y1 x1 [%d %d] , net start [%d %d] routelen %d\n ", y1, x1, gridsY[0], gridsX[0], treeedge->route.routelen);
                                 STHwrong = TRUE;
                         }
                         if (gridsX[edgelength] != x2 || gridsY[edgelength] != y2) {
-                                printf("end grid wrong y2 x2 [%d %d] , net start [%d %d] routelen %d\n ", y1, x1, gridsY[edgelength], gridsX[edgelength], treeedge->route.routelen);
+                                VTR_LOG("end grid wrong y2 x2 [%d %d] , net start [%d %d] routelen %d\n ", y1, x1, gridsY[edgelength], gridsX[edgelength], treeedge->route.routelen);
                                 STHwrong = TRUE;
                         }
                         for (i = 0; i < treeedge->route.routelen; i++) {
                                 distance = ADIFF(gridsX[i + 1], gridsX[i]) + ADIFF(gridsY[i + 1], gridsY[i]);
                                 if (distance != 1) {
-                                        printf("net[%d] edge[%d] maze route wrong, distance %d, i %d\n", netID, edgeID, distance, i);
+                                        VTR_LOG("net[%d] edge[%d] maze route wrong, distance %d, i %d\n", netID, edgeID, distance, i);
                                         gridFlag = TRUE;
                                         STHwrong = TRUE;
                                 }
@@ -1400,7 +1400,7 @@ Bool checkRoute2DTree(int netID) {
                                 printEdge2D(netID, edgeID);
                         }
                         if (STHwrong) {
-                                printf("checking failed %d\n", netID);
+                                VTR_LOG("checking failed %d\n", netID);
                                 return (TRUE);
                         }
                 }
@@ -1418,7 +1418,7 @@ void writeRoute3D(char routingfile3D[]) {
 
         fp = fopen(routingfile3D, "w");
         if (fp == NULL) {
-                printf("Error in opening %s\n", routingfile3D);
+                VTR_LOG("Error in opening %s\n", routingfile3D);
                 exit(1);
         }
 
@@ -1542,7 +1542,7 @@ void copyBR(void) {
         int i, j, netID, edgeID, numEdges, numNodes, grid, min_y, min_x;
 
         if (sttreesBK != NULL) {
-                printf("copy BR working\n");
+                VTR_LOG("copy BR working\n");
 
                 for (netID = 0; netID < numValidNets; netID++) {
                         numEdges = 2 * sttrees[netID].deg - 3;
@@ -1596,9 +1596,9 @@ void copyBR(void) {
                                         for (i = 0; i <= sttreesBK[netID].edges[edgeID].route.routelen; i++) {
                                                 sttrees[netID].edges[edgeID].route.gridsX[i] = sttreesBK[netID].edges[edgeID].route.gridsX[i];
                                                 sttrees[netID].edges[edgeID].route.gridsY[i] = sttreesBK[netID].edges[edgeID].route.gridsY[i];
-                                                //printf("x %d y %d     ",sttrees[netID].edges[edgeID].route.gridsX[i],sttrees[netID].edges[edgeID].route.gridsY[i]);
+                                                //VTR_LOG("x %d y %d     ",sttrees[netID].edges[edgeID].route.gridsX[i],sttrees[netID].edges[edgeID].route.gridsY[i]);
                                         }
-                                        //printf("\n");
+                                        //VTR_LOG("\n");
                                 }
                         }
                 }

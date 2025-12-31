@@ -214,6 +214,9 @@ struct t_options {
     argparse::ArgValue<int> target_bracket;
     argparse::ArgValue<bool> dump_raw_flute_trees;
     argparse::ArgValue<e_global_router_type> global_router_algorithm;
+    argparse::ArgValue<int> global_channel_capacity;
+    argparse::ArgValue<float> acc_fac_within_gr;
+    argparse::ArgValue<float> acc_fac_within_gr_first_iter;
     //==========================================
 
     /* Timing-driven router options only */

@@ -40,7 +40,7 @@
 #include "DataProc.h"
 #include "route.h"
 #include "RipUp.h"
-
+#include "vtr_log.h"
 #define HCOST 5000
 
 namespace FastRoute {
@@ -157,7 +157,7 @@ void routeSegL(Segment *seg) {
                                 costL2 += tmp;
                 }
 
-                printf("costL1 is %f, costL2 is %f\n", costL1, costL2);
+                VTR_LOG("costL1 is %f, costL2 is %f\n", costL1, costL2);
 
                 if (costL1 < costL2) {
                         // two parts (x1, y1)-(x1, y2) and (x1, y2)-(x2, y2)
@@ -366,7 +366,7 @@ void newrouteL(int netID, RouteType ripuptype, Bool viaGuided) {
                                                 costL1 = 0;
                                                 costL2 = viacost;
                                         } else {
-                                                printf("wrong node status %d", treenodes[n1].status);
+                                                VTR_LOG("wrong node status %d", treenodes[n1].status);
                                         }
                                         if (treenodes[n2].status == 2) {
                                                 costL2 += viacost;
@@ -585,7 +585,7 @@ void newrouteZ_edge(int netID, int edgeID) {
                                 treeedge->route.HVH = HVH;
                                 treeedge->route.Zpoint = bestZ;
                         } else {
-                                printf("warning, in the maze edge, not HVH results is produced");
+                                VTR_LOG("warning, in the maze edge, not HVH results is produced");
                         }
                 }  // else Z route
 
@@ -1000,8 +1000,8 @@ void routeMonotonic(int netID, int edgeID, int threshold) {
                                 cnt = 0;
 
                                 while (curX != xl || curY != yl) {
-                                        //printf("xl is %d, yl is %d, curX is %d, curY is %d\n",xl,yl,curX,curY);
-                                        //printf("%d\n", sttrees[netID].deg);
+                                        //VTR_LOG("xl is %d, yl is %d, curX is %d, curY is %d\n",xl,yl,curX,curY);
+                                        //VTR_LOG("%d\n", sttrees[netID].deg);
                                         gridsX[cnt] = curX;
                                         gridsY[cnt] = curY;
                                         cnt++;
@@ -1119,7 +1119,7 @@ void routeMonotonicAll(int threshold) {
                         routeMonotonic(netID, edgeID, threshold);  // ripup previous route and do Monotonic routing
                 }
         }
-        printf("MonotonicAll OK\n");
+        VTR_LOG("MonotonicAll OK\n");
 }
 
 void spiralRoute(int netID, int edgeID) {
@@ -1203,7 +1203,7 @@ void spiralRoute(int netID, int edgeID) {
                                 costL1 = 0;
                                 costL2 = viacost;
                         } else {
-                                printf("wrong node status %d", treenodes[n1].status);
+                                VTR_LOG("wrong node status %d", treenodes[n1].status);
                         }
                         if (treenodes[n2].status == 2) {
                                 costL2 += viacost;
@@ -1737,7 +1737,7 @@ void routeLVEnew(int netID, int edgeID, int threshold, int enlarge) {
 void routeLVAll(int threshold, int expand) {
         int netID, edgeID, numEdges, i, forange;
 
-        printf("%d threshold, %d expand\n", threshold, expand);
+        VTR_LOG("%d threshold, %d expand\n", threshold, expand);
 
         h_costTable = (float *)calloc(100 * hCapacity, sizeof(float));
 
@@ -1753,7 +1753,7 @@ void routeLVAll(int threshold, int expand) {
                 }
         }
         free(h_costTable);
-        // printf("LV routing OK\n");
+        // VTR_LOG("LV routing OK\n");
 }
 
 void newrouteLInMaze(int netID) {

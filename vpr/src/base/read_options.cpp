@@ -2395,6 +2395,24 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("FastRoute")
         .choices({"FastRoute", "FLUTE"})
         .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.global_channel_capacity, "--global_channel_capacity")
+        .help(
+            "Set global channel capacity for FastRoute")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.acc_fac_within_gr, "--acc_fac_within_gr")
+        .help(
+            "Set acc factor for within global routing for post first iterations")
+        .default_value("1.0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+    
+    route_grp.add_argument(args.acc_fac_within_gr_first_iter, "--acc_fac_within_gr_first_iter")
+        .help(
+            "Set acc factor for within gr for first iteration")
+        .default_value("1.0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
     //==========================================
 
     route_grp.add_argument(args.first_iter_pres_fac, "--first_iter_pres_fac")

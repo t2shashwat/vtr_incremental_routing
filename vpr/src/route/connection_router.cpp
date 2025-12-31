@@ -1267,12 +1267,12 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
 		// what about the high fanout nets? that are added with spatial lookup around the target
 		// // for now it seems I am not using spatial lookup, but this can be used as a runtime optimization in the future
 		if (corridor_index < 0) {
-	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
+	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT (src or opin): %d\n", corridor_index);
 	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d) \n", corridor_index);
 		    add_to_heap = 1;
 		}
 		else if (corridor_index == std::numeric_limits<int>::max() && cost_params.leak == true) {
-	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
+	            VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT (not part of GR): %d\n", corridor_index);
 	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d) \n", corridor_index);
 		    add_to_heap = 1;
 		

@@ -92,7 +92,7 @@ private:
         return false;
     }
 
-    int loc_to_pin_id(int x, int y) {
+    int loc_to_pin_id(int x, int y) const {
         int pin_id = -1;
         for (const auto& sb : this->sb_map) {
             if (sb.second.x == x && sb.second.y == y) {
@@ -182,4 +182,4 @@ void create_sink_order_file(const ClusteringContext& cluster_ctx, const vtr::vec
 
 void create_branch_node_map_file(SteinerContext& steiner_ctx);
 
-void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_routing_algorithm);
+void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_routing_algorithm, int global_channel_capacity);

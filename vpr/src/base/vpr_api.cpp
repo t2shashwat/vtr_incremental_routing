@@ -817,7 +817,7 @@ RouteStatus vpr_route_flow(t_vpr_setup& vpr_setup, const t_arch& arch, bool is_f
 		   else {
 			VTR_LOG_ERROR("Incorrect global routing algorithm.\n");
 		   }
-                   steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order, router_opts.dump_raw_flute_trees, global_router_algorithm);
+                   steiner_pre_processing(router_opts.steiner_constraints, router_opts.dependency_graph_sink_order, router_opts.dump_raw_flute_trees, global_router_algorithm, router_opts.global_channel_capacity);
 		}
             }
             
