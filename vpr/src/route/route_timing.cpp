@@ -2556,7 +2556,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     }
     std::string net_order_filename = "net_order_per_iteration.txt";
     std::ofstream net_order_file(net_order_filename);
-    if(router_opts.detailed_router == 1) {
+    if(router_opts.detailed_router == 1 && false) {
     	//reading file with net order
     	std::ifstream net_order_fp;
     	std::string golden_net_order_filename = "golden_net_order.txt";
