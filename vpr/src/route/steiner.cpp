@@ -267,34 +267,6 @@ void Steiner::build_sb_rsmt_post_process_flute() {
     }
 }
 
-
-
-
-/*void Steiner::decompose_diagonal() {
-   // create adjacency lis for a undirected grapht
-   // for each nondiagonal edge get the neighbours
-   // the neighbours would be from both end points
-   // four categories of neighbours: 1. short-acute 2. short-obtuse 3. long-acute 4. long-obtuse (short is if less than the length of current edge)
-   // obtuse diagonals can be left to be processed with edges which form acute angle with them, and if non form an acute angle with them, then they can be processed at the end by checking which diagonals still remain (mark diagonals (?)) 
-   // also when the diagonal is processed on an edge, do not remove it from the adjaceny list, as we will decompose it along other edges too, and later we figure out the shortest path to it when we create the tree
-   // now, for acute diagonals which are long and short
-   //  
-   //
-   // each node and its neighbours (does not work as we do not which diagonals are acute and obtuse, as it depends on the incoming edge to the node under processing)
-   // for each nodes, get the neighbours, if a diagonal is detected (can be long and short), a short diagonal can be decomposed on the edge in the neighbourhood of current node, but for a long diagonal
-   // a diagonal can also be 
-   // maintain a list of terminals and steiner points, before decomposing a diagonal to new steiner points, check if the point exists, if not then create a new one, append to the existing list and add edges between the points, both horizontal and vertical direction
-   // In case of short diagonals, one of the direction already would exist, so that will have to be broken until the new steiner point, which will entail updating the edge map too
-   // does this mean updating the adjaceny list? with the new neighbours and adding new steiner points so that their neighbours are also updated (?)
-   // if decomposing the diagonal on two edges, then if the other new steiner ends up not being a steiner point, then this point given it is not a termincal should be removed.
-   //
-   // traverse over all the  
-   // add further check to compare total wirelngth of FLUTE tree and post processed tree, to ensure not going too far from optimiality of FLUTE
-
-
-
-}*/
-
 void Steiner::prune_subtree_from(const std::string& node_id, std::set<std::string>& edges_to_remove) {
     if (this->sb_edges.edge_map.find(node_id) == this->sb_edges.edge_map.end()) return;
 
@@ -865,46 +837,6 @@ void create_branch_node_map_file(SteinerContext& steiner_ctx) {
 */
 
 
-/*
-std::unordered_map<int, std::vector<Corridor>> Steiner::build_corridor_list_per_connection() const {
-
-    std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
-
-    // 1. Build reverse edge map: child → parent
-    // cannot use this because the graph has not being directed, and thus no relationship of parent and children is establisehd yet
-    std::unordered_map<std::string, std::string> child_to_parent;
-    for (const auto& [parent, children] : this->sb_edges.edge_map) {
-        for (const auto& [child, is_valid] : children) {
-            if (is_valid) {
-                child_to_parent[child] = parent;
-            }
-        }
-    }
-
-    // 2. Traverse from each sink SB up to the source
-    for (const auto& [str_id, sb] : this->sb_map) {
-        if (sb.pin_id <= 0) continue;  // Only terminal sinks
-
-        int sink_id = sb.pin_id;
-        std::string current = str_id;
-        std::vector<Corridor> corridor_path;
-
-        while (child_to_parent.count(current)) {
-            const std::string& parent = child_to_parent.at(current);
-            const SB& from_sb = this->sb_map.at(parent);
-            const SB& to_sb = this->sb_map.at(current);
-
-            corridor_path.emplace_back(from_sb.x, from_sb.y, to_sb.x, to_sb.y);
-            current = parent;
-        }
-
-        std::reverse(corridor_path.begin(), corridor_path.end());
-        corridor_list_per_connection[sink_id] = std::move(corridor_path);
-    }
-
-    return corridor_list_per_connection;
-}
-*/
 std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> Steiner::build_corridor_list_per_connection(std::string source_sb_id) const {
 
     std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
@@ -1006,13 +938,6 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
     }
 
     for (const auto& [str_id, sb] : this->sb_map) {
-    
-	    // mark the terminals as SPs
-	    if (sb.pin_id > 0) {
-	    
-	    }
-    }
-    for (const auto& [str_id, sb] : this->sb_map) {
         if (sb.pin_id <= 0) {
             continue; // Skip non-sinks and the source
         }
@@ -1024,7 +949,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
         std::vector<Corridor> corridor_path;
         std::vector<unsigned short> corridor_lookahead;
 
-	bool path_found = false;//(child_to_parent.count(current) || current == source_sb_id);
+	bool path_found = false;
 	unsigned short previous_distance = 0;
 
 	std::string stored_to = current;  //ipin
@@ -1044,6 +969,7 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 	        auto [from_x, from_y] = parse_coords(parent);
 
 	    	// assumes that corridor are not diagonal, they are either horizontal or vertical
+		VTR_ASSERT(from_x == to_x || from_y == to_y);
 	    	unsigned short corridor_len = std::abs(from_x - to_x) + std::abs(from_y - to_y);
 
             	corridor_path.emplace_back(from_x, from_y, to_x, to_y);
@@ -1079,71 +1005,6 @@ std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<in
 }
 
 
-//    VTR_LOG("Building child_to_parent map from sb_edges:\n");
-    /*for (const auto& [parent, children] : this->sb_edges.edge_map) {
-        for (const auto& [child, is_valid] : children) {
-            //VTR_LOG("  Edge: %s -> %s = %d\n", parent.c_str(), child.c_str(), is_valid);
-            if (is_valid) {
-                child_to_parent[child] = parent;
-            }
-        }
-    }*/
-//    VTR_LOG("  Total valid edges in child_to_parent: %zu\n", child_to_parent.size());
-
-    // 2. Traverse from each sink SB up to the source
-    /*for (const auto& [str_id, sb] : this->sb_map) {
-//        VTR_LOG("Checking SB: %s, pin_id = %d\n", str_id.c_str(), sb.pin_id);
-        if (sb.pin_id <= 0) {
-//            VTR_LOG("  Skipping non-terminal SB.\n");
-            continue;
-        }
-
-        int sink_id = sb.pin_id;
-	std::string current = std::to_string(sb.x) + "_" + std::to_string(sb.y);
-        std::vector<Corridor> corridor_path;
-
-//        VTR_LOG("  Traversing back from sink %d (%s):\n", sink_id, current.c_str());
-
-        while (child_to_parent.count(current)) {
-            const std::string& parent = child_to_parent.at(current);
-//            VTR_LOG("    Parent of %s is %s\n", current.c_str(), parent.c_str());
-    	    // Unpack parent: "x_y"
-    	    int from_x, from_y;
-    	    char sep;
-    	    std::istringstream iss(parent);
-    	    iss >> from_x >> sep >> from_y;
-    	    
-	    int to_x, to_y;
-    	    std::istringstream iss2(current);
-    	    iss2 >> to_x >> sep >> to_y;
-
-            //const SB& from_sb = this->sb_map.at(parent);
-            //const SB& to_sb = this->sb_map.at(current);
-//            VTR_LOG("      from_sb: (%d, %d), to_sb: (%d, %d)\n", from_x, from_y, to_x, to_y);
-
-            corridor_path.emplace_back(from_x, from_y, to_x, to_y);
-            current = parent;
-        }
-
-//        if (corridor_path.empty()) {
-//            VTR_LOG("    Warning: No path found for sink_id %d\n", sink_id);
-//        } else {
-            std::reverse(corridor_path.begin(), corridor_path.end());
-            corridor_list_per_connection[sink_id] = std::move(corridor_path);
-//            VTR_LOG("    Added path of %zu corridors for sink_id %d\n", corridor_list_per_connection[sink_id].size(), sink_id);
-//        }
-          if(corridor_list_per_connection.size() == 0){
-		  VTR_LOG("Empty corridor list for: net: %d sink: %d \n",this->net_id, sink_id);
-	  }
-    }
-
-//    VTR_LOG("Finished building corridor_list_per_connection. Total sinks: %zu\n", corridor_list_per_connection.size());
-    
-    return corridor_list_per_connection;
-}*/
-
-
-
 void steiner_pre_processing(bool create_steiner_constraints, bool compute_dependency_graph_sink_orders, bool dump_raw_flute_trees, std::string global_router_algorithm, int global_channel_capacity) {
     // Initialize context refereces
     const ClusteringContext& cluster_ctx = g_vpr_ctx.clustering();
@@ -1151,8 +1012,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     auto& device_ctx  = g_vpr_ctx.device();
 
     SteinerContext& steiner_ctx = g_vpr_ctx.mutable_steiner();
-
-
 
     // Nets belonging to the "global connecting nets" are not routed by the global router
     // net is global should replace this
@@ -1225,8 +1084,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	        }*/
     	    }
     	    // Calculate Francois' dependency graph sink order
-    	    
-    	    
     	    if (compute_dependency_graph_sink_orders) {
     	        steiner.compute_dependency_graph_sink_order(make_str_id(steiner.source_x, steiner.source_y), steiner_ctx.steiner_sink_orders);
     	        VTR_LOG("Sink order for net ID: %zu\n", size_t(net_id));
@@ -1234,9 +1091,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	            VTR_LOG("Sink ID: %d, Order: %d\n", sink_id, order);
     	        }       
     	    }
-
-
-
     	}
     }
     else if (global_router_algorithm == "FastRoute4.0") {
@@ -1268,7 +1122,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	fr_router.addMinSpacing(1, layer);
     	fr_router.addViaSpacing(1, layer);
 
-    	// For physical embedding, you can keep it trivial:
     	fr_router.setLowerLeft(1, 1);
     	fr_router.setTileSize(1, 1);
    
@@ -1280,7 +1133,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	    if (cluster_ctx.clb_nlist.net_is_ignored(net_id)) {
 		continue;
     	    }
-	    // Check 1: Is it intra-tile?
             bool is_global = false;
             int first_x = -1, first_y = -1;
             int pin_count = 0;
@@ -1304,7 +1156,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
                 p.x = x;
                 p.y = y;
                 p.layer = 1;
-                //temp_pins.push_back(p);
 		unique_pins.insert(PIN{(long)x, (long)y, 1});
             }
     	    num_nets++;
@@ -1340,12 +1191,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	    std::string net_name = cluster_ctx.clb_nlist.net_name(net_id);
 
     	    int nPins = cluster_ctx.clb_nlist.net_pins(net_id).size();
-	    //auto& pins = fr_pins[netIdx]; 
-	    //pins.resize(nPins);
-
-	    // temp
-	    //std::vector<PIN> temp_pins;
-            //temp_pins.reserve(cluster_ctx.clb_nlist.net_pins(net_id).size());
 
             std::set<PIN, PinLess> unique_pins;	
     	    int pin_i = 0;
@@ -1355,8 +1200,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
             int first_y = -1;
 
     	    for (ClusterPinId pin_id : cluster_ctx.clb_nlist.net_pins(net_id)) {
-    	        // You already know how to compute these terminals for FLUTE;
-    	        // reuse that logic here.
 		auto block_id = cluster_ctx.clb_nlist.pin_block(pin_id);
 		//TODO: for now assuming, loc.x will not be 0, which will result in x  = -1, out of grid problem
         	int x = blocks_locs[block_id].loc.x - 1;
@@ -1381,12 +1224,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
                 p.x = x;
                 p.y = y;
                 p.layer = 1;
-                //temp_pins.push_back(p);
 		unique_pins.insert(PIN{(long)x, (long)y, 1});
-    	        //pins[pin_i].x = x;
-    	        //pins[pin_i].y = y;
-    	        //pins[pin_i].layer = 1;
-    	        // Set other PIN fields as needed (check FastRoute.h)
     	        ++pin_i;
     	    }
 	    
@@ -1423,8 +1261,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	    ++netIdx;
     	}
 	VTR_ASSERT(netIdx == valid_global_nets);
-	// For FastRoute: calling again to prevent double free or corruption
-    	//fr_router.setNumberNets(netIdx);
 
 	// 4. Run FastRoute
     	fr_router.initEdges();
@@ -1438,8 +1274,6 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
         	fr_status, routed_nets.size());	
 	
 	double fr_runtime = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time_fr).count();
-	//fix the steiner class constructor and delete the below line
-    	//Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
 	auto start_time_global_tree_processing = std::chrono::high_resolution_clock::now();	
 	// 5. Extract Steiner trees and populate sb_edges
 	ClusterNetId debug_net_id = ClusterNetId(0); 
@@ -1450,13 +1284,13 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     		bool debug_this_net = (net_id == debug_net_id);
 
-    		//if (debug_this_net) {
+    		if (dump_raw_flute_trees) {
     		    auto net_name = cluster_ctx.clb_nlist.net_name(net_id);
     		    VTR_LOG("==== (%d) FastRoute tree for net %zu (%s) ====\n",
     		            fr_idx, size_t(net_id), net_name.c_str());
 
     		    VTR_LOG("Number of FR edges: %zu\n", fr_net.route.size());
-    		//}
+    		}
     		for (const ROUTE& r : fr_net.route) {
 			int x1 = r.initX;
 			int y1 = r.initY;
@@ -1464,15 +1298,14 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 			int y2 = r.finalY;
 			steiner_ctx.net_edges[size_t(net_id)].emplace_back(Point{x1, y1}, Point{x2, y2});
 
-		//	if (debug_this_net) {
+			if (dump_raw_flute_trees) {
                 			VTR_LOG("  edge: (%ld,%ld,l%d) -> (%ld,%ld,l%d)\n",
                         		r.initX, r.initY, r.initLayer,
                         		r.finalX, r.finalY, r.finalLayer);
-        	//	}
+        		}
     		}
     	    	
 		// this class may not be usable as it is
-		//Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
 		Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
     	        
 		auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));

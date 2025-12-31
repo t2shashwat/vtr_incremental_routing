@@ -2923,9 +2923,9 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 		
 	//for (auto net_id : first_100_nets) {
 	for (auto net_id : sorted_nets) {
-	    if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
-	    	continue;
-	    }
+	    //if (nets_to_skip.find(size_t(net_id)) != nets_to_skip.end()){
+	    //	continue;
+	    //}
 	    /*if (golden_net_order.find(size_t(net_id)) == golden_net_order.end()){
 	    	continue;
 	    }*/
@@ -3139,6 +3139,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	    }
 	    else {
             	pathfinder_update_acc_cost_and_overuse_info(0., overuse_info); /* Acc_fac=0 for first iter. */
+            	VTR_LOG("acc_fac: 0  (itry: %d)\n", itry);
 	    }
         } else if (router_opts.incr_route == 0 && itry > 1){
 		if (router_opts.detailed_router == 1 && routing_predictor.get_leak_flag() == false) {
@@ -3252,8 +3253,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
         /*
          * Are we finished?
          */
-	// For locking and loading branch changing nets
-        if (itry > 1 && is_iteration_complete(routing_is_feasible, router_opts, itry, timing_info, rcv_finished_count == 0)) {
+        if (is_iteration_complete(routing_is_feasible, router_opts, itry, timing_info, rcv_finished_count == 0)) {
         //if (is_iteration_complete(routing_is_feasible, router_opts, itry, timing_info, rcv_finished_count == 0)) {
             auto& router_ctx = g_vpr_ctx.routing();
             if (is_better_quality_routing(best_routing, best_routing_metrics, wirelength_info, timing_info)) {
@@ -4061,7 +4061,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 		}*/
 		//SHA: below is the original
                 sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
-            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "/" << num_sinks << " ";
+            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "//" << num_sinks << " ";
            	for (auto target : remaining_targets) {
                		net_order_file << target << " ";
            	}
@@ -4151,11 +4151,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.offpath_penalty = router_opts.offpath_penalty;
         cost_params.relax_hop_order = router_opts.relax_hop_order;
         cost_params.global_occ_factor = router_opts.global_occ_factor;
-	//cost_params.leak = (itry < router_opts.leak_iteration) ? false : true;
 	cost_params.leak = routing_predictor.get_leak_flag();
-	/*if (num_sinks > 500) {
-	     cost_params.leak = false;
-	}*/
 	cost_params.intra_tile_connection = false;
 	/*if (router_opts.detailed_router == 1 && cost_params.leak == true){
             update_rr_base_costs(num_sinks);
@@ -4165,7 +4161,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	// TODO: Disabling privilege routing support
 	//if (flute_privilege[size_t(net_id)] == true){
 	    cost_params.detailed_router = router_opts.detailed_router;
-            cost_params.pres_fac = cost_params.pres_fac;//5.0;
 	//}
 	//else {
 	//    cost_params.detailed_router = 0;
@@ -4222,7 +4217,6 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	    }
 	    else if (router_opts.detailed_router == 1) {
 		cost_params.intra_tile_connection = true;
-                //cost_params.detailed_router = 0;
 	    }
 	    //if (size_t(net_id) == 2488 || size_t(net_id) == 4186 || size_t(net_id) == 1){
             //VTR_LOG("Corridors for Net %d, Sink Pin %d intra_tile: %b\n", size_t(net_id), target_pin, intra_tile_connection);
