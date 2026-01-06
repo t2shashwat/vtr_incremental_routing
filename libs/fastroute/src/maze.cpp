@@ -1027,8 +1027,8 @@ void mazeRouteMSMD(int iter, int expand, float costHeight, int ripup_threshold, 
         TreeNode *treenodes;
 
         // allocate memory for distance and parent and pop_heap
-        h_costTable = (float *)calloc(1000 * hCapacity, sizeof(float));
-        v_costTable = (float *)calloc(1000 * vCapacity, sizeof(float));
+        h_costTable = (float *)calloc(400 * hCapacity, sizeof(float));
+        v_costTable = (float *)calloc(400 * vCapacity, sizeof(float));
 
         forange = 40 * hCapacity;
 

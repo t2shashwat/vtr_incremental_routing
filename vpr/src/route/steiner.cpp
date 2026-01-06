@@ -1166,6 +1166,8 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 	}
     	VTR_LOG("FLUTE initialized.\n");
 
+	double only_flute = 0; 
+	double flute_post_processing = 0; 
     	for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
     	    // Skip "global connecting nets"; this might also be done by checking clb_nlist.net_is_global(net_id), but I haven't been able to get that to work
     	    //unsigned int num_sinks = cluster_ctx.clb_nlist.net_sinks(net_id).size()
@@ -1177,8 +1179,12 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     	    // Construct the RSMT for the net
     	    //Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
+	    auto start_time_flute_tree_inst = std::chrono::high_resolution_clock::now();	
     	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees, global_router_algorithm);
+	    auto end_time_flute_tree_inst = std::chrono::high_resolution_clock::now();	
+	    only_flute += std::chrono::duration_cast<std::chrono::microseconds>(end_time_flute_tree_inst - start_time_flute_tree_inst).count() / 1000.0;	
 
+	    auto start_time_global_tree_processing_inst = std::chrono::high_resolution_clock::now();	
     	    if (create_steiner_constraints) {
     	        // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
     	        // Create RSMT constrained regions for the net and
@@ -1209,6 +1215,8 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	        VTR_LOG("\n");
     	        }*/
     	    }
+	    auto end_time_global_tree_processing_inst = std::chrono::high_resolution_clock::now();	
+	    flute_post_processing += std::chrono::duration_cast<std::chrono::microseconds>(end_time_global_tree_processing_inst - start_time_global_tree_processing_inst).count()/1000.0;	
     	    // Calculate Francois' dependency graph sink order
     	    if (compute_dependency_graph_sink_orders) {
     	        steiner.compute_dependency_graph_sink_order(make_str_id(steiner.source_x, steiner.source_y), steiner_ctx.steiner_sink_orders);
@@ -1218,6 +1226,9 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	        }       
     	    }
     	}
+	
+        VTR_LOG("[FastRoute] Runtime: %.3lf ms\n", only_flute); 
+        VTR_LOG("[FastRoute post processing] Runtime: %.3lf ms\n", flute_post_processing); 
 	if (dump_raw_flute_trees == true){
 	    VTR_LOG("Finished running flute\n");
 	    VTR_LOG("Finished running flute\n");
@@ -1456,8 +1467,8 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 	
 	}
 	double global_tree_processing_runtime = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time_global_tree_processing).count();
-        VTR_LOG("[FastRoute] Runtime: %lf ms\n", fr_runtime); 
-        VTR_LOG("[FastRoute post processing] Runtime: %lf ms\n", global_tree_processing_runtime); 
+        VTR_LOG("[FastRoute] Runtime: %.3lf ms\n", fr_runtime); 
+        VTR_LOG("[FastRoute post processing] Runtime: %lf .3ms\n", global_tree_processing_runtime); 
 
     }
 

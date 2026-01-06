@@ -38,9 +38,9 @@
 
 #define MAXLEN 20000
 
-#define XRANGE 8184
-#define YRANGE 8184
-//4092
+#define XRANGE 4092
+#define YRANGE 4092
+//8184
 namespace FastRoute {
 
 // global variables
