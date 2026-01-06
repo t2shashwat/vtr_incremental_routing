@@ -818,6 +818,7 @@ void gen_brk_RSMT(Bool congestionDriven, Bool reRoute, Bool genTree, Bool newTyp
                         // call congestion driven flute to generate RSMT
                         if (cong) {
                                 fluteCongest(i, d, x, y, FLUTEACCURACY, coeffV, &rsmt);
+				VTR_LOG("Calling flute in congestion mode\n");
                         } else {
                                 fluteNormal(i, d, x, y, FLUTEACCURACY, coeffV, &rsmt);
                         }

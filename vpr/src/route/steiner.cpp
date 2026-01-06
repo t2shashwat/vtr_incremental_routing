@@ -27,7 +27,7 @@ Steiner::Steiner(
         ClusterNetId net_id,
     const vtr::vector_map<ClusterBlockId, t_block_loc>& blocks_locs,
     //Flute::FluteState *flute1, 
-    std::ofstream& fluteOutfile, bool dump_raw_flute_trees) {
+    std::ofstream& fluteOutfile, bool dump_raw_flute_trees, std::string global_router_algorithm) {
     // VTR_LOG("----------------------------------------\nSTEINER CONSTRUCTOR CALLED FOR %zu\n---------------------------------------\n", size_t(net_id));
     
     // Get the coordinates of the net's CLBs
@@ -50,9 +50,9 @@ Steiner::Steiner(
     // Build SB RSMT
     bool diagonal_detected = true;
     //diagonal_detected = this->detect_diagonal(flute1);
-    //if (this->sb_map.size()>1 && diagonal_detected == true) {
-    //    this->build_sb_rsmt_flute(flute1, fluteOutfile);
-    //}
+    if (this->sb_map.size()>1 && diagonal_detected == true && global_router_algorithm == "FLUTE" && dump_raw_flute_trees == true) {
+        this->build_sb_rsmt_flute(fluteOutfile);
+    }
     //
     
     // commenting this out only temporarily as the flute used by FastRoute does not support Flute_type datatype
@@ -60,7 +60,9 @@ Steiner::Steiner(
     	this->build_sb_rsmt_flute(flute1, fluteOutfile);
     }*/
 
-    this->build_sb_rsmt_post_process_flute();
+    if (dump_raw_flute_trees == false) {
+        this->build_sb_rsmt_post_process_flute();
+    }
 
     // Make tree directed
 
@@ -156,8 +158,8 @@ void Steiner::map_clbs_to_sbs() {
     return false;
 }*/
 
-/*void Steiner::build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile) {
-    Flute::Tree flutetree;
+void Steiner::build_sb_rsmt_flute(std::ofstream& fluteOutfile) {
+    //Flute::Tree flutetree;
     int d=0;
     int n = this->sb_map.size();
     int x[n], y[n];
@@ -175,7 +177,9 @@ void Steiner::map_clbs_to_sbs() {
         d++;
     }
     
-    flutetree = Flute::flute(flute1, d, x, y, FLUTE_ACCURACY);
+    //flutetree = Flute::flute(flute1, d, x, y, FLUTE_ACCURACY);
+    Flute::Tree flutetree = Flute::flute(d, x, y, FLUTE_ACCURACY);
+
     //flutetree = Flute::flute(d, x, y, FLUTE_ACCURACY);
     for (int i = 0; i<2*flutetree.deg-2; i++) {
         int o_x, o_y, i_x, i_y;
@@ -219,13 +223,17 @@ void Steiner::map_clbs_to_sbs() {
             this->sb_edges.add_edge(o_x, o_y, i_x, i_y);
         }
     }
-    int total_wirelength = Flute::flute_wirelength(flutetree);
+    //int total_wirelength = Flute::flute_wirelength(flutetree);
+    int total_wirelength = Flute::wirelength(flutetree);
+
     //VTR_LOG("Total wirelength: %d\n", total_wirelength);
     fluteOutfile << "Total wirelength: " << total_wirelength << "\n";
 
-    Flute::free_tree(flute1, flutetree);
+    //Flute::free_tree(flute1, flutetree);
+    Flute::free_tree(flutetree);
+
     //Flute::free_tree(flutetree);
-}*/
+}
 
 void Steiner::build_sb_rsmt_post_process_flute() {
     
@@ -635,8 +643,8 @@ std::set<size_t> load_nets_to_skip() {
 }
 
 void load_gnode_maps(SteinerContext& steiner_ctx) {
-    const std::string to_gnode_filename = "../../../scripts/node_dict_gr_1L_reg_v4.map";
-    const std::string to_dnode_filename = "../../../scripts/gr_dr_map_reg_v4_full_iib.map";
+    //const std::string to_gnode_filename = "../../../scripts/node_dict_gr_1L_reg_v4.map";
+    //const std::string to_dnode_filename = "../../../scripts/gr_dr_map_reg_v4_full_iib.map";
     const std::string post_processed_flute_filename = "./post_processed_flute_trees.txt";
 
     VTR_LOG("Loading post porcessed flute trees");
@@ -678,7 +686,7 @@ void load_gnode_maps(SteinerContext& steiner_ctx) {
     post_flute_file.close();
 
 
-    VTR_LOG("Loading loc_to_gnode map:\n");
+    /*VTR_LOG("Loading loc_to_gnode map:\n");
     std::ifstream toGfile(to_gnode_filename);
     if (!toGfile.is_open()) {
         std::cerr << "Error: Could not open file " << to_gnode_filename << std::endl;
@@ -717,9 +725,9 @@ void load_gnode_maps(SteinerContext& steiner_ctx) {
         }
     }
 
-    toGfile.close();
+    toGfile.close();*/
 
-    VTR_LOG("Loading gnode_to_dnode map:\n");
+    /*VTR_LOG("Loading gnode_to_dnode map:\n");
     std::ifstream toDfile(to_dnode_filename);
     if (!toDfile.is_open()) {
         std::cerr << "Error: Could not open file " << to_dnode_filename << std::endl;
@@ -744,7 +752,7 @@ void load_gnode_maps(SteinerContext& steiner_ctx) {
         steiner_ctx.gnode_to_dnodes[gnode_id] = std::move(dnode_ids);
     }
 
-    toDfile.close();
+    toDfile.close();*/
 }
 
 void create_connections_per_dnode_file(SteinerContext& steiner_ctx) {
@@ -836,6 +844,119 @@ void create_branch_node_map_file(SteinerContext& steiner_ctx) {
     free up memory.
 */
 
+std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> Steiner::build_corridor_list_per_connection_from_flute(std::string source_sb_id) const {
+   
+    std::unordered_map<int, std::vector<Corridor>> corridor_list_per_connection;
+    std::unordered_map<int, std::vector<unsigned short>> corridors_lookahead;
+    std::unordered_map<int, bool> connection_intra_tile;
+
+    std::unordered_map<std::string, std::string> child_to_parent;
+    // 1. Build reverse edge map: child → parent
+
+    if (source_sb_id.empty()) {
+        // Handle case with no source pin
+	VTR_LOG(" [Building corridors: No source for this net\n");
+        return {corridor_list_per_connection, corridors_lookahead, connection_intra_tile};
+    }
+
+    auto parse_coords = [](const std::string& sb_id) -> std::pair<int, int> {
+            auto underscore_pos = sb_id.find('_');
+            int x = std::stoi(sb_id.substr(0, underscore_pos));
+            int y = std::stoi(sb_id.substr(underscore_pos + 1));
+            return {x, y};
+    };
+
+
+    auto direction_from_to = [&parse_coords](const std::string& from, const std::string& to) -> std::string {
+        auto [x1, y1] = parse_coords(from);
+        auto [x2, y2] = parse_coords(to);
+        if (x1 == x2) return (y2 > y1) ? "N" : "S";
+        if (y1 == y2) return (x2 > x1) ? "E" : "W";
+        return ""; // invalid
+    };
+
+
+    auto is_opposite = [](const std::string& dir1, const std::string& dir2) -> bool {
+        return (dir1 == "N" && dir2 == "S") || (dir1 == "S" && dir2 == "N") ||
+               (dir1 == "E" && dir2 == "W") || (dir1 == "W" && dir2 == "E");
+    };
+
+
+    std::set<std::string> visited;
+    std::queue<std::pair<std::string, std::string>> q;
+    q.push({source_sb_id, ""}); // Source has no parent
+    visited.insert(source_sb_id); 
+
+    while (!q.empty()) {
+        auto [current_node, parent_node] = q.front();
+        q.pop();
+
+        // Check for edges from the current node
+        if (this->sb_edges.edge_map.count(current_node)) {
+            for (const auto& [neighbor_node, is_valid] : this->sb_edges.edge_map.at(current_node)) {
+
+		// all edges are marked true in both directions
+                if (visited.count(neighbor_node) || !is_valid) {
+                    continue;
+                }
+
+                // If it passes all checks, add to tree
+                visited.insert(neighbor_node);
+                child_to_parent[neighbor_node] = current_node;
+                q.push({neighbor_node, current_node});
+            }
+        }
+    }
+    for (const auto& [str_id, sb] : this->sb_map) {
+        if (sb.pin_id <= 0) {
+            continue; // Skip non-sinks and the source
+        }
+
+        int sink_id = sb.pin_id;
+        std::string current = std::to_string(sb.x) + "_" + std::to_string(sb.y);;
+	// if sink and source in the same tile, set to true
+	connection_intra_tile[sink_id] = (source_sb_id == current) ? true : false;
+        std::vector<Corridor> corridor_path;
+        std::vector<unsigned short> corridor_lookahead;
+
+	bool path_found = false;//(child_to_parent.count(current) || current == source_sb_id);
+	unsigned short previous_distance = 0;
+        while (child_to_parent.count(current)) {
+            const std::string& parent = child_to_parent.at(current);
+            auto [from_x, from_y] = parse_coords(parent);
+            auto [to_x, to_y] = parse_coords(current);
+	    // assumes that corridor are not horizontal, they are either horizontal or vertical
+	    unsigned short corridor_len = std::abs(from_x - to_x) + std::abs(from_y - to_y);
+
+            corridor_path.emplace_back(from_x, from_y, to_x, to_y);
+
+	    corridor_lookahead.emplace_back(previous_distance);
+
+ 	    previous_distance += corridor_len;
+
+            if (parent == source_sb_id) {
+                path_found = true;
+                break;
+            }
+            current = parent;
+        }
+
+        if (path_found) {
+            std::reverse(corridor_path.begin(), corridor_path.end());
+            std::reverse(corridor_lookahead.begin(), corridor_lookahead.end());
+            corridor_list_per_connection[sink_id] = std::move(corridor_path);
+	    corridors_lookahead[sink_id] = std::move(corridor_lookahead);
+        } else if (current != source_sb_id) {
+            VTR_LOG("Sink pin_id %d at %d is disconnected from the source. No path found.\n", sink_id, this->net_id);
+        }
+	else if (current == source_sb_id){ // intra-CLB connections having no edges, but we need to initialize the connection
+	    corridor_list_per_connection[sink_id] = std::move(corridor_path);
+	    corridors_lookahead[sink_id] = std::move(corridor_lookahead);
+	}
+    }
+
+    return {corridor_list_per_connection, corridors_lookahead, connection_intra_tile};
+}
 
 std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> Steiner::build_corridor_list_per_connection(std::string source_sb_id) const {
 
@@ -1032,12 +1153,17 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
 
     if (global_router_algorithm == "FLUTE") {
-    	// Load gnode maps onto global Steiner context
-	// TODO: in load_gnode_maps, reading the node_dict and gnode_dnode map can be removed
-    	if (create_steiner_constraints)
+	// go in the if only to load the post processed flute trees
+    	if (create_steiner_constraints && dump_raw_flute_trees == false)
        	    load_gnode_maps(steiner_ctx);
     	// Initialize FLUTE
     	//Flute::FluteState *flute1 = Flute::flute_init(FLUTE_POWVFILE, FLUTE_PORTFILE);
+	//flute initialization for the version FastRoute uses
+	static bool flute_initialized = false;
+	if (!flute_initialized) {
+		Flute::readLUT();   // or readLUT(FLUTE_POWVFILE, FLUTE_PORTFILE)
+    		flute_initialized = true;
+	}
     	VTR_LOG("FLUTE initialized.\n");
 
     	for (ClusterNetId net_id : cluster_ctx.clb_nlist.nets()) {
@@ -1051,7 +1177,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
     	    // Construct the RSMT for the net
     	    //Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, flute1, fluteOutfile, dump_raw_flute_trees);
-    	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+    	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees, global_router_algorithm);
 
     	    if (create_steiner_constraints) {
     	        // LUKA's implementation that fits in the FCCM implementation; but this implementation leads to high runtime due to repeated memory accesses
@@ -1063,7 +1189,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	        // by doing this, we reduce heap pops and redundant wires
     	        //
     	        // Below is the new implemenation driven to optimize runtime by reducing memory accesses
-    	        auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
+    	        auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection_from_flute(make_str_id(steiner.source_x, steiner.source_y));
     	        steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
     	        steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);
     	        steiner_ctx.net_connection_intra_tile[net_id] = std::move(connection_intra_tile);
@@ -1092,6 +1218,12 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     	        }       
     	    }
     	}
+	if (dump_raw_flute_trees == true){
+	    VTR_LOG("Finished running flute\n");
+	    VTR_LOG("Finished running flute\n");
+    	    fluteOutfile.close();
+	    VTR_ASSERT(false);
+	}
     }
     else if (global_router_algorithm == "FastRoute4.0") {
 	struct PinLess {
@@ -1306,7 +1438,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
     		}
     	    	
 		// this class may not be usable as it is
-		Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+		Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees, global_router_algorithm);
     	        
 		auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
     	        steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
@@ -1316,7 +1448,7 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
 
 	for (auto net_id: intra_tile_nets) {
 	    
-	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees);
+	    Steiner steiner(cluster_ctx.clb_nlist, net_id, blocks_locs, fluteOutfile, dump_raw_flute_trees, global_router_algorithm);
 	    auto [net_corridors, net_corridors_lookahead, connection_intra_tile] = steiner.build_corridor_list_per_connection(make_str_id(steiner.source_x, steiner.source_y));
     	    steiner_ctx.all_corridors[net_id] = std::move(net_corridors);
     	    steiner_ctx.all_corridors_lookahead[net_id] = std::move(net_corridors_lookahead);

@@ -524,10 +524,13 @@ int FT::run(std::vector<NET> &result) {
         routeLAll(TRUE);
         gen_brk_RSMT(TRUE, TRUE, TRUE, FALSE, noADJ);
         getOverflow2D(&maxOverflow);
+
         VTR_LOG("second L\n");
         newrouteLAll(FALSE, TRUE);
         getOverflow2D(&maxOverflow);
-        spiralRouteAll();
+        
+        
+	spiralRouteAll();
         newrouteZAll(10);
         VTR_LOG("first Z\n");
         past_cong = getOverflow2D(&maxOverflow);

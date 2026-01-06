@@ -123,7 +123,7 @@ public:
         ClusterNetId net_id,
         const vtr::vector_map<ClusterBlockId, t_block_loc>& block_locs,
         //Flute::FluteState *flute1, 
-	std::ofstream& fluteOutfile, bool dump_raw_flute_trees);
+	std::ofstream& fluteOutfile, bool dump_raw_flute_trees, std::string global_router_algorithm);
 
     void add_clb(int x, int y) {
         clb_map[make_str_id(x, y, -1)] = CLB(x, y);
@@ -145,7 +145,7 @@ public:
     void map_clbs_to_sbs();
 
     //bool detect_diagonal(Flute::FluteState *flute1);
-    //void build_sb_rsmt_flute(Flute::FluteState *flute1, std::ofstream& fluteOutfile);
+    void build_sb_rsmt_flute(std::ofstream& fluteOutfile);
     
     void build_sb_rsmt_post_process_flute();
     
@@ -160,6 +160,8 @@ public:
     void map_net_sink_to_dnodes(int source_x, int source_y, int sink_x, int sink_y, std::vector<int>& sink_ids);
 
     std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> build_corridor_list_per_connection(std::string source_sb_id) const;
+    
+    std::tuple<std::unordered_map<int, std::vector<Corridor>>, std::unordered_map<int, std::vector<unsigned short>>, std::unordered_map<int, bool>> build_corridor_list_per_connection_from_flute(std::string source_sb_id) const;
 
     void compute_dependency_graph_sink_order(std::string source_sb_id, std::unordered_map<size_t, std::unordered_map<int, int>>& sink_order);
     
