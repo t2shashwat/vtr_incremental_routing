@@ -1021,7 +1021,7 @@ int get_max_pins_per_net() {
     return (max_pins_per_net);
 }
 
-/*struct Criticality_comp {
+struct Criticality_comp {
     const float* criticality;
 
     Criticality_comp(const float* calculated_criticalities)
@@ -1031,9 +1031,9 @@ int get_max_pins_per_net() {
     bool operator()(int a, int b) const {
         return criticality[a] > criticality[b];
     }
-};*/
+};
 
-struct Criticality_comp {
+/*struct Criticality_comp {
     const float* criticality;
     static constexpr float EPS = 1e-6f;
 
@@ -1047,7 +1047,7 @@ struct Criticality_comp {
             return criticality[a] > criticality[b];
         return a > b;  // deterministic tie-breaker
     }
-};
+};*/
 
 template<typename ConnectionRouter>
 bool timing_driven_route_net(ConnectionRouter& router,
@@ -4076,8 +4076,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
 		}*/
 		//SHA: below is the original
-                stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
-            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "//" << num_sinks << " ";
+                //stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+            	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "///" << num_sinks << " ";
            	for (auto target : remaining_targets) {
                		net_order_file << target << " ";
            	}
