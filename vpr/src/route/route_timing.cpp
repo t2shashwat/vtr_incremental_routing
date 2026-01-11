@@ -1021,7 +1021,7 @@ int get_max_pins_per_net() {
     return (max_pins_per_net);
 }
 
-struct Criticality_comp {
+/*struct Criticality_comp {
     const float* criticality;
 
     Criticality_comp(const float* calculated_criticalities)
@@ -1030,6 +1030,22 @@ struct Criticality_comp {
 
     bool operator()(int a, int b) const {
         return criticality[a] > criticality[b];
+    }
+};*/
+
+struct Criticality_comp {
+    const float* criticality;
+    static constexpr float EPS = 1e-6f;
+
+    Criticality_comp(const float* calculated_criticalities)
+        : criticality{calculated_criticalities} {}
+
+    bool operator()(int a, int b) const {
+
+        if (std::fabs(criticality[a] - criticality[b]) > EPS)
+        //if (criticality[a] != criticality[b])
+            return criticality[a] > criticality[b];
+        return a > b;  // deterministic tie-breaker
     }
 };
 
