@@ -293,8 +293,10 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
 	else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false) {
 	
 	    // SHA: Optimized implementation for corridor routing
+	    VTR_ASSERT_SAFE(corridor_index >= 0);
+	    VTR_ASSERT_SAFE((size_t)corridor_index < corridor_data.corridors_per_connection.size());
 
-	    Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+	    const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 	    short corridor_xfrom = corridor.from_x;
 	    short corridor_yfrom = corridor.from_y;
 	    short corridor_xto = corridor.to_x;
@@ -699,8 +701,12 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	    //corridor_index = std::numeric_limits<int>::max(); 
     }
     // query the corridors list only for CHANX and CHANY
-    else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY)) {
-            Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+    else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY) && (corridor_index >= 0) && ((size_t)corridor_index < corridor_data.corridors_per_connection.size())) {
+	    //VTR_ASSERT_SAFE(corridor_index >= 0);
+	    //VTR_ASSERT_SAFE((size_t)corridor_index < corridor_data.corridors_per_connection.size());
+	    //const Corridor& corridor = corridor_data.corridors_per_connection.at(corridor_index);
+
+            const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 
 	    int eff_corridor_to_x = corridor.to_x;
 	    int eff_corridor_to_y = corridor.to_y;
@@ -1109,7 +1115,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
             	int to_xhigh = rr_graph_->node_xhigh(RRNodeId(to_node));
             	int to_yhigh = rr_graph_->node_yhigh(RRNodeId(to_node));
 
-            	Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+            	const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 
 	    	int eff_corridor_to_x = corridor.to_x;
 	    	int eff_corridor_to_y = corridor.to_y;
@@ -1130,7 +1136,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 	    	expected_cost = corridor_data.flute_lookahead[corridor_index] + offset;
 	    }
 	    else if (node_type == OPIN || node_type == SOURCE){
-		Corridor corridor = corridor_data.corridors_per_connection[0];
+		const Corridor& corridor = corridor_data.corridors_per_connection[0];
 
                 int eff_corridor_to_x = corridor.to_x;
                 int eff_corridor_to_y = corridor.to_y;
@@ -1283,7 +1289,7 @@ void ConnectionRouter<Heap>::add_route_tree_to_heap(
     		    int to_xhigh = rr_graph_->node_xhigh(RRNodeId(to_node));
     		    int to_yhigh = rr_graph_->node_yhigh(RRNodeId(to_node));
                     
-		    Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+		    const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 		    VTR_LOGV_DEBUG(router_debug_, " adding to heap from PRT: %d\n", corridor_index);
 	    	    VTR_LOGV_DEBUG(router_debug_, "   [PRT] Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
 	            VTR_LOGV_DEBUG(router_debug_, "       [PRT] seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
@@ -1470,7 +1476,7 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
             	int to_xhigh = rr_graph_->node_xhigh(RRNodeId(inode));
             	int to_yhigh = rr_graph_->node_yhigh(RRNodeId(inode));
 
-            	Corridor corridor = corridor_data.corridors_per_connection[corridor_index];
+            	const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 
             	int eff_corridor_to_x = corridor.to_x;
             	int eff_corridor_to_y = corridor.to_y;
@@ -1493,7 +1499,7 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
 		expected_cost = corridor_data.flute_lookahead[corridor_index];
 	    }
 	    else if (node_type == OPIN || node_type == SOURCE) {
-                Corridor corridor = corridor_data.corridors_per_connection[0]; // reported heap buffer overflow
+                const Corridor& corridor = corridor_data.corridors_per_connection[0]; // reported heap buffer overflow
 									       // before had the corridor_index
 
                 int eff_corridor_to_x = corridor.to_x;
