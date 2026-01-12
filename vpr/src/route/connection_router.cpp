@@ -778,6 +778,9 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
                 return;
             }
     }
+    else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY)) {
+        return;
+    }
 
     
 
