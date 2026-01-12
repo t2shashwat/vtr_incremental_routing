@@ -318,7 +318,7 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
     //sort so net with most sinks is routed first.
     auto sorted_nets = std::vector<ClusterNetId>(cluster_ctx.clb_nlist.nets().begin(), cluster_ctx.clb_nlist.nets().end());
     // DEFAULT
-    std::stable_sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
     /*
      * Configure the routing predictor
      */
@@ -1140,7 +1140,7 @@ bool timing_driven_route_net(ConnectionRouter& router,
     }
 
     // compare the criticality of different sink nodes
-    stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+    sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
 
     /* Update base costs according to fanout and criticality rules */
     update_rr_base_costs(num_sinks);
@@ -2382,7 +2382,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     //DEFAULT
     //sort so net with most sinks is routed first.
     auto sorted_nets = std::vector<ClusterNetId>(cluster_ctx.clb_nlist.nets().begin(), cluster_ctx.clb_nlist.nets().end());
-    std::stable_sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
+    std::sort(sorted_nets.begin(), sorted_nets.end(), more_sinks_than());
     
     // // (PARSA) Luka, 2025: debug
     // auto sorted_nets = std::vector<ClusterNetId>(cluster_ctx.clb_nlist.nets().begin(), cluster_ctx.clb_nlist.nets().end());
@@ -2934,7 +2934,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
 	  //std::random_device rd;  // Seed for random number generator
           //std::mt19937 g(rd());   // Standard Mersenne Twister engine
           //std::shuffle(begin(sorted_nets), end(sorted_nets), g);
-          std::stable_sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
+          std::sort(sorted_nets.begin(), sorted_nets.end(), less_sinks_than());
 	}
 		
 	//for (auto net_id : first_100_nets) {
@@ -3998,7 +3998,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                             connections_inf.add_best_sink_order(remaining_targets);	
                         }
                         else if (sink_order_itr == 0) {
-                            stable_sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
+                            sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
                         }
                         else if (sink_order_itr > 0) {
                             if (remaining_targets.size() <= all_permutation_max_fanout) {
@@ -4013,13 +4013,13 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     }
                     else {
                         sink_order_itr = max_sub_iterations + additional_sub_iterations;
-                        stable_sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
+                        sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
                         connections_inf.add_best_sink_order(remaining_targets);
                     }
                 }
             }
             else {
-                stable_sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
+                sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
             }
         }
         else if (router_opts.dependency_graph_sink_order) {
@@ -4028,7 +4028,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 minimal tree.
             */
             std::unordered_map<int, int> dependency_graph_sink_order = g_vpr_ctx.mutable_steiner().steiner_sink_orders[size_t(net_id)];
-            std::stable_sort(remaining_targets.begin(), remaining_targets.end(),
+            std::sort(remaining_targets.begin(), remaining_targets.end(),
                 [&](int a, int b) {
                     return dependency_graph_sink_order[a] < dependency_graph_sink_order[b];
                 });
@@ -4044,14 +4044,14 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 		// the below code was used to load sink order for the leaking iteration
 		VTR_LOG("Entering code to load sink order\n");
                 if (routing_predictor.get_leak_flag() == false) {
-                    stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                    sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
                 }
             	else {
 		    if (sink_order_index.empty()) {
-                        stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                        sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
 		    }
 		    else {
-                        stable_sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
+                        sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
 		    }
                     //sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
                 }
@@ -4076,7 +4076,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                     sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return sink_order_index[a] < sink_order_index[b];});
 		}*/
 		//SHA: below is the original
-                //stable_sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
+                sort(begin(remaining_targets), end(remaining_targets), Criticality_comp{pin_criticality});
             	net_order_file << itry << " " << (size_t)net_id << " " << remaining_targets.size() << "///" << num_sinks << " ";
            	for (auto target : remaining_targets) {
                		net_order_file << target << " ";
