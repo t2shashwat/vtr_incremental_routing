@@ -4164,11 +4164,18 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         cost_params.pres_fac = pres_fac;
         cost_params.delay_budget = ((budgeting_inf.if_set()) ? &conn_delay_budget : nullptr);
         cost_params.bias = router_opts.sbNode_lookahead_factor;
-        cost_params.offpath_penalty = router_opts.offpath_penalty;
         cost_params.relax_hop_order = router_opts.relax_hop_order;
         cost_params.global_occ_factor = router_opts.global_occ_factor;
 	cost_params.leak = routing_predictor.get_leak_flag();
 	cost_params.intra_tile_connection = false;
+	cost_params.offpath_penalty = router_opts.offpath_penalty;
+        
+	if (detailed_router == 1 && cost_params.leak == false) {
+	    cost_params.offpath_penalty = 1.0;
+	}
+	else if (detailed_router == 1 && cost_params.leak == true) {
+	    cost_params.offpath_penalty = router_opts.offpath_penalty;
+	}
 	/*if (router_opts.detailed_router == 1 && cost_params.leak == true){
             update_rr_base_costs(num_sinks);
 	}*/
