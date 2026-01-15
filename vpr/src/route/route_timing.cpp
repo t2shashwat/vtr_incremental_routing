@@ -4170,10 +4170,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	cost_params.intra_tile_connection = false;
 	cost_params.offpath_penalty = router_opts.offpath_penalty;
         
-	if (detailed_router == 1 && cost_params.leak == false) {
+	if (router_opts.detailed_router == 1 && cost_params.leak == false) {
 	    cost_params.offpath_penalty = 1.0;
 	}
-	else if (detailed_router == 1 && cost_params.leak == true) {
+	else if (router_opts.detailed_router == 1 && cost_params.leak == true) {
 	    cost_params.offpath_penalty = router_opts.offpath_penalty;
 	}
 	/*if (router_opts.detailed_router == 1 && cost_params.leak == true){
