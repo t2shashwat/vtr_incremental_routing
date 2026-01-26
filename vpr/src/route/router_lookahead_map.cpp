@@ -261,10 +261,16 @@ float MapLookahead::get_expected_cost(RRNodeId current_node, RRNodeId target_nod
 
         // Get the total cost using the combined delay and congestion costs
         std::tie(delay_cost, cong_cost) = get_expected_delay_and_cong(current_node, target_node, params, R_upstream);
+        VTR_LOG("[MapLookahead::get_expected_cost] from=%zu to =%d dist=%f delay=%f cong_cost=%f\n",
+            current_node, target_node, delay_cost + cong_cost, delay_cost, cong_cost);
         return delay_cost + cong_cost;
     } else if (rr_type == IPIN) { /* Change if you're allowing route-throughs */
+        VTR_LOG("[MapLookahead::get_expected_cost] (branch ipin) from=%zu to =%d dist=%f\n",
+            current_node, target_node, (device_ctx.rr_indexed_data[RRIndexedDataId(SINK_COST_INDEX)].base_cost));
         return (device_ctx.rr_indexed_data[RRIndexedDataId(SINK_COST_INDEX)].base_cost);
     } else { /* Change this if you want to investigate route-throughs */
+        VTR_LOG("[MapLookahead::get_expected_cost] (else branch) from=%zu to =%d \n",
+            current_node, target_node);
         return (0.);
     }
 }

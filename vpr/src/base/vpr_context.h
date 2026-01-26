@@ -425,7 +425,7 @@ struct RoutingContext : public Context {
     sink_order sink_order_strategy = sink_order::DEFAULT;
     size_t partial_tree_size;
     vtr::Point<double> geometric_center{0.0, 0.0};
-    std::unordered_map<int, std::pair<int, int>> distances;
+    std::unordered_map<int, std::pair<int, float>> distances;
     const RouterLookahead* lookahead;
     t_conn_cost_params cost_params;
 };

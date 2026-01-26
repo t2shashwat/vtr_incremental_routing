@@ -282,12 +282,22 @@ void update_geometric_center(int inode) {
 // SPH sink order startegy.
 void update_shortest_distances(int inode) {
     auto& route_ctx = g_vpr_ctx.mutable_routing();
-    
+
     for (auto& [key, value] : route_ctx.distances) {
         const auto& pos = value.first;
-        int& best_dist = value.second;
+        float& best_dist = value.second;
 
-        int dis = route_ctx.lookahead->get_expected_cost(RRNodeId(inode), RRNodeId(pos), route_ctx.cost_params, 0);
+        VTR_LOG("[update_shortest_distances] Before get_expected_cost \n");
+
+        float dis = route_ctx.lookahead->get_expected_cost(
+            RRNodeId(inode),
+            RRNodeId(pos),
+            route_ctx.cost_params,
+            0
+        );
+
+        VTR_LOG("[update_shortest_distances] SPH distance from=%zu to=%d dist=%f\n",
+            inode, pos, dis);
 
         if (dis < best_dist) {
             best_dist = dis;

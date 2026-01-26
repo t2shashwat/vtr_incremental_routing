@@ -4264,15 +4264,20 @@ static t_rt_node* setup_routing_resources_incr_route(const t_file_name_opts& fil
             + device_ctx.rr_graph.node_yhigh(RRNodeId(rt_root->inode))) / 2.0);
         m_route_ctx.partial_tree_size = 1; // only the source node
 
+        VTR_LOG("[setup_routing_resources_incr_route] clear distances and set distances to max \n");
         // SPH: Add the remaining targets to our distance state
         auto& remaining_targets = connections_inf.get_remaining_targets();
         m_route_ctx.distances.clear();
         m_route_ctx.distances.reserve(remaining_targets.size());
+        VTR_LOG("[setup_routing_resources_incr_route] initial distances (inode : dist): ");
         for (int itarget = 0; itarget<remaining_targets.size(); itarget++) {
             int terminal = route_ctx.net_rr_terminals[net_id][remaining_targets[itarget]];
-            m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<int>::max()};
+            m_route_ctx.distances[itarget] = {terminal, std::numeric_limits<float>::max()};
+            VTR_LOG("%d:%f ", m_route_ctx.distances[itarget].first, m_route_ctx.distances[itarget].second);
         }
+        VTR_LOG("\n");
 
+        VTR_LOG("[setup_routing_resources_incr_route] Compute distances from source=%zu \n", rt_root->inode);
         // SPH: Compute distance to source
         update_shortest_distances(rt_root->inode);
         // ========================================================================================
