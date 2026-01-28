@@ -2432,6 +2432,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     std::set<size_t> nets_to_skip;
     std::vector<ClusterNetId> golden_net_order;
     std::set<size_t> congested_nets;
+    std::set<size_t> sph_nets;
     if(router_opts.detailed_router == 0 && router_opts.nets_to_skip == 1) {
     	//reading file with nets to skip
     	std::ifstream nets_skip_fp;
@@ -2448,6 +2449,20 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	     nets_to_skip.insert(net_id);
     	}
     }
+    std::ifstream sph_nets_fp;
+    std::string sph_nets_filename = "sph_nets.txt";
+    sph_nets_fp.open(sph_nets_filename);
+    int net_id;
+    int lineno = 0;
+    if (!sph_nets_fp.is_open()) {
+        vpr_throw(VPR_ERROR_ROUTE, get_arch_file_name(), lineno,
+            "Cannot open sph_nets.txt file");
+    }
+    while (sph_nets_fp >> net_id)
+    {
+            sph_nets.insert(net_id);
+    }
+    sph_nets_fp.close();
     std::string net_order_filename = "net_order_per_iteration.txt";
     std::ofstream net_order_file(net_order_filename);
     if(router_opts.detailed_router == 1) {
@@ -2812,6 +2827,7 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
                                                            worst_negative_slack,
                                                            routing_predictor,
                                                            is_flat,
+                                                           sph_nets.find(size_t(net_id)) != sph_nets.end(),
 							   net_order_file);
             if (!is_routable) {
                 return (false); //Impossible to route
@@ -3420,6 +3436,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                  float worst_negative_slack,
                                  const RoutingPredictor& routing_predictor,
                                  bool is_flat,
+                                 bool is_sph,
 				 std::ofstream& net_order_file) {
     auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& route_ctx = g_vpr_ctx.mutable_routing();
@@ -3472,6 +3489,7 @@ bool try_timing_driven_route_net_incr_route(const t_file_name_opts& filename_opt
                                             worst_negative_slack,
                                             routing_predictor,
                                             is_flat,
+                                            is_sph,
 					    net_order_file);
 
         profiling::net_fanout_end(cluster_ctx.clb_nlist.net_sinks(net_id).size());
@@ -3508,6 +3526,7 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                              float worst_neg_slack,
                              const RoutingPredictor& routing_predictor,
                              bool is_flat,
+                             bool is_sph,
 			     std::ofstream& net_order_file) {
     /* Returns true as long as found some way to hook up this net, even if that *
      * way resulted in overuse of resources (congestion).  If there is no way   *
@@ -4005,10 +4024,10 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 remaining_targets_copy.pop_back();
             }
 
-            std::vector<size_t> vec = {250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
-                10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};
-            
-            if (std::find(vec.begin(), vec.end(), size_t(net_id)) != vec.end()) {
+            //std::vector<size_t> vec = {250, 10053, 3368, 2988, 4673, 8660, 4382, 6366, 2346, 2362, 30618, 12056, 7756, 12074, 59819, 11955, 47317, 5708, 37977,
+            //    10212, 39237, 207300, 45911, 12264, 103878, 237002, 161782, 38749, 79671, 253001, 37853, 58063, 92973, 30041, 315759, 74548, 142408, 53797, 58924};
+            //std::vector<size_t> vec = {6331,1458,10393,10444,10443,11193,69689,40895,44204,40895,8384,2557,125930,2273,11879,14040,37789,126714,2273,99208,55279,70030,113706,9163,37985,126714,23389,55269,28328,27059,50012,72963,72326,100189,129570,167170,135686,239706,75950,171112,36728,9556,17504,40071,158505,129312,85334,66046,25630,229315,44563,336668,41379,526772,611180,579852,369595,92981,363601,160614,71420,547242,459190,423661,626061,612179,22564,361975,211374,655991,457362,182898,132839,528097,799537,139,355596,188799,390666,781252,308642,52505,534078,707697,771062,17304,10257,29398,56483,99288};
+            if (is_sph) {
                 VTR_LOG("itry=%d net=%zu itarget=%u detailed=%d incremental_allowed=%d num_sinks=%u\n",
                     itry, size_t(net_id), itarget, router_opts.detailed_router, true, num_sinks);
 
