@@ -281,23 +281,25 @@ void update_geometric_center(int inode) {
 // Update the shortest distances to partial route tree for remaining targets.
 // SPH sink order startegy.
 void update_shortest_distances(int inode) {
+    auto& device_ctx = g_vpr_ctx.device();
     auto& route_ctx = g_vpr_ctx.mutable_routing();
+    const auto& rr_graph = device_ctx.rr_graph;
 
+
+    int x,y;
+    t_rr_type rr_type = rr_graph.node_type(RRNodeId(inode));
+    if ((rr_type == CHANX || rr_type == CHANY) && device_ctx.rr_graph.node_direction(RRNodeId(inode)) == Direction::INC){
+        x = device_ctx.rr_graph.node_xhigh(RRNodeId(inode));
+        y = device_ctx.rr_graph.node_yhigh(RRNodeId(inode));
+    } else {
+        x = device_ctx.rr_graph.node_xlow(RRNodeId(inode));
+        y = device_ctx.rr_graph.node_ylow(RRNodeId(inode));
+    }
     for (auto& [key, value] : route_ctx.distances) {
         const auto& pos = value.first;
-        float& best_dist = value.second;
+        int& best_dist = value.second;
 
-        VTR_LOG("[update_shortest_distances] Before get_expected_cost \n");
-
-        float dis = route_ctx.lookahead->get_expected_cost(
-            RRNodeId(inode),
-            RRNodeId(pos),
-            route_ctx.cost_params,
-            0
-        );
-
-        VTR_LOG("[update_shortest_distances] SPH distance from=%zu to=%d dist=%f\n",
-            inode, pos, dis);
+        int dis = std::abs(pos.first - x) + std::abs(pos.second - y);
 
         if (dis < best_dist) {
             best_dist = dis;
