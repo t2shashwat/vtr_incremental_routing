@@ -1470,6 +1470,74 @@ void steiner_pre_processing(bool create_steiner_constraints, bool compute_depend
         VTR_LOG("[FastRoute] Runtime: %.3lf ms\n", fr_runtime); 
         VTR_LOG("[FastRoute post processing] Runtime: %lf .3ms\n", global_tree_processing_runtime); 
 
+	size_t payload_bytes = 0;
+
+	for (const auto& [net, inner_map] : steiner_ctx.all_corridors_lookahead) {
+    	    for (const auto& [conn, vec] : inner_map) {
+                payload_bytes += vec.capacity() * sizeof(unsigned short);
+            }
+	}
+	
+	size_t outer_overhead = 0;
+	outer_overhead =
+        steiner_ctx.all_corridors_lookahead.bucket_count() * sizeof(void*)
+  +     steiner_ctx.all_corridors_lookahead.size() *
+        sizeof(decltype(steiner_ctx.all_corridors_lookahead)::value_type);
+
+	size_t inner_overhead = 0;
+
+	for (const auto& [net, inner_map] : steiner_ctx.all_corridors_lookahead) {
+            inner_overhead +=
+                inner_map.bucket_count() * sizeof(void*)
+                + inner_map.size() *
+                sizeof(decltype(inner_map)::value_type);
+	}
+	size_t vector_overhead = 0;
+
+	for (const auto& [net, inner_map] : steiner_ctx.all_corridors_lookahead) {
+    	    vector_overhead +=
+            inner_map.size() * sizeof(std::vector<unsigned short>);
+	}
+	size_t total_bytes =
+   	 payload_bytes +
+    	outer_overhead +
+    	inner_overhead +
+    	vector_overhead;
+	VTR_LOG("=== Corridor Lookahead Memory Breakdown ===\n");
+
+	VTR_LOG("Payload bytes (vector data)      : %.2f MB (%zu bytes)\n",
+	        payload_bytes / (1024.0 * 1024.0),
+	        payload_bytes);
+	
+	VTR_LOG("Outer map overhead               : %.2f MB (%zu bytes)\n",
+	        outer_overhead / (1024.0 * 1024.0),
+	        outer_overhead);
+	
+	VTR_LOG("Inner maps overhead              : %.2f MB (%zu bytes)\n",
+	        inner_overhead / (1024.0 * 1024.0),
+	        inner_overhead);
+	
+	VTR_LOG("Vector object overhead           : %.2f MB (%zu bytes)\n",
+	        vector_overhead / (1024.0 * 1024.0),
+	        vector_overhead);
+	
+	VTR_LOG("--------------------------------------------------\n");
+	
+	VTR_LOG("TOTAL corridor lookahead memory  : %.2f MB (%zu bytes)\n",
+	        total_bytes / (1024.0 * 1024.0),
+	        total_bytes);
+	size_t total_vectors = 0;
+	size_t total_entries = 0;
+	
+	for (const auto& [net, inner_map] : steiner_ctx.all_corridors_lookahead) {
+	    total_vectors += inner_map.size();
+	    for (const auto& [conn, vec] : inner_map) {
+	        total_entries += vec.size();
+	    }
+	}
+	
+	VTR_LOG("Total vectors                    : %zu\n", total_vectors);
+	VTR_LOG("Total corridor entries           : %zu\n", total_entries);
     }
 
     fluteOutfile.close();
