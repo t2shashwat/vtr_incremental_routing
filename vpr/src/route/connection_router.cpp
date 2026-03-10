@@ -388,6 +388,9 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
             // If we're running RCV, the path will be stored in the path_data->path_rr vector
             // This is then placed into the traceback so that the correct path is returned
             // TODO: This can be eliminated by modifying the actual traceback function in route_timing
+
+            
+
             if (rcv_path_manager.is_enabled()) {
                 rcv_path_manager.insert_backwards_path_into_traceback(cheapest->path_data, cheapest->cost, cheapest->backward_path_cost, route_ctx);
             }
@@ -1062,7 +1065,9 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     float cong_cost = 0.;
     if (reached_configurably) {
-        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
+        // offpath_penalty = alpha bias (0 -> 1)
+        // SHOULD BE A PARAMETER HARDCODED FOR NOW!
+        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, 0.2);
 	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.
@@ -1079,7 +1084,8 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     }
 
     //Update the backward cost (upstream already included)
-    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost * offpath_penalty; //Congestion cost
+    // COST WAS HERE!
+    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost; //* offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
     //VTR_LOG("back_cost: %f\n  (cost_params.criticality = %f) (cong_cost = %f) (offpath = %f)\n", to->backward_path_cost, cost_params.criticality, cong_cost, offpath_penalty);
 
@@ -1095,7 +1101,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     if (rcv_path_manager.is_enabled() && to->path_data != nullptr) {
         to->path_data->backward_delay += cost_params.criticality * Tdel;
-        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
+        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac, 0.0);
 
         total_cost = compute_node_cost_using_rcv(cost_params, to_node, target_node, to->path_data->backward_delay, to->path_data->backward_cong, to->R_upstream);
     } else {

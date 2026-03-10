@@ -31,7 +31,7 @@ t_trace* update_traceback(t_heap* hptr, int target_net_pin_index, ClusterNetId n
 
 void reset_path_costs(const std::vector<int>& visited_rr_nodes);
 
-float get_rr_cong_cost(int inode, float pres_fac, float global_occ_factor);
+float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias);
 
 /* Returns the base cost of using this rr_node */
 inline float get_single_rr_cong_base_cost(int inode) {
@@ -66,7 +66,7 @@ inline float get_single_rr_cong_pres_cost(int inode, float pres_fac) {
 
 /* Returns the congestion cost of using this rr_node,
  * *ignoring* non-configurable edges */
-inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ_factor) {
+inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias) {
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
@@ -86,7 +86,12 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ
         pres_cost = 1.;
     }
 
-    float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost;
+    float bias_minimum = 1.f / (pres_cost * route_ctx.rr_node_route_inf[inode].acc_cost);
+    float bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
+    if (alpha_bias == 0.)
+        bias = 1.;
+    
+    float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
     
     //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
     //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
@@ -94,7 +99,7 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float global_occ
     //VTR_LOGV_DEBUG("bc: %s acc_cost: (%s) pres_cost: (%s) g_occ: %d overuse: %d\n", device_ctx.rr_indexed_data[cost_index].base_cost, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
 
     VTR_ASSERT_DEBUG_MSG(
-        cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac),
+        cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac) * bias,
         "Single rr node congestion cost is inaccurate");
 
     return cost;

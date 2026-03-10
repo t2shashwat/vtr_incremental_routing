@@ -619,7 +619,7 @@ std::pair<int, float> get_tree_cost(t_trace* route_segment_start){
     for (;;) {
         total_detailed_nodes++;	
 	//float acc_cost = route_ctx.rr_node_route_inf[tptr->index].acc_cost;
-	float cost = get_rr_cong_cost(tptr->index, 5.0, 1.0);
+	float cost = get_rr_cong_cost(tptr->index, 5.0, 0.0);
 	cong_cost += cost; 
 	//VTR_LOG("(%d) cong_cost: %f \n", tptr->index, cong_cost);
         if (tptr->iswitch == OPEN) { //End of branch
@@ -1010,11 +1010,11 @@ void reset_path_costs(const std::vector<int>& visited_rr_nodes) {
 
 /* Returns the congestion cost of using this rr-node plus that of any      *
  * non-configurably connected rr_nodes that must be used when it is used.  */
-float get_rr_cong_cost(int inode, float pres_fac, float global_occ_factor) {
+float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias) {
     auto& device_ctx = g_vpr_ctx.device();
     auto& route_ctx = g_vpr_ctx.routing();
 
-    float cost = get_single_rr_cong_cost(inode, pres_fac, global_occ_factor);
+    float cost = get_single_rr_cong_cost(inode, pres_fac, alpha_bias);
 
     if (route_ctx.non_configurable_bitset.get(inode)) {
         // Access unordered_map only when the node is part of a non-configurable set
@@ -1025,7 +1025,7 @@ float get_rr_cong_cost(int inode, float pres_fac, float global_occ_factor) {
                     continue; //Already included above
                 }
 
-                cost += get_single_rr_cong_cost(node, pres_fac, global_occ_factor);
+                cost += get_single_rr_cong_cost(node, pres_fac, alpha_bias);
             }
         }
     }
@@ -1738,7 +1738,7 @@ void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_f
                 VTR_ASSERT(rr_graph.node_type(RRNodeId(to_node)) == OPIN);
 
                 //Add the OPIN to the heap according to it's congestion cost
-                cost = get_rr_cong_cost(to_node, pres_fac, global_occ_factor);
+                cost = get_rr_cong_cost(to_node, pres_fac, 0.0);
                 add_node_to_heap(heap, route_ctx.rr_node_route_inf,
                                  to_node, cost, OPEN, RREdgeId::INVALID(),
                                  0., 0.);
