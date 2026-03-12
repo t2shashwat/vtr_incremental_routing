@@ -1283,6 +1283,9 @@ struct t_router_opts {
     float acc_fac_within_gr = 1.0;
     float acc_fac_within_gr_first_iter = 1.0;
     //==========================================
+
+    // (PARSA) Rayan
+    float alpha_bias = 0.0;
 };
 
 struct t_analysis_opts {
@@ -1553,7 +1556,7 @@ struct t_rr_node_route_inf {
     RREdgeId prev_edge;
 
     float acc_cost;
-    float path_cost;
+    float path_cost; // total cost
     float backward_path_cost;
 
     short target_flag;

@@ -2297,6 +2297,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Set shuffle for after ten iterations")
         .default_value("0")
         .show_in(argparse::ShowIn::HELP_ONLY);
+
+    route_grp.add_argument(args.alpha_bias, "--alpha_bias")
+        .help(
+            "Set alpha bias for shuffle")
+        .default_value("0.0")
+        .show_in(argparse::ShowIn::USAGE_AND_HELP);
     
     route_grp.add_argument(args.save_history_cost_per_iteration, "--save_history_cost_per_iteration")
         .help(

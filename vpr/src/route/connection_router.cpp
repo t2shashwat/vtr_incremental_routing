@@ -83,7 +83,8 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
 
     t_heap* cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                                 cost_params,
-                                                                bounding_box, net_id, sink_id, itry, corridor_data);
+                                                                bounding_box, net_id, sink_id, itry, corridor_data,
+                                                                rt_root);
 
     if (cheapest == nullptr) {
         //Found no path found within the current bounding box.
@@ -130,7 +131,8 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_common_setup(
         //Try finding the path again with the relaxed bounding box
         cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                             cost_params,
-                                                            full_device_bounding_box, net_id, sink_id, itry, corridor_data);
+                                                            full_device_bounding_box, net_id, sink_id, itry, corridor_data,
+                                                            rt_root);
     }
 
     if (cheapest == nullptr) {
@@ -200,7 +202,7 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 
     t_heap* cheapest = timing_driven_route_connection_from_heap(sink_node,
                                                                 cost_params,
-                                                                high_fanout_bb, net_id, sink_id, itry, corridor_data);
+                                                                high_fanout_bb, net_id, sink_id, itry, corridor_data, rt_root);
 
     if (cheapest == nullptr) {
         //Found no path, that may be due to an unlucky choice of existing route tree sub-set,
@@ -248,7 +250,8 @@ std::pair<bool, t_heap> ConnectionRouter<Heap>::timing_driven_route_connection_f
 template<typename Heap>
 t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sink_node,
                                                                          const t_conn_cost_params cost_params,
-                                                                         t_bb bounding_box, ClusterNetId net_id, int sink_id, int itry, CorridorData& corridor_data) {
+                                                                         t_bb bounding_box, ClusterNetId net_id, int sink_id, int itry, CorridorData& corridor_data,
+                                                                         t_rt_node *rt_root) {
     VTR_ASSERT_SAFE(heap_.is_valid());
 
     if (heap_.is_empty_heap()) { //No source
@@ -389,11 +392,50 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
             // This is then placed into the traceback so that the correct path is returned
             // TODO: This can be eliminated by modifying the actual traceback function in route_timing
 
-            
-
             if (rcv_path_manager.is_enabled()) {
                 rcv_path_manager.insert_backwards_path_into_traceback(cheapest->path_data, cheapest->cost, cheapest->backward_path_cost, route_ctx);
             }
+            
+            // Verification of the admissible bias
+            // (total path cost >= lookahead cost btw src and sink)
+            //if (cheapest->cost >= cost_params.lookahead->lookahead(net_id, sink_id, RRNodeId(inode), cheapest->backward_path_cost)) {
+            
+            // get source node
+
+            // compute lookahead cost from current node to sink
+            
+
+            // if total cost >= lookahead cost, then the path is admissible !
+
+            // Verify if not fanout node
+            auto& cluster_ctx = g_vpr_ctx.clustering();
+            size_t fanout = cluster_ctx.clb_nlist.net_sinks(net_id).size();
+
+            // Verify if manhattan distance 
+            int src_x = rr_graph_->node_xlow(RRNodeId(rt_root->inode));
+            int src_y = rr_graph_->node_ylow(RRNodeId(rt_root->inode));
+            int sink_x = rr_graph_->node_xlow(RRNodeId(sink_node));
+            int sink_y = rr_graph_->node_ylow(RRNodeId(sink_node));
+            int manhattan_distance = std::abs(src_x - sink_x) + std::abs(src_y - sink_y);
+            
+            // Use the OPIN child of the SOURCE as the lookahead origin.
+            // get_expected_cost(SOURCE, sink) includes the SOURCE node's own base cost (~1.0),
+            // but backward_path_cost starts accumulating from 0 at the SOURCE (seeded with no
+            // self-cost). This causes a systematic off-by-one of exactly 1.0. Starting from
+            // the OPIN skips the SOURCE's own contribution, matching backward_path_cost.
+
+            // removed 1 
+            /*float lookahead_cost1 = router_lookahead_.get_expected_cost(RRNodeId(rt_root->inode), RRNodeId(sink_node), cost_params, 0.0f) - 1.0f;
+
+            if (cheapest->backward_path_cost < lookahead_cost1
+                && fanout <= 64
+                && manhattan_distance > 0
+                && rt_root->u.child_list == nullptr) {
+                VTR_LOG(">> src node: %d, sink node: %d // actual: %g < lookahead: %g\n", rt_root->inode, sink_node, cheapest->backward_path_cost, lookahead_cost1);
+                VTR_LOG(">> src coordinates: (%d, %d), sink coordinates: (%d, %d)\n", src_x, src_y, sink_x, sink_y);
+                VTR_LOG(">> Manhattan distance btw src and sink: %d\n", manhattan_distance);
+                VTR_LOG("\n");
+            }*/
 
             VTR_LOGV_DEBUG(router_debug_, "  Found target %8d (%s)\n", inode, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
             break;
@@ -1066,8 +1108,13 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     float cong_cost = 0.;
     if (reached_configurably) {
         // offpath_penalty = alpha bias (0 -> 1)
-        // SHOULD BE A PARAMETER HARDCODED FOR NOW!
-        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, 0.2);
+        // SHOULD BE A PARAMETER HARDCODED FOR NOW
+        // ALPHA BIAS HERE AAAAA
+
+        // Get alpha bias from the program parameters
+        float alpha_bias = cost_params.alpha_bias;
+        
+        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.alpha_bias);
 	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.

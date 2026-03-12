@@ -1155,6 +1155,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
     cost_params.offpath_penalty = router_opts.offpath_penalty;
     cost_params.detailed_router = router_opts.detailed_router;
 
+    cost_params.alpha_bias = router_opts.alpha_bias;
+
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
         //VTR_ASSERT(router_opts.clock_modeling == DEDICATED_NETWORK);
@@ -4188,7 +4190,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	//else {
 	//    cost_params.detailed_router = 0;
 	//}
-	
+	cost_params.alpha_bias = router_opts.alpha_bias;
+
 	// Pre-route to clock source for clock nets (marked as global nets)
         if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
             //VTR_ASSERT(router_opts.clock_modeling == DEDICATED_NETWORK);

@@ -177,7 +177,8 @@ class ConnectionRouter : public ConnectionRouterInterface {
         int sink_node,
         const t_conn_cost_params cost_params,
         t_bb bounding_box,
-        ClusterNetId net_id, int sink_id, int itry, CorridorData& corridor_data);
+        ClusterNetId net_id, int sink_id, int itry, CorridorData& corridor_data,
+        t_rt_node* rt_root);
 
     // Expand this current node if it is a cheaper path.
     void timing_driven_expand_cheapest(

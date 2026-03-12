@@ -34,6 +34,8 @@ struct t_conn_cost_params {
     float global_occ_factor = 0.0;
     bool leak = false;
     bool intra_tile_connection = false;
+    // (PARSA) Rayan
+    float alpha_bias = 0.0;
     //TODO: Eventually once delay budgets are working, t_conn_delay_budget
     //should be factoured out, and the delay budget parameters integrated
     //into this struct instead. For now left as a pointer to control whether
