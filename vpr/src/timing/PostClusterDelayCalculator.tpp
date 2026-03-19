@@ -224,10 +224,41 @@ inline tatum::Time PostClusterDelayCalculator::atom_net_delay(const tatum::Timin
             tatum::NodeId sink_node = tg.edge_sink_node(edge_id);
 
             AtomPinId atom_src_pin = netlist_lookup_.tnode_atom_pin(src_node);
-            VTR_ASSERT(atom_src_pin);
-
             AtomPinId atom_sink_pin = netlist_lookup_.tnode_atom_pin(sink_node);
-            VTR_ASSERT(atom_sink_pin);
+            if (!atom_src_pin || !atom_sink_pin) {
+                constexpr const char* kForcedClockNetName = "clk_BUFGP_net_top_wire";
+                bool is_forced_clock_synthetic_edge = false;
+
+                if (!atom_src_pin && atom_sink_pin
+                    && tg.edge_type(edge_id) == tatum::EdgeType::INTERCONNECT
+                    && tg.node_type(src_node) == tatum::NodeType::SOURCE) {
+                    AtomNetId sink_net = netlist_.pin_net(atom_sink_pin);
+                    if (sink_net && netlist_.net_name(sink_net) == kForcedClockNetName) {
+                        is_forced_clock_synthetic_edge = true;
+                    }
+                }
+
+                if (is_forced_clock_synthetic_edge) {
+                    // Forced clock fallback builds a synthetic SOURCE->pin edge which has no
+                    // corresponding atom source pin. Treat only this edge as ideal/zero-delay.
+                    static bool warned_forced_clock_edge = false;
+                    if (!warned_forced_clock_edge) {
+                        VTR_LOG_WARN("Encountered forced-clock synthetic timing edge in PostClusterDelayCalculator; "
+                                     "treating it as zero delay. src_node=%zu sink_node=%zu net=%s\n",
+                                     size_t(src_node), size_t(sink_node), kForcedClockNetName);
+                        warned_forced_clock_edge = true;
+                    }
+
+                    edge_delay = tatum::Time(0.);
+                    set_cached_delay(edge_id, delay_type, edge_delay);
+                    return edge_delay;
+                }
+
+                VPR_FATAL_ERROR(VPR_ERROR_TIMING,
+                                "Missing atom pin mapping for timing edge %zu: src_node=%zu (%d) sink_node=%zu (%d)",
+                                size_t(edge_id), size_t(src_node), int(tg.node_type(src_node)),
+                                size_t(sink_node), int(tg.node_type(sink_node)));
+            }
 
             AtomBlockId atom_src_block = netlist_.pin_block(atom_src_pin);
             AtomBlockId atom_sink_block = netlist_.pin_block(atom_sink_pin);

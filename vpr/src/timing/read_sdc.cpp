@@ -1,6 +1,8 @@
 #include "read_sdc.h"
 
 #include <regex>
+#include <queue>
+#include <set>
 
 #include "vtr_log.h"
 #include "vtr_assert.h"
@@ -51,6 +53,65 @@ std::string orig_blif_name(std::string name);
 
 std::regex glob_pattern_to_regex(const std::string& glob_pattern);
 
+namespace {
+constexpr const char* kForcedClockNetName = "clk_BUFGP_net_top_wire";
+
+void maybe_force_clock_driver(const AtomNetlist& netlist,
+                              const std::map<std::string, AtomPinId>& netlist_primary_ios,
+                              std::set<AtomPinId>& netlist_clock_drivers) {
+    AtomNetId forced_clock_net = netlist.find_net(kForcedClockNetName);
+    if (!forced_clock_net) {
+        return;
+    }
+
+    // Only force when the named clock is not represented as a primary I/O.
+    if (netlist_primary_ios.count(kForcedClockNetName)) {
+        return;
+    }
+
+    AtomPinId forced_clock_driver = netlist.net_driver(forced_clock_net);
+    if (!forced_clock_driver || netlist.pin_is_constant(forced_clock_driver)) {
+        return;
+    }
+
+    if (!netlist_clock_drivers.count(forced_clock_driver)) {
+        netlist_clock_drivers.insert(forced_clock_driver);
+        VTR_LOG_WARN("Forcing net '%s' as a timing clock source since it is not a primary input clock.\n",
+                     kForcedClockNetName);
+    }
+}
+
+AtomPinId pick_clock_source_pin(const AtomNetlist& netlist, AtomNetId clock_net) {
+    AtomPinId driver = netlist.net_driver(clock_net);
+    if (driver) {
+        return driver;
+    }
+
+    // Fallback for IO22-absorbed clock nets which can be sink-only in the atom netlist.
+    auto sinks = netlist.net_sinks(clock_net);
+    if (!sinks.empty()) {
+        return *sinks.begin();
+    }
+
+    return AtomPinId::INVALID();
+}
+
+tatum::NodeId create_forced_clock_source_tnode(const AtomLookup& lookup,
+                                               tatum::TimingGraph& tg,
+                                               AtomPinId pin) {
+    tatum::NodeId pin_tnode = lookup.atom_pin_tnode(pin);
+    if (!pin_tnode) {
+        return tatum::NodeId::INVALID();
+    }
+
+    // Build an explicit root source for the forced clock net so Tatum's
+    // clock propagation invariants are satisfied.
+    tatum::NodeId forced_src = tg.add_node(tatum::NodeType::SOURCE);
+    tg.add_edge(tatum::EdgeType::INTERCONNECT, forced_src, pin_tnode);
+    return forced_src;
+}
+} // namespace
+
 class SdcParseCallback : public sdcparse::Callback {
   public:
     SdcParseCallback(const AtomNetlist& netlist,
@@ -65,8 +126,9 @@ class SdcParseCallback : public sdcparse::Callback {
   public: //sdcparse::Callback interface
     //Start of parsing
     void start_parse() override {
-        netlist_clock_drivers_ = find_netlist_logical_clock_drivers(netlist_);
         netlist_primary_ios_ = find_netlist_primary_ios(netlist_);
+        netlist_clock_drivers_ = find_netlist_logical_clock_drivers(netlist_);
+        maybe_force_clock_driver(netlist_, netlist_primary_ios_, netlist_clock_drivers_);
     }
 
     //Sets current filename
@@ -141,10 +203,38 @@ class SdcParseCallback : public sdcparse::Callback {
                 }
 
                 if (!found) {
-                    vpr_throw(VPR_ERROR_SDC, fname_.c_str(), lineno_,
-                              "Clock name or pattern '%s' does not correspond to any nets."
-                              " To create a virtual clock, use the '-name' option.",
-                              clock_name_glob_pattern.c_str());
+                    // Special-case fallback for absorbed clock net which may not be in
+                    // netlist_clock_drivers_ due missing primary-input/driver structure.
+                    if (clock_name_glob_pattern == kForcedClockNetName) {
+                        AtomNetId forced_clock_net = netlist_.find_net(kForcedClockNetName);
+                        if (forced_clock_net) {
+                            AtomPinId clock_source_pin = pick_clock_source_pin(netlist_, forced_clock_net);
+                            if (clock_source_pin) {
+                                const auto& clock_name = netlist_.net_name(forced_clock_net);
+                                tatum::DomainId netlist_clk = tc_.create_clock_domain(clock_name);
+                                if (sdc_clocks_.count(netlist_clk)) {
+                                    vpr_throw(VPR_ERROR_SDC, fname_.c_str(), lineno_,
+                                              "Found duplicate netlist clock definition for clock '%s' matching target pattern '%s'",
+                                              clock_name.c_str(), clock_name_glob_pattern.c_str());
+                                }
+
+                                tatum::NodeId clock_source = create_forced_clock_source_tnode(lookup_, tg_, clock_source_pin);
+                                VTR_ASSERT(clock_source);
+                                tc_.set_clock_domain_source(clock_source, netlist_clk);
+                                sdc_clocks_[netlist_clk] = cmd;
+                                found = true;
+                                VTR_LOG_WARN("Applying forced SDC clock fallback on net '%s'.\n",
+                                             kForcedClockNetName);
+                            }
+                        }
+                    }
+
+                    if (!found) {
+                        vpr_throw(VPR_ERROR_SDC, fname_.c_str(), lineno_,
+                                  "Clock name or pattern '%s' does not correspond to any nets."
+                                  " To create a virtual clock, use the '-name' option.",
+                                  clock_name_glob_pattern.c_str());
+                    }
                 }
             }
         }
@@ -1100,11 +1190,15 @@ std::unique_ptr<tatum::TimingConstraints> read_sdc(const t_timing_inf& timing_in
             VTR_ASSERT(src_tnode);
 
             AtomPinId src_pin = lookup.tnode_atom_pin(src_tnode);
-            VTR_ASSERT(src_pin);
-
-            VTR_LOG("  Constrained Clock '%s' Source: '%s'\n",
-                    timing_constraints->clock_domain_name(domain).c_str(),
-                    netlist.pin_name(src_pin).c_str());
+            if (src_pin) {
+                VTR_LOG("  Constrained Clock '%s' Source: '%s'\n",
+                        timing_constraints->clock_domain_name(domain).c_str(),
+                        netlist.pin_name(src_pin).c_str());
+            } else {
+                VTR_LOG("  Constrained Clock '%s' Source: timing_node_%zu (synthetic)\n",
+                        timing_constraints->clock_domain_name(domain).c_str(),
+                        size_t(src_tnode));
+            }
         }
     }
 
@@ -1119,6 +1213,8 @@ void apply_default_timing_constraints(const AtomNetlist& netlist,
                                       const AtomLookup& lookup,
                                       tatum::TimingConstraints& tc) {
     std::set<AtomPinId> netlist_clock_drivers = find_netlist_logical_clock_drivers(netlist);
+    auto netlist_primary_ios = find_netlist_primary_ios(netlist);
+    maybe_force_clock_driver(netlist, netlist_primary_ios, netlist_clock_drivers);
 
     if (netlist_clock_drivers.size() == 0) {
         apply_combinational_default_timing_constraints(netlist, lookup, tc);
