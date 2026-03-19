@@ -721,8 +721,39 @@ tatum::EdgeId TimingGraphBuilder::find_scc_edge_to_break(std::vector<tatum::Node
             AtomPinId sink_pin = netlist_lookup_.tnode_atom_pin(sink_node);
 
             if (scc_set.count(sink_node)) {
-                VTR_LOG_WARN("Arbitrarily disabling timing graph edge %zu (%s -> %s) to break combinational loop\n",
-                             edge, netlist_.pin_name(src_pin).c_str(), netlist_.pin_name(sink_pin).c_str());
+                std::string src_pin_name = src_pin ? netlist_.pin_name(src_pin) : "<invalid_src_pin>";
+                std::string sink_pin_name = sink_pin ? netlist_.pin_name(sink_pin) : "<invalid_sink_pin>";
+
+                std::string src_net_name = "<invalid_src_net>";
+                std::string sink_net_name = "<invalid_sink_net>";
+                std::string src_block_name = "<invalid_src_block>";
+                std::string sink_block_name = "<invalid_sink_block>";
+
+                if (src_pin) {
+                    AtomNetId src_net = netlist_.pin_net(src_pin);
+                    if (src_net) src_net_name = netlist_.net_name(src_net);
+
+                    AtomBlockId src_blk = netlist_.pin_block(src_pin);
+                    if (src_blk) src_block_name = netlist_.block_name(src_blk);
+                }
+
+                if (sink_pin) {
+                    AtomNetId sink_net = netlist_.pin_net(sink_pin);
+                    if (sink_net) sink_net_name = netlist_.net_name(sink_net);
+
+                    AtomBlockId sink_blk = netlist_.pin_block(sink_pin);
+                    if (sink_blk) sink_block_name = netlist_.block_name(sink_blk);
+                }
+
+                VTR_LOG_WARN("Arbitrarily disabling timing graph edge %zu (%s -> %s) to break combinational loop "
+                             "[src_net=%s sink_net=%s src_block=%s sink_block=%s]\n",
+                             edge,
+                             src_pin_name.c_str(),
+                             sink_pin_name.c_str(),
+                             src_net_name.c_str(),
+                             sink_net_name.c_str(),
+                             src_block_name.c_str(),
+                             sink_block_name.c_str());
                 return edge;
             }
         }
