@@ -423,11 +423,11 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
             // but backward_path_cost starts accumulating from 0 at the SOURCE (seeded with no
             // self-cost). This causes a systematic off-by-one of exactly 1.0. Starting from
             // the OPIN skips the SOURCE's own contribution, matching backward_path_cost.
+        
+            #define FLOAT_LT(a, b) ((a) < (b) - 1e-6)
 
-            // removed 1 
-            /*float lookahead_cost1 = router_lookahead_.get_expected_cost(RRNodeId(rt_root->inode), RRNodeId(sink_node), cost_params, 0.0f) - 1.0f;
-
-            if (cheapest->backward_path_cost < lookahead_cost1
+            float lookahead_cost1 = router_lookahead_.get_expected_cost(RRNodeId(rt_root->inode), RRNodeId(sink_node), cost_params, 0.0f) - 1.0f;
+            if (FLOAT_LT(cheapest->backward_path_cost, lookahead_cost1)
                 && fanout <= 64
                 && manhattan_distance > 0
                 && rt_root->u.child_list == nullptr) {
@@ -435,7 +435,9 @@ t_heap* ConnectionRouter<Heap>::timing_driven_route_connection_from_heap(int sin
                 VTR_LOG(">> src coordinates: (%d, %d), sink coordinates: (%d, %d)\n", src_x, src_y, sink_x, sink_y);
                 VTR_LOG(">> Manhattan distance btw src and sink: %d\n", manhattan_distance);
                 VTR_LOG("\n");
-            }*/
+            }
+
+            #undef FLOAT_LT
 
             VTR_LOGV_DEBUG(router_debug_, "  Found target %8d (%s)\n", inode, describe_rr_node(device_ctx.rr_graph, device_ctx.grid, device_ctx.rr_indexed_data, inode, is_flat_).c_str());
             break;
