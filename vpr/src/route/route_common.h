@@ -90,9 +90,13 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
     float bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
     if (alpha_bias == 0.)
         bias = 1.;
-    
+
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
     
+    /*
+        todo: compare old bias and a
+    */
+
     //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
     //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
 
