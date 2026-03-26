@@ -1116,7 +1116,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
         // Get alpha bias from the program parameters
         float alpha_bias = cost_params.alpha_bias;
         
-        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.alpha_bias);
+        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.alpha_bias, cost_params.bias);
 	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.
@@ -1150,7 +1150,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     if (rcv_path_manager.is_enabled() && to->path_data != nullptr) {
         to->path_data->backward_delay += cost_params.criticality * Tdel;
-        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac, 0.0);
+        to->path_data->backward_cong += (1. - cost_params.criticality) * get_rr_cong_cost(to_node, cost_params.pres_fac, 0.0, 0.0);
 
         total_cost = compute_node_cost_using_rcv(cost_params, to_node, target_node, to->path_data->backward_delay, to->path_data->backward_cong, to->R_upstream);
     } else {

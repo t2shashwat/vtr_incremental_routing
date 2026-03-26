@@ -31,7 +31,7 @@ t_trace* update_traceback(t_heap* hptr, int target_net_pin_index, ClusterNetId n
 
 void reset_path_costs(const std::vector<int>& visited_rr_nodes);
 
-float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias);
+float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias, float target_bias);
 
 /* Returns the base cost of using this rr_node */
 inline float get_single_rr_cong_base_cost(int inode) {
@@ -66,7 +66,7 @@ inline float get_single_rr_cong_pres_cost(int inode, float pres_fac) {
 
 /* Returns the congestion cost of using this rr_node,
  * *ignoring* non-configurable edges */
-inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias) {
+inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias, float target_bias) {
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
@@ -86,12 +86,19 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
         pres_cost = 1.;
     }
 
+    // admissible bias
     float bias_minimum = 1.f / (pres_cost * route_ctx.rr_node_route_inf[inode].acc_cost);
     float bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
     if (alpha_bias == 0.)
         bias = 1.;
+
+    // Ensure even with bias, the cost is still admissible
+    VTR_LOG("target_bias: %f // bias_minimum: %f\n", target_bias, bias_minimum);
+    bias = std::max(bias, target_bias);
     
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
+
+    // pick the max of both cost to ensure admissibility of the lookahead
     
     //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
     //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);

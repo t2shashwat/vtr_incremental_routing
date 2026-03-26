@@ -431,7 +431,7 @@ static float evaluate_node_cost(const float prev_path_cost, const float bend_cos
     const auto& rr_graph = device_ctx.rr_graph;
 
     float global_occ_factor = 0.0; //hard coding the value as we will not need it for bfs
-    float tot_cost = prev_path_cost + get_rr_cong_cost(to_node, pres_fac, 0.0);
+    float tot_cost = prev_path_cost + get_rr_cong_cost(to_node, pres_fac, 0.0, 0.0);
 
     if (bend_cost != 0.) {
         t_rr_type from_type = rr_graph.node_type(RRNodeId(from_node));
@@ -454,7 +454,7 @@ static void breadth_first_add_source_to_heap(BinaryHeap& heap, ClusterNetId net_
 
     inode = route_ctx.net_rr_terminals[net_id][0]; /* SOURCE */
     float global_occ_factor = 0.0; //hard coding the value as we will not need it for bfs
-    cost = get_rr_cong_cost(inode, pres_fac, 0.0);
+    cost = get_rr_cong_cost(inode, pres_fac, 0.0, 0.0);
 
 #ifdef ROUTER_DEBUG
     VTR_LOG("  Adding Source node %d to heap\n", inode);
