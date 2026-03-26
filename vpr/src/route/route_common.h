@@ -86,16 +86,19 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
         pres_cost = 1.;
     }
 
+
     // admissible bias
     float bias_minimum = 1.f / (pres_cost * route_ctx.rr_node_route_inf[inode].acc_cost);
-    float bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
+    float admissible_bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
     if (alpha_bias == 0.)
-        bias = 1.;
+        admissible_bias = 1.;
 
     // Ensure even with bias, the cost is still admissible
-    VTR_LOG("target_bias: %f // bias_minimum: %f\n", target_bias, bias_minimum);
-    bias = std::max(bias, target_bias);
+    float old_bias = target_bias;
     
+    // Pick the max
+    float bias = std::max(admissible_bias, old_bias);
+
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
 
     // pick the max of both cost to ensure admissibility of the lookahead

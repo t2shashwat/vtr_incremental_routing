@@ -619,7 +619,7 @@ std::pair<int, float> get_tree_cost(t_trace* route_segment_start){
     for (;;) {
         total_detailed_nodes++;	
 	//float acc_cost = route_ctx.rr_node_route_inf[tptr->index].acc_cost;
-	float cost = get_rr_cong_cost(tptr->index, 5.0, 0.0, 0.0);
+	float cost = get_rr_cong_cost(tptr->index, 5.0, 0.0, 1.0);
 	cong_cost += cost; 
 	//VTR_LOG("(%d) cong_cost: %f \n", tptr->index, cong_cost);
         if (tptr->iswitch == OPEN) { //End of branch
@@ -1738,7 +1738,7 @@ void reserve_locally_used_opins(HeapInterface* heap, float pres_fac, float acc_f
                 VTR_ASSERT(rr_graph.node_type(RRNodeId(to_node)) == OPIN);
 
                 //Add the OPIN to the heap according to it's congestion cost
-                cost = get_rr_cong_cost(to_node, pres_fac, 0.0, 0.0);
+                cost = get_rr_cong_cost(to_node, pres_fac, 0.0, 1.0);
                 add_node_to_heap(heap, route_ctx.rr_node_route_inf,
                                  to_node, cost, OPEN, RREdgeId::INVALID(),
                                  0., 0.);
