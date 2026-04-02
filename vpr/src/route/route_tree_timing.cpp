@@ -285,9 +285,14 @@ void update_shortest_distances(int inode) {
     auto& route_ctx = g_vpr_ctx.mutable_routing();
     const auto& rr_graph = device_ctx.rr_graph;
 
+    t_rr_type rr_type = rr_graph.node_type(RRNodeId(inode));
+    // Match the router's notion of expandable tree nodes: IPINs/SINKs are
+    // terminal nodes and should not influence SPH ordering.
+    if (rr_type == IPIN || rr_type == SINK) {
+        return;
+    }
 
     int x,y;
-    t_rr_type rr_type = rr_graph.node_type(RRNodeId(inode));
     if ((rr_type == CHANX || rr_type == CHANY) && device_ctx.rr_graph.node_direction(RRNodeId(inode)) == Direction::INC){
         x = device_ctx.rr_graph.node_xhigh(RRNodeId(inode));
         y = device_ctx.rr_graph.node_yhigh(RRNodeId(inode));

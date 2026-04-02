@@ -3813,11 +3813,12 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
                 sort(begin(remaining_targets), end(remaining_targets), [&](int a, int b) {return a < b;});
             }
         } else if (router_opts.sink_order_strategy == sink_order::C2F || router_opts.sink_order_strategy == sink_order::F2C 
-                || router_opts.sink_order_strategy == sink_order::C2FA) {
+                || router_opts.sink_order_strategy == sink_order::C2FA || router_opts.sink_order_strategy == sink_order::SPH) {
             
             // Due to partial rip-ups, we have to resort every time for C2F and F2C. With C2FA, since we use the previous partial route-tree
             // after iteration 1, we only do the sorting in firt iteration.
-            if (router_opts.sink_order_strategy != sink_order::C2FA || itry == 1) {
+            if (router_opts.sink_order_strategy != sink_order::SPH
+                && (router_opts.sink_order_strategy != sink_order::C2FA || itry == 1)) {
                 // (PARSA) Julien, 2025  
                 // Closest to farthest / Farthest to closest strategy
 
