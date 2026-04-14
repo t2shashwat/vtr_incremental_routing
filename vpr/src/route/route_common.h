@@ -32,6 +32,17 @@ t_trace* update_traceback(t_heap* hptr, int target_net_pin_index, ClusterNetId n
 void reset_path_costs(const std::vector<int>& visited_rr_nodes);
 
 float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias, float target_bias);
+void reset_bias_abs_diff_stats();
+void record_bias_abs_diff_sample(bool is_node_congested, float target_bias, float admissible_bias, float abs_diff_bias, float abs_diff_cost);
+double get_avg_bias_abs_diff();
+double get_avg_cost_diff();
+size_t get_bias_abs_diff_sample_count();
+
+// Dynamic alpha_bias based on net congestion
+float calculate_net_congestion_ratio(ClusterNetId net_id);
+void categorize_net_congestion(ClusterNetId net_id, float router_opts_alpha_bias);
+float get_net_alpha_bias(ClusterNetId net_id, float default_alpha_bias);
+void clear_net_alpha_bias_map();
 
 /* Returns the base cost of using this rr_node */
 inline float get_single_rr_cong_base_cost(int inode) {
@@ -86,27 +97,28 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
         pres_cost = 1.;
     }
 
-
-    // admissible bias
+    // Admissible bias
     float bias_minimum = 1.f / (pres_cost * route_ctx.rr_node_route_inf[inode].acc_cost);
     float admissible_bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
     if (alpha_bias == 0.)
         admissible_bias = 1.;
 
-    // Ensure even with bias, the cost is still admissible
-    float old_bias = target_bias;
-    
     // Pick the max
-    float bias = std::max(admissible_bias, old_bias);
-
+    float bias = std::max(admissible_bias, target_bias);
+    //float bias = admissible_bias;
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
 
-    // pick the max of both cost to ensure admissibility of the lookahead
+    // stats
+    /*float is_node_congested = overuse >= 0;    
+    float abs_diff_bias = std::abs(admissible_bias - target_bias);
+    float old_cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * target_bias;
+    float abs_diff_cost = std::abs(old_cost - cost);
+    // randomly (to not overflood), print the diff
+    if (rand() % 100000 == 0)
+        VTR_LOG("abs diff cost: %g, old cost: %g, admissible cost: %g, abs_diff_bias: %g\n", abs_diff_cost, old_cost, cost, abs_diff_bias);
+    record_bias_abs_diff_sample(is_node_congested, target_bias, admissible_bias, abs_diff_bias, abs_diff_cost);
+    */
     
-    //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
-    //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
-
-    //VTR_LOGV_DEBUG("bc: %s acc_cost: (%s) pres_cost: (%s) g_occ: %d overuse: %d\n", device_ctx.rr_indexed_data[cost_index].base_cost, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
 
     VTR_ASSERT_DEBUG_MSG(
         cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac) * bias,

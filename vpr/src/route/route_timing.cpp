@@ -308,6 +308,8 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
     const auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& route_ctx = g_vpr_ctx.mutable_routing();
 
+    reset_bias_abs_diff_stats();
+
     //Initially, the router runs normally trying to reduce congestion while
     //balancing other metrics (timing, wirelength, run-time etc.)
     RouterCongestionMode router_congestion_mode = RouterCongestionMode::NORMAL;
@@ -469,6 +471,8 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
     for (itry = 1; itry <= router_opts.max_router_iterations; ++itry) {
         RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
+
+        clear_net_alpha_bias_map();
 
         /* Reset "is_routed" and "is_fixed" flags to indicate nets not pre-routed (yet) */
         for (auto net_id : cluster_ctx.clb_nlist.nets()) {
@@ -1080,6 +1084,11 @@ bool timing_driven_route_net(ConnectionRouter& router,
 
     VTR_LOGV_DEBUG(f_router_debug, "Routing Net %zu (%zu sinks)\n", size_t(net_id), num_sinks);
 
+    // Categorize net using previous iteration state before setup/rip-up
+    if (itry > 1) {
+        categorize_net_congestion(net_id, router_opts.alpha_bias);
+    }
+
     t_rt_node* rt_root;
     rt_root = setup_routing_resources(itry,
                                       net_id,
@@ -1155,7 +1164,8 @@ bool timing_driven_route_net(ConnectionRouter& router,
     cost_params.offpath_penalty = router_opts.offpath_penalty;
     cost_params.detailed_router = router_opts.detailed_router;
 
-    cost_params.alpha_bias = router_opts.alpha_bias;
+    // Use dynamic alpha_bias based on net congestion (if iteration > 1)
+    cost_params.alpha_bias = get_net_alpha_bias(net_id, router_opts.alpha_bias);
 
     // Pre-route to clock source for clock nets (marked as global nets)
     if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {
@@ -2898,6 +2908,8 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
     	RouterStats router_iteration_stats;
         std::vector<ClusterNetId> rerouted_nets;
 
+        clear_net_alpha_bias_map();
+
         /* Reset "is_routed" and "is_fixed" flags to indicate nets not pre-routed (yet) */
         for (auto net_id : cluster_ctx.clb_nlist.nets()) {
             route_ctx.net_status.set_is_routed(net_id, false);
@@ -3608,6 +3620,14 @@ bool try_timing_driven_route_tmpl_incr_route(const t_file_name_opts& filename_op
           << g_check_conn_cumulative_time_ms << " ms" << std::endl;
     }
 
+    // aa : new stats
+    VTR_LOG("Bias Stats: avg_abs_diff_bias %g sample_count %zu\n",
+            get_avg_bias_abs_diff(),
+            get_bias_abs_diff_sample_count());
+    VTR_LOG("Bias Stats: avg cost diff %g sample_count %zu\n",
+            get_avg_cost_diff(),
+            get_bias_abs_diff_sample_count());
+
     return routing_is_successful;
 }
 
@@ -3841,6 +3861,11 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
         VTR_LOG("done this sub itr: %d\n", sink_order_itr);
         }*/
         }
+        // Categorize net using previous iteration state before setup/rip-up
+        if (itry > 1) {
+            categorize_net_congestion(net_id, router_opts.alpha_bias);
+        }
+
         rt_root = setup_routing_resources_incr_route(filename_opts,
             itry,
             net_id,
@@ -4190,7 +4215,8 @@ bool timing_driven_route_net_incr_route(const t_file_name_opts& filename_opts,
 	//else {
 	//    cost_params.detailed_router = 0;
 	//}
-	cost_params.alpha_bias = router_opts.alpha_bias;
+    // Use dynamic alpha_bias based on net congestion (if iteration > 1)
+    cost_params.alpha_bias = get_net_alpha_bias(net_id, router_opts.alpha_bias);
 
 	// Pre-route to clock source for clock nets (marked as global nets)
         if (cluster_ctx.clb_nlist.net_is_global(net_id) && router_opts.two_stage_clock_routing) {

@@ -1109,14 +1109,11 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 
     float cong_cost = 0.;
     if (reached_configurably) {
-        // offpath_penalty = alpha bias (0 -> 1)
-        // SHOULD BE A PARAMETER HARDCODED FOR NOW
         // ALPHA BIAS HERE AAAAA
-
         // Get alpha bias from the program parameters
         float alpha_bias = cost_params.alpha_bias;
+        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.alpha_bias, 0.6f);
         
-        cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.alpha_bias, offpath_penalty);
 	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.
@@ -1721,7 +1718,7 @@ t_bb ConnectionRouter<Heap>::add_high_fanout_route_tree_to_heap(
     ClusterNetId net_id, int sink_id,
     CorridorData& corridor_data) {
     //For high fanout nets we only add those route tree nodes which are spatially close
-    //to the sink.
+    //to the sink.w
     //
     //Based on:
     //  J. Swartz, V. Betz, J. Rose, "A Fast Routability-Driven Router for FPGAs", FPGA, 1998

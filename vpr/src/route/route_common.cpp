@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <cstdlib>
 
 #include "vtr_assert.h"
 #include "vtr_util.h"
@@ -59,6 +60,143 @@ static vtr::t_chunk trace_ch;
 
 static int num_trace_allocated = 0; /* To watch for memory leaks. */
 static int num_linked_f_pointer_allocated = 0;
+
+static double g_bias_abs_diff_sum = 0.0;
+static size_t g_bias_abs_diff_sample_count = 0;
+
+static double g_cost_diff_sum = 0.0;
+static size_t g_cost_diff_sample_count = 0;
+
+// Per-net dynamic alpha_bias based on congestion
+static std::unordered_map<size_t, float> g_net_alpha_bias;
+static constexpr float ALPHA_BIAS_HIGH_CONGESTION = 0.8f;
+static constexpr float ALPHA_BIAS_LOW_CONGESTION = 0.4f;
+static constexpr float ALPHA_BIAS_NO_CONGESTION = 0.0f;
+
+void reset_bias_abs_diff_stats() {
+    g_bias_abs_diff_sum = 0.0;
+    g_bias_abs_diff_sample_count = 0;
+}
+
+void record_bias_abs_diff_sample(bool is_node_congested, float target_bias, float admissible_bias, float abs_diff_bias, float abs_diff_cost) {
+    if (is_node_congested
+        && target_bias != 1.0f
+        && admissible_bias != 1.0f) {
+        g_bias_abs_diff_sum += abs_diff_bias;
+        ++g_bias_abs_diff_sample_count;
+
+        g_cost_diff_sum += abs_diff_cost;
+        ++g_cost_diff_sample_count;
+    }
+}
+
+double get_avg_bias_abs_diff() {
+    if (g_bias_abs_diff_sample_count == 0) {
+        return 0.0;
+    }
+    return g_bias_abs_diff_sum / static_cast<double>(g_bias_abs_diff_sample_count);
+}
+
+double get_avg_cost_diff() {
+    if (g_cost_diff_sample_count == 0) {
+        return 0.0;
+    }
+    return g_cost_diff_sum / static_cast<double>(g_cost_diff_sample_count);
+}
+
+size_t get_bias_abs_diff_sample_count() {
+    return g_bias_abs_diff_sample_count;
+}
+
+float calculate_net_congestion_ratio(ClusterNetId net_id) {
+    /* Estimate congestion of this net.
+     * Prefer overused-node ratio, but if none are overused use saturated-node ratio
+     * to avoid always returning 0 on near-congested nets. */
+    auto& device_ctx = g_vpr_ctx.device();
+    auto& route_ctx = g_vpr_ctx.routing();
+    const auto& rr_graph = device_ctx.rr_graph;
+    
+    if (!route_ctx.trace[net_id].head) {
+        return 0.0f;  // Not yet routed
+    }
+    
+    size_t total_nodes = 0;
+    size_t overused_nodes = 0;
+    size_t saturated_nodes = 0;
+    
+    t_trace* tptr = route_ctx.trace[net_id].head;
+    while (tptr != nullptr) {
+        int inode = tptr->index;
+        int occ = route_ctx.rr_node_route_inf[inode].occ();
+        int capacity = rr_graph.node_capacity(RRNodeId(inode));
+        
+        total_nodes++;
+        if (occ > capacity) {
+            overused_nodes++;
+        } else if (capacity > 0 && occ == capacity) {
+            saturated_nodes++;
+        }
+        tptr = tptr->next;
+    }
+    
+    if (total_nodes == 0) return 0.0f;
+
+    if (overused_nodes > 0) {
+        return static_cast<float>(overused_nodes) / static_cast<float>(total_nodes);
+    }
+    return static_cast<float>(saturated_nodes) / static_cast<float>(total_nodes);
+}
+
+void categorize_net_congestion(ClusterNetId net_id, float router_opts_alpha_bias) {
+    /* Categorize net and set dynamic alpha_bias based on congestion level.
+     * High congestion (>30%): alpha_bias ~ 0.8
+     * Low congestion (5-30%): alpha_bias ~ 0.4
+     * No congestion (<5%): alpha_bias ~ 0.0 */
+    
+    float congestion_ratio = calculate_net_congestion_ratio(net_id);
+    float net_alpha_bias;
+    
+    if (congestion_ratio > 0.3f) {
+        net_alpha_bias = ALPHA_BIAS_HIGH_CONGESTION;
+    } else if (congestion_ratio > 0.05f) {
+        net_alpha_bias = ALPHA_BIAS_LOW_CONGESTION;
+    } else {
+        net_alpha_bias = ALPHA_BIAS_NO_CONGESTION;
+    }
+    
+    g_net_alpha_bias[size_t(net_id)] = net_alpha_bias;
+
+    // Randomly sample log output (0.1%) to avoid flooding
+    /*if (std::rand() % 1000 == 0) {
+        VTR_LOG("[BIAS] Net %zu congestion_ratio=%.3f alpha_bias=%.2f (default=%.2f)\n",
+                size_t(net_id),
+                congestion_ratio,
+                net_alpha_bias,
+                router_opts_alpha_bias);
+    }*/
+    
+}
+
+float get_net_alpha_bias(ClusterNetId net_id, float default_alpha_bias) {
+    /* Get the dynamic alpha_bias for this net, or default if not set. */
+    auto itr = g_net_alpha_bias.find(size_t(net_id));
+    if (itr != g_net_alpha_bias.end()) {
+        return itr->second;
+    }
+
+        // Randomly sample fallback logs (0.02%) to confirm defaults are occasionally used
+        
+       /* VTR_LOG("[BIAS] Net %zu using default alpha_bias=%.2f (not categorized)\n",
+            size_t(net_id),
+            default_alpha_bias);*/
+        
+
+    return default_alpha_bias;
+}
+
+void clear_net_alpha_bias_map() {
+    g_net_alpha_bias.clear();
+}
 
 /*  The numbering relation between the channels and clbs is:				*
  *																	        *
