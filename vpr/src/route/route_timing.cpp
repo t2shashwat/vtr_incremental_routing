@@ -863,8 +863,10 @@ bool try_timing_driven_route_tmpl(const t_router_opts& router_opts,
 
     VTR_LOG("Router Stats: total_nets_routed: %zu total_connections_routed: %zu total_heap_pushes: %zu total_heap_pops: %zu\n",
             router_stats.nets_routed, router_stats.connections_routed, router_stats.heap_pushes, router_stats.heap_pops);
+        // Print simple debug tables for bias/cost counts at end of routing
+        route_debug_print();
 
-    return routing_is_successful;
+        return routing_is_successful;
 }
 
 template<typename ConnectionRouter>

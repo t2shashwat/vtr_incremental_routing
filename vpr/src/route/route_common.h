@@ -2,6 +2,11 @@
 #pragma once
 #include <vector>
 #include <cmath>
+#include <map>
+#include <mutex>
+#include <iostream>
+#include <iomanip>
+#include <cstdlib>
 #include "clustered_netlist.h"
 #include "vtr_vector.h"
 #include "heap_type.h"
@@ -31,7 +36,7 @@ t_trace* update_traceback(t_heap* hptr, int target_net_pin_index, ClusterNetId n
 
 void reset_path_costs(const std::vector<int>& visited_rr_nodes);
 
-float get_rr_cong_cost(int inode, float pres_fac, float alpha_bias);
+float get_rr_cong_cost(int inode, float pres_fac, float alpha_bia, float offpath_penalty);
 
 /* Returns the base cost of using this rr_node */
 inline float get_single_rr_cong_base_cost(int inode) {
@@ -66,7 +71,7 @@ inline float get_single_rr_cong_pres_cost(int inode, float pres_fac) {
 
 /* Returns the congestion cost of using this rr_node,
  * *ignoring* non-configurable edges */
-inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias) {
+inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias, float offpath_penalty) {
     auto& device_ctx = g_vpr_ctx.device();
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
@@ -80,22 +85,28 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
     auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
     float base_cost = device_ctx.rr_indexed_data[cost_index].base_cost;
 
+    // Check for overuse/congestion
     if (overuse >= 0) {
         pres_cost = 1. + pres_fac * (overuse + 1);
     } else {
         pres_cost = 1.;
     }
+    
+    VTR_ASSERT(offpath_penalty != -1);
 
     float bias_minimum = 1.f / (pres_cost * route_ctx.rr_node_route_inf[inode].acc_cost);
-    float bias = (1 - alpha_bias) * 1 + alpha_bias * bias_minimum;
-    if (alpha_bias == 0.)
-        bias = 1.;
+    float bias = offpath_penalty * 1 + (1 - offpath_penalty) * bias_minimum;
 
     float cost = base_cost * route_ctx.rr_node_route_inf[inode].acc_cost * pres_cost * bias;
     
-    /*
-        todo: compare old bias and a
-    */
+    float target_bias = 0.6;
+    // print the difference between the actual bias and the target bias, and the cost components
+    // print one on 100 to not spam
+    if (std::rand() % 100 == 0) {
+        VTR_LOGV_DEBUG(" bias: %f target_bias: %f acc_cost: (%f) pres_cost: (%f) g_occ: %d overuse: %d\n", bias, target_bias, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, occupancy, overuse);
+    }
+
+    
 
     //VTR_LOG("Cost (%f) (pres_fac = %f) (overuse = %d) in func: \n (pres_cost = %f) (acc_cost = %f) (base_cost = %f)\n", cost, pres_fac, overuse, pres_cost, route_ctx.rr_node_route_inf[inode].acc_cost, base_cost);
     //VTR_LOG("node: %d hist: %f Pres_cost: %f g_occ: %d Overuse: %d\n", inode, route_ctx.rr_node_route_inf[inode].acc_cost, pres_cost, g_occupancy, overuse);
@@ -105,6 +116,10 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
     VTR_ASSERT_DEBUG_MSG(
         cost == get_single_rr_cong_base_cost(inode) * get_single_rr_cong_acc_cost(inode) * get_single_rr_cong_pres_cost(inode, pres_fac) * bias,
         "Single rr node congestion cost is inaccurate");
+
+    // simple counters for debugging (counts printed at exit)
+    route_debug_count_bias(bias);
+    route_debug_count_cost(cost);
 
     return cost;
 }
@@ -144,6 +159,41 @@ void free_trace_data(t_trace* trace);
 bool router_needs_lookahead(enum e_router_algorithm router_algorithm);
 
 std::string describe_unrouteable_connection(const int source_node, const int sink_node, bool is_flat);
+
+// Simple, not-production debugging counters for bias and cost occurrences.
+// These are intentionally simple and placed in the header per user's request.
+static std::map<float, int> route_debug_bias_counts;
+static std::map<float, int> route_debug_cost_counts;
+static std::mutex route_debug_counts_mutex;
+
+static void route_debug_count_bias(float b) {
+    std::lock_guard<std::mutex> l(route_debug_counts_mutex);
+    route_debug_bias_counts[b]++;
+}
+
+static void route_debug_count_cost(float c) {
+    std::lock_guard<std::mutex> l(route_debug_counts_mutex);
+    route_debug_cost_counts[c]++;
+}
+
+static void route_debug_print() {
+    std::lock_guard<std::mutex> l(route_debug_counts_mutex);
+    std::cerr << "\n=== Route debug counts ===\n";
+    std::cerr << "Bias counts:\n";
+    for (const auto &p : route_debug_bias_counts) {
+        std::cerr << std::fixed << std::setprecision(6) << p.first << ": " << p.second << "\n";
+    }
+    std::cerr << "Cost counts:\n";
+    for (const auto &p : route_debug_cost_counts) {
+        std::cerr << std::fixed << std::setprecision(6) << p.first << ": " << p.second << "\n";
+    }
+    std::cerr << "========================\n";
+}
+
+struct route_debug_printer_reg {
+    route_debug_printer_reg() { std::atexit(route_debug_print); }
+};
+static route_debug_printer_reg route_debug_printer_reg_inst;
 
 /* Creates a new t_heap object to be placed on the heap, if the new cost    *
  * given is lower than the current path_cost to this channel segment.  The  *
