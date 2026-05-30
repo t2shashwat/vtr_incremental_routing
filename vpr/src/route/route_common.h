@@ -76,10 +76,10 @@ inline float get_single_rr_cong_cost(int inode, float pres_fac, float alpha_bias
     const auto& rr_graph = device_ctx.rr_graph;
     auto& route_ctx = g_vpr_ctx.routing();
 
+    // 1. Calculate the congestion 
     float pres_cost;
     int capacity = rr_graph.node_capacity(RRNodeId(inode));
     int occupancy = route_ctx.rr_node_route_inf[inode].occ();
-    //int g_occupancy = route_ctx.rr_node_route_inf[inode].g_occ();
     int overuse = occupancy - capacity;
 
     auto cost_index = rr_graph.node_cost_index(RRNodeId(inode));
