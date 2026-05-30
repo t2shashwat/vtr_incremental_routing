@@ -638,7 +638,6 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
     int to_xhigh = rr_graph_->node_xhigh(to_node);
     int to_yhigh = rr_graph_->node_yhigh(to_node);
 
-
     // BB-pruning
     // Disable BB-pruning if RCV is enabled, as this can make it harder for circuits with high negative hold slack to resolve this
     // TODO: Only disable pruning if the net has negative hold slack, maybe go off budgets
@@ -995,6 +994,7 @@ void ConnectionRouter<Heap>::set_rcv_enabled(bool enable) {
 }
 
 //Calculates the cost of reaching to_node
+// E1 RIGHT HERE
 template<typename Heap>
 void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
                                                                const t_conn_cost_params cost_params,
@@ -1063,7 +1063,6 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     float cong_cost = 0.;
     if (reached_configurably) {
         cong_cost = get_rr_cong_cost(to_node, cost_params.pres_fac, cost_params.global_occ_factor);
-	//VTR_LOG("cong_cost: %f\n", cong_cost);
     } else {
         //Reached by a non-configurable edge.
         //Therefore the from_node and to_node are part of the same non-configurable node set.
@@ -1079,7 +1078,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     }
 
     //Update the backward cost (upstream already included)
-    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost * offpath_penalty; //Congestion cost
+    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost; //* offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
     //VTR_LOG("back_cost: %f\n  (cost_params.criticality = %f) (cong_cost = %f) (offpath = %f)\n", to->backward_path_cost, cost_params.criticality, cong_cost, offpath_penalty);
 
@@ -1102,8 +1101,9 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
         const auto& device_ctx = g_vpr_ctx.device();
 	float expected_cost;
 	if (cost_params.detailed_router != 1  || cost_params.leak == true || cost_params.intra_tile_connection == true) {
-            //Update total cost
             expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
+            /* Experiment 1 : apply bias only to the lookahead inside coarse region */
+            expected_cost *= offpath_penalty;
 	}
 	else {
 	    // this lookahead value will not be precise for wires whose length are less than the
@@ -1473,50 +1473,48 @@ void ConnectionRouter<Heap>::add_route_tree_node_to_heap(
 	    t_rr_type node_type = rr_graph_->node_type(RRNodeId(inode));
 	    int offset = 0;
 	    int expected_cost;
-            if (node_type == CHANX || node_type == CHANY) {
+        if (node_type == CHANX || node_type == CHANY) {
 	    	int to_xlow = rr_graph_->node_xlow(RRNodeId(inode));
-            	int to_ylow = rr_graph_->node_ylow(RRNodeId(inode));
-            	int to_xhigh = rr_graph_->node_xhigh(RRNodeId(inode));
-            	int to_yhigh = rr_graph_->node_yhigh(RRNodeId(inode));
+            int to_ylow = rr_graph_->node_ylow(RRNodeId(inode));
+            int to_xhigh = rr_graph_->node_xhigh(RRNodeId(inode));
+            int to_yhigh = rr_graph_->node_yhigh(RRNodeId(inode));
 
-            	const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
+            const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 
-            	int eff_corridor_to_x = corridor.to_x;
-            	int eff_corridor_to_y = corridor.to_y;
-            	int eff_corridor_from_x = corridor.from_x;
-            	int eff_corridor_from_y = corridor.from_y;
+            int eff_corridor_to_x = corridor.to_x;
+            int eff_corridor_to_y = corridor.to_y;
+            int eff_corridor_from_x = corridor.from_x;
+            int eff_corridor_from_y = corridor.from_y;
 
-            	// determine corridor direction
-            	int dx = corridor.to_x - corridor.from_x;
-            	int dy = corridor.to_y - corridor.from_y;
+            // determine corridor direction
+            int dx = corridor.to_x - corridor.from_x;
+            int dy = corridor.to_y - corridor.from_y;
 
-            	t_rr_type corridor_type = (dx == 0) ? CHANY : CHANX;
+            t_rr_type corridor_type = (dx == 0) ? CHANY : CHANX;
 
-            	Direction node_direction = rr_graph_->node_direction(RRNodeId(inode));
+            Direction node_direction = rr_graph_->node_direction(RRNodeId(inode));
 
 
-            	int node_x  = (node_direction == Direction::INC) ? (to_xhigh) : (to_xlow);
-            	int node_y = (node_direction == Direction::INC) ? (to_yhigh) : (to_ylow);
+            int node_x  = (node_direction == Direction::INC) ? (to_xhigh) : (to_xlow);
+            int node_y = (node_direction == Direction::INC) ? (to_yhigh) : (to_ylow);
 
-            	offset = (corridor_type == CHANX) ? (std::abs(eff_corridor_to_x - node_x)) : (std::abs(eff_corridor_to_y - node_y));
-		expected_cost = corridor_data.flute_lookahead[corridor_index];
-	    }
-	    else if (node_type == OPIN || node_type == SOURCE) {
-                const Corridor& corridor = corridor_data.corridors_per_connection[0]; // reported heap buffer overflow
-									       // before had the corridor_index
+            offset = (corridor_type == CHANX) ? (std::abs(eff_corridor_to_x - node_x)) : (std::abs(eff_corridor_to_y - node_y));
+		    expected_cost = corridor_data.flute_lookahead[corridor_index];
+	    } else if (node_type == OPIN || node_type == SOURCE) {
+            const Corridor& corridor = corridor_data.corridors_per_connection[0]; // reported heap buffer overflow
+                                    // before had the corridor_index
 
-                int eff_corridor_to_x = corridor.to_x;
-                int eff_corridor_to_y = corridor.to_y;
-                int eff_corridor_from_x = corridor.from_x;
-                int eff_corridor_from_y = corridor.from_y;
-                // length of corridor
-                offset = std::abs(eff_corridor_from_x - eff_corridor_to_x) + std::abs(eff_corridor_from_y - eff_corridor_to_y);
-                // using corridor_index as zero instead of the value because they are -2 or -1
-                expected_cost = corridor_data.flute_lookahead[0];
-            }
-            else {
-                expected_cost = 0;
-            }
+            int eff_corridor_to_x = corridor.to_x;
+            int eff_corridor_to_y = corridor.to_y;
+            int eff_corridor_from_x = corridor.from_x;
+            int eff_corridor_from_y = corridor.from_y;
+            // length of corridor
+            offset = std::abs(eff_corridor_from_x - eff_corridor_to_x) + std::abs(eff_corridor_from_y - eff_corridor_to_y);
+            // using corridor_index as zero instead of the value because they are -2 or -1
+            expected_cost = corridor_data.flute_lookahead[0];
+        } else {
+            expected_cost = 0;
+        }
 
 	    float lookahead_cost =  expected_cost + offset;
 	    tot_cost = backward_path_cost + cost_params.astar_fac * lookahead_cost;
