@@ -694,18 +694,23 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	
     float offpath_penalty = 1.0;
     t_rr_type node_type = rr_graph_->node_type(to_node);
-    if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && cost_params.leak == true && corridor_index == std::numeric_limits<int>::max()){
-	    //offpath_penalty = cost_params.offpath_penalty; 
-	    offpath_penalty = 1.0; 
-	    //corridor_index = std::numeric_limits<int>::max(); 
-    }
-    // query the corridors list only for CHANX and CHANY
-    else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY) && (corridor_index >= 0) && ((size_t)corridor_index < corridor_data.corridors_per_connection.size())) {
-	    //VTR_ASSERT_SAFE(corridor_index >= 0);
-	    //VTR_ASSERT_SAFE((size_t)corridor_index < corridor_data.corridors_per_connection.size());
-	    //const Corridor& corridor = corridor_data.corridors_per_connection.at(corridor_index);
 
-            const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
+    // 1. Leak mode and outside Steiner tree
+    if (cost_params.detailed_router == 1 
+        && cost_params.intra_tile_connection == false 
+        && cost_params.leak == true 
+        && corridor_index == std::numeric_limits<int>::max())
+    {
+	    offpath_penalty = cost_params.offpath_penalty; 
+    
+    // 2. Inside Steiner tree
+    } else if (cost_params.detailed_router == 1 
+                && cost_params.intra_tile_connection == false 
+                && (node_type == CHANX || node_type == CHANY) 
+                && (corridor_index >= 0) 
+                && ((size_t)corridor_index < corridor_data.corridors_per_connection.size())) 
+    {
+        const Corridor& corridor = corridor_data.corridors_per_connection[corridor_index];
 
 	    int eff_corridor_to_x = corridor.to_x;
 	    int eff_corridor_to_y = corridor.to_y;
@@ -728,87 +733,56 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
 	    Direction corridor_direction = (dx != 0) ? (dx > 0 ? Direction::INC : Direction::DEC)
                         			     : (dy > 0 ? Direction::INC : Direction::DEC);
 	    
-	    //int node_length = (node_type == CHANX) ? node_dx : node_dy;
-	    //int corridor_length = (corridor_type == CHANX) ? std::abs(dx) : std::abs(dy);
-
-            Direction node_direction = rr_graph_->node_direction(to_node);
+        Direction node_direction = rr_graph_->node_direction(to_node);
 
 	    // why + 1 for DEC direction?
 	    // + 1 is actually shrinking the corridor for DEC direction 
-            eff_corridor_to_x = (corridor_direction == Direction::DEC) ? eff_corridor_to_x + 1 : eff_corridor_to_x;
+        eff_corridor_to_x = (corridor_direction == Direction::DEC) ? eff_corridor_to_x + 1 : eff_corridor_to_x;
 	    eff_corridor_to_y = (corridor_direction == Direction::DEC) ? eff_corridor_to_y + 1 : eff_corridor_to_y;
 
-            eff_corridor_from_x = (corridor_direction == Direction::INC) ? eff_corridor_from_x + 1 : eff_corridor_from_x;
+        eff_corridor_from_x = (corridor_direction == Direction::INC) ? eff_corridor_from_x + 1 : eff_corridor_from_x;
 	    eff_corridor_from_y = (corridor_direction == Direction::INC) ? eff_corridor_from_y + 1 : eff_corridor_from_y;
 
 	    int const_coord_corridor  = (dx == 0) ? corridor.to_x : corridor.to_y;
-            int const_coord_node  = (dx == 0) ? to_xlow : to_ylow;
+        int const_coord_node  = (dx == 0) ? to_xlow : to_ylow;
 	   
 	    VTR_LOGV_DEBUG(router_debug_, "   Corridor (index: %d): from (%d, %d) to (%d, %d)\n", corridor_index, corridor.from_x, corridor.from_y, corridor.to_x, corridor.to_y);
 	    VTR_LOGV_DEBUG(router_debug_, "       seg: low (%d, %d) high (%d, %d)\n", to_xlow, to_ylow, to_xhigh, to_yhigh);
+
 	    if (corridor_type == node_type && corridor_direction == node_direction && const_coord_corridor == const_coord_node) {
 	        // node coord to compare against to coordinate of this corridor
-		int node_coord_comp_corr_to = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
-		
-		int node_coord_comp_corr_from = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xlow : to_xhigh) : (node_direction == Direction::INC ? to_ylow : to_yhigh); 
-		
-		int corridor_comp_coord_to = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
-		int corridor_comp_coord_from = (corridor_type == CHANX) ? eff_corridor_from_x : eff_corridor_from_y;
+            int node_coord_comp_corr_to = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xhigh : to_xlow) : (node_direction == Direction::INC ? to_yhigh : to_ylow); 
+            
+            int node_coord_comp_corr_from = (node_type == CHANX) ? (node_direction == Direction::INC ? to_xlow : to_xhigh) : (node_direction == Direction::INC ? to_ylow : to_yhigh); 
+            
+            int corridor_comp_coord_to = (corridor_type == CHANX) ? eff_corridor_to_x : eff_corridor_to_y;
+            int corridor_comp_coord_from = (corridor_type == CHANX) ? eff_corridor_from_x : eff_corridor_from_y;
 
-		// same channel and direction, but node is either contained or not
-		offpath_penalty = (node_direction == Direction::INC) ? ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? cost_params.offpath_penalty : -1.0) : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? cost_params.offpath_penalty : -1.0); 
+            // same channel and direction, but node is either contained or not
+            offpath_penalty = (node_direction == Direction::INC) ? 
+                ((node_coord_comp_corr_to <= corridor_comp_coord_to && node_coord_comp_corr_from >= corridor_comp_coord_from) ? 1.0 : -1.0) 
+                : ((node_coord_comp_corr_to >= corridor_comp_coord_to && node_coord_comp_corr_from <= corridor_comp_coord_from) ? 1.0 : -1.0); 
 
+        // outside the corridor
+	    } else {
+		    offpath_penalty = -1.0;
 	    }
-	    // outside the corridor
-	    else {
-		offpath_penalty = -1.0;
-	    }
 
-	    // update offpath based on leak value
-	    // for now leaking everywhere is allowed without any discriminatory penalty
+        // update offpath based on leak value
+        // for now leaking everywhere is allowed without any discriminatory penalty
 	    if (offpath_penalty == -1.0 && cost_params.leak == true) {
-		  offpath_penalty = 1.0; 
-		  //offpath_penalty = cost_params.offpath_penalty; 
-		  corridor_index = std::numeric_limits<int>::max(); 
+    	    offpath_penalty = cost_params.offpath_penalty; 
+		    corridor_index = std::numeric_limits<int>::max(); 
  	    }
 	    
-            //VTR_LOG("   offpath: %f \n", offpath_penalty); 
 	    if (offpath_penalty < 0){
                 return;
             }
     }
+    // Outisde and no leaking
     else if (cost_params.detailed_router == 1 && cost_params.intra_tile_connection == false && (node_type == CHANX || node_type == CHANY)) {
         return;
     }
-
-    
-
-    // DONE: for IPIN do not the above checks, just treat like a standard router routine
-    
-    // Previous implemenation with suboptimal memory accesses	    
-    /*float offpath_penalty = 1.0;
-    if (cost_params.detailed_router == 1) {
-        int hop;
-
-        if (itry > cost_params.relax_hop_order) {
-	    hop = rr_graph_->check_connection_allowed_to_use_node_mem_opt(to_node, net_id, sink_id);
-            if (cost_params.leak == false){	
-                offpath_penalty = (hop != -1) ? 1.0 : -1.0;
-	    }
-	    else { //leak allowed, if node not allowed then set high offpath
-            	offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
-	    
-	    }
-        }
-        else {
-            hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-            offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
-        }
-        if (offpath_penalty < 0){
-                return;
-        }
-
-    }*/
 
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
                    from_node, size_t(from_edge), to_node_int);
@@ -1080,6 +1054,8 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     //Update the backward cost (upstream already included)
     to->backward_path_cost += (1. - cost_params.criticality) * cong_cost; //* offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
+    // on time on 10,000 times, print the offpath penalty
+
     //VTR_LOG("back_cost: %f\n  (cost_params.criticality = %f) (cong_cost = %f) (offpath = %f)\n", to->backward_path_cost, cost_params.criticality, cong_cost, offpath_penalty);
 
     if (cost_params.bend_cost != 0.) {
@@ -1102,10 +1078,10 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
 	float expected_cost;
 	if (cost_params.detailed_router != 1  || cost_params.leak == true || cost_params.intra_tile_connection == true) {
             expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
-            /* Experiment 1 : apply bias only to the lookahead inside coarse region */
-            expected_cost *= offpath_penalty;
-	}
-	else {
+            /* Experiment 1 and 2 (E1 / E2) : apply bias only to the lookahead inside coarse region */
+            //VTR_LOG("lookahead was %f, and now applying offpath penalty %f\n", expected_cost, offpath_penalty);
+            //expected_cost *= offpath_penalty;
+	} else {
 	    // this lookahead value will not be precise for wires whose length are less than the
 	    // corridor length, but for all other it will be precise
 	    // With additional computation, imprecise lookahead can also be fixed on the fly, but it may not have 
