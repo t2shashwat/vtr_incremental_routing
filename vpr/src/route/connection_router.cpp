@@ -781,35 +781,6 @@ void ConnectionRouter<Heap>::timing_driven_expand_neighbour(t_heap* current,
         return;
     }
 
-    
-
-    // DONE: for IPIN do not the above checks, just treat like a standard router routine
-    
-    // Previous implemenation with suboptimal memory accesses	    
-    /*float offpath_penalty = 1.0;
-    if (cost_params.detailed_router == 1) {
-        int hop;
-
-        if (itry > cost_params.relax_hop_order) {
-	    hop = rr_graph_->check_connection_allowed_to_use_node_mem_opt(to_node, net_id, sink_id);
-            if (cost_params.leak == false){	
-                offpath_penalty = (hop != -1) ? 1.0 : -1.0;
-	    }
-	    else { //leak allowed, if node not allowed then set high offpath
-            	offpath_penalty = (hop != -1) ? 1.0 : cost_params.offpath_penalty;
-	    
-	    }
-        }
-        else {
-            hop = rr_graph_->check_connection_allowed_to_use_node(to_node, net_id, sink_id);
-            offpath_penalty = (hop == current_hop_value + 1) ? 1.0 : cost_params.offpath_penalty;
-        }
-        if (offpath_penalty < 0){
-                return;
-        }
-
-    }*/
-
     VTR_LOGV_DEBUG(router_debug_, "      Expanding node %d edge %zu -> %d\n",
                    from_node, size_t(from_edge), to_node_int);
 
@@ -1101,9 +1072,11 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
         const auto& device_ctx = g_vpr_ctx.device();
 	float expected_cost;
 	if (cost_params.detailed_router != 1  || cost_params.leak == true || cost_params.intra_tile_connection == true) {
-            expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
-            /* Experiment 1 : apply bias only to the lookahead inside coarse region */
+        expected_cost = router_lookahead_.get_expected_cost(RRNodeId(to_node), RRNodeId(target_node), cost_params, to->R_upstream);
+        // Apply only inside Steiner tree (E1 / E2)
+        if (corridor_index != std::numeric_limits<int>::max()) {
             expected_cost *= offpath_penalty;
+        }
 	}
 	else {
 	    // this lookahead value will not be precise for wires whose length are less than the
