@@ -1052,7 +1052,7 @@ void ConnectionRouter<Heap>::evaluate_timing_driven_node_costs(t_heap* to,
     }
 
     //Update the backward cost (upstream already included)
-    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost; //* offpath_penalty; //Congestion cost
+    to->backward_path_cost += (1. - cost_params.criticality) * cong_cost * offpath_penalty; //Congestion cost
     to->backward_path_cost += cost_params.criticality * Tdel;             //Delay cost
     // on time on 10,000 times, print the offpath penalty
 
